@@ -2,14 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
 
 const REFRESH_INTERVAL_MS = 30_000;
-const EMPTY_DATA = {
-  stopName: "",
-  arrivals: [],
-  serverTime: null,
-};
+
+function emptyData(stopId) {
+  return {
+    stopId,
+    stopName: "",
+    arrivals: [],
+    serverTime: null,
+  };
+}
 
 export default function useStopMonitor(stopId) {
-  const [data, setData] = useState(EMPTY_DATA);
+  const [data, setData] = useState(() => emptyData(stopId));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
@@ -27,7 +31,8 @@ export default function useStopMonitor(stopId) {
       initial ? setLoading(true) : setRefreshing(true);
 
       try {
-        setData(await fetchStopMonitor(stopId, controller.signal));
+        const next = await fetchStopMonitor(stopId, controller.signal);
+        setData({ stopId, ...next });
       } catch (err) {
         if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
           setError(true);
@@ -43,8 +48,7 @@ export default function useStopMonitor(stopId) {
   );
 
   useEffect(() => {
-    // Data from one stop must never appear under another stop number.
-    setData(EMPTY_DATA);
+    setData(emptyData(stopId));
     setError(false);
     setRefreshing(false);
     refresh({ initial: true });
@@ -64,7 +68,15 @@ export default function useStopMonitor(stopId) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [refresh]);
+  }, [refresh, stopId]);
 
-  return { ...data, loading, refreshing, error, refresh };
+  const isCurrentStop = data.stopId === stopId;
+
+  return {
+    ...(isCurrentStop ? data : emptyData(stopId)),
+    loading: !isCurrentStop || loading,
+    refreshing: isCurrentStop && refreshing,
+    error: isCurrentStop && error,
+    refresh,
+  };
 }
