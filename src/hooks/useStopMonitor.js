@@ -2,16 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
 
 const REFRESH_INTERVAL_MS = 30_000;
+const EMPTY_DATA = {
+  stopName: "",
+  arrivals: [],
+  serverTime: null,
+};
 
 export default function useStopMonitor(stopId) {
-  const [data, setData] = useState({
-    stopName: "",
-    arrivals: [],
-    serverTime: null,
-  });
+  const [data, setData] = useState(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(false);
   const abortRef = useRef(null);
 
   const refresh = useCallback(
@@ -22,15 +23,14 @@ export default function useStopMonitor(stopId) {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      setError(false);
       initial ? setLoading(true) : setRefreshing(true);
 
       try {
-        const next = await fetchStopMonitor(stopId, controller.signal);
-        setData(next);
-        setError("");
+        setData(await fetchStopMonitor(stopId, controller.signal));
       } catch (err) {
         if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
-          setError(err?.message || "Could not update departures.");
+          setError(true);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -43,6 +43,10 @@ export default function useStopMonitor(stopId) {
   );
 
   useEffect(() => {
+    // Data from one stop must never appear under another stop number.
+    setData(EMPTY_DATA);
+    setError(false);
+    setRefreshing(false);
     refresh({ initial: true });
 
     const intervalId = window.setInterval(() => {
