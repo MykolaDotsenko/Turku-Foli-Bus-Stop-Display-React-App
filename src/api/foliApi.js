@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  process.env.REACT_APP_FOLI_API_URL || "https://data.foli.fi/siri/sm";
+  import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 
 const client = axios.create({
   timeout: 8000,
