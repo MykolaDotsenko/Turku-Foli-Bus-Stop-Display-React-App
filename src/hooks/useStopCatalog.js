@@ -15,14 +15,14 @@ function readCache() {
       return cached.stops;
     }
   } catch {
-    // Ignore invalid or unavailable storage.
+    // Suggestions are optional; direct stop lookup still works.
   }
-  return null;
+
+  return [];
 }
 
 export default function useStopCatalog() {
-  const [stops, setStops] = useState(() => readCache() || []);
-  const [loadingStops, setLoadingStops] = useState(stops.length === 0);
+  const [stops, setStops] = useState(readCache);
 
   useEffect(() => {
     if (stops.length > 0) return undefined;
@@ -38,18 +38,15 @@ export default function useStopCatalog() {
             JSON.stringify({ savedAt: Date.now(), stops: nextStops })
           );
         } catch {
-          // The app still works if storage is disabled.
+          // Storage is an optimization, not a requirement.
         }
       })
       .catch(() => {
-        // Stop-number lookup remains fully usable without the catalog.
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingStops(false);
+        // Suggestions can fail without blocking the core user flow.
       });
 
     return () => controller.abort();
   }, [stops.length]);
 
-  return { stops, loadingStops };
+  return stops;
 }
