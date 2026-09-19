@@ -1,70 +1,94 @@
-# Getting Started with Create React App
+# Föli Live Departures
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A focused React departure board for Turku region public transport. Enter a Föli stop number to see the next arrivals, expected times, delay status, and whether each estimate is based on live vehicle data.
 
-## Available Scripts
+## What the app demonstrates
 
-In the project directory, you can run:
+- integration with Föli's public SIRI Stop Monitoring API
+- resilient polling that refreshes every 30 seconds only while the tab is visible
+- manual refresh without discarding previously loaded data
+- request cancellation when the selected stop changes
+- explicit loading, empty, stale/error, scheduled, and real-time states
+- cached stop catalog for lightweight stop-number suggestions
+- accessible semantic departure table
+- responsive UI with no additional design-system dependency
+- correct handling of Föli delay values as seconds
+- source attribution for the CC BY 4.0 dataset
 
-### `npm start`
+## Architecture
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```text
+Föli SIRI API
+    ↓
+src/api/foliApi.js
+    ↓
+useStopMonitor / useStopCatalog
+    ↓
+App
+    ↓
+BusStopForm + BusStopDisplay
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+The API module owns transport and response validation. Hooks own lifecycle, polling, cancellation, caching, and UI state. Components stay focused on interaction and presentation.
 
-### `npm test`
+## Reliability decisions
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Föli documents Stop Monitoring as a real-time estimate rather than a guaranteed arrival time. The API can also temporarily return unavailable or stale information.
 
-### `npm run build`
+The app therefore:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- keeps the most recent successful departures on screen when a refresh fails
+- shows an explicit warning instead of replacing useful data with an empty state
+- distinguishes monitored real-time arrivals from scheduled arrivals
+- pauses automatic polling in background tabs
+- uses a 30-second refresh interval, aligned with the API's own stop-response caching behavior
+- uses an 8-second network timeout and aborts obsolete requests
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Stack
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- React 18
+- Create React App
+- Axios
+- CSS Modules
+- Testing Library / Jest
+- Föli SIRI Stop Monitoring API
 
-### `npm run eject`
+The project deliberately remains a small React application. Migrating frameworks would add churn without improving the product or architecture.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Local development
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npm ci
+npm start
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Then open `http://localhost:3000`.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Optional API override
 
-## Learn More
+By default the application uses:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```text
+https://data.foli.fi/siri/sm
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+For another compatible endpoint:
 
-### Code Splitting
+```bash
+REACT_APP_FOLI_API_URL=https://example.test/siri/sm npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Quality checks
 
-### Analyzing the Bundle Size
+```bash
+npm test -- --watchAll=false
+npm run build
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+GitHub Actions runs both checks for pushes and pull requests.
 
-### Making a Progressive Web App
+## Data source
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Source: Turku region public transport transit and timetable data, maintained by Turku region public transport and distributed through `data.foli.fi` under the Creative Commons Attribution 4.0 International license (CC BY 4.0).
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+API documentation: https://data.foli.fi/doc/siri/v0/sm-en
