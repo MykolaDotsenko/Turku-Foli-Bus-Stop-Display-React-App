@@ -14,9 +14,9 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(0, 142, 154, 0.12), transparent 30rem),
-    #eef4f7;
+  background: #eef4f7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -26,98 +26,53 @@ input {
 
 button:focus-visible,
 input:focus-visible {
-  outline: 3px solid rgba(0, 114, 124, 0.35);
+  outline: 3px solid rgba(0, 121, 133, 0.28);
   outline-offset: 2px;
 }
 
 .app-shell {
-  width: min(1120px, calc(100% - 32px));
+  width: min(920px, calc(100% - 28px));
   margin: 0 auto;
-  padding: 48px 0 28px;
+  padding: 28px 0 20px;
 }
 
-.hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 28px;
+.topbar {
+  margin-bottom: 14px;
 }
 
-.eyebrow {
-  margin: 0 0 8px;
-  color: #00727c;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-h1 {
+.brand {
   margin: 0;
-  font-size: clamp(2.2rem, 5vw, 4.2rem);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  color: #17212b;
+  font-size: clamp(1.55rem, 4vw, 2.2rem);
+  font-weight: 850;
+  letter-spacing: -0.04em;
 }
 
-.hero-copy {
-  max-width: 620px;
-  margin: 16px 0 0;
-  color: #526372;
-  font-size: 1.05rem;
+.context {
+  margin: 4px 0 0;
+  color: #687985;
+  font-size: 0.82rem;
 }
 
-.live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 13px;
-  border: 1px solid #cfe3e6;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #31505a;
-  font-size: 0.84rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #00a36c;
-  box-shadow: 0 0 0 4px rgba(0, 163, 108, 0.12);
-}
-
-.search-card {
-  margin-bottom: 18px;
-  padding: 18px;
-  border: 1px solid rgba(23, 63, 71, 0.1);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 12px 32px rgba(31, 67, 74, 0.07);
-  backdrop-filter: blur(12px);
+.search-panel {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid #d8e3e6;
+  border-radius: 16px;
+  background: #fff;
 }
 
 .source-note {
-  margin-top: 18px;
-  color: #687985;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  margin-top: 12px;
+  color: #71818a;
+  font-size: 0.72rem;
+  line-height: 1.45;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 620px) {
   .app-shell {
-    width: min(100% - 20px, 1120px);
-    padding-top: 26px;
-  }
-
-  .hero {
-    flex-direction: column;
-  }
-
-  .live-badge {
-    order: -1;
+    width: min(100% - 16px, 920px);
+    padding-top: 16px;
   }
 }
 
