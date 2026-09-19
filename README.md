@@ -13,7 +13,7 @@ Enter a Föli stop number and get the information that matters most: **line, des
 - data from one stop can never appear under another stop number
 - selected stops are bookmarkable with `?stop=<id>`
 - background tabs do not keep polling unnecessarily
-- no state library, design system, backend, or framework migration
+- no state library, design system, backend, or unnecessary abstraction
 
 ## Architecture
 
@@ -47,9 +47,10 @@ The app:
 - aborts obsolete requests
 - uses an 8-second request timeout
 - preserves same-stop data during temporary API failures
-- clears previous-stop data immediately on stop changes
+- prevents previous-stop data from rendering under a new stop ID
 - handles loading, empty, stale, scheduled, and failed states explicitly
 - caches the stop catalog for 24 hours without making it a requirement
+- sorts the board by departure time
 
 Föli's Stop Monitoring API distinguishes planned and estimated arrival/departure times. This project uses:
 
@@ -65,34 +66,37 @@ as a defensive fallback order.
 ## Stack
 
 - React 18
-- Create React App
+- Vite 8
+- Vitest 5
 - Axios
 - CSS Modules
-- Jest + Testing Library
+- Testing Library
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
+
+The build tooling is intentionally small. Vite replaces the retired Create React App toolchain without changing the application architecture.
 
 ## Run locally
 
 ```bash
 npm ci
-npm start
+npm run dev
 ```
 
 Optional compatible API override:
 
 ```bash
-REACT_APP_FOLI_API_URL=https://example.test/siri/sm npm start
+VITE_FOLI_API_URL=https://example.test/siri/sm npm run dev
 ```
 
 ## Quality checks
 
 ```bash
-npm test -- --watchAll=false
+npm test
 npm run build
 ```
 
-CI runs both checks on pushes and pull requests.
+CI runs both checks on pushes and pull requests using Node 24.
 
 ## Data source
 
