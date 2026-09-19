@@ -7,9 +7,14 @@ import useStopMonitor from "./hooks/useStopMonitor";
 
 const DEFAULT_STOP = "164";
 
+function getInitialStop() {
+  const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
+  return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : DEFAULT_STOP;
+}
+
 function App() {
-  const [stopId, setStopId] = useState(DEFAULT_STOP);
-  const { stops, loadingStops } = useStopCatalog();
+  const [stopId, setStopId] = useState(getInitialStop);
+  const stops = useStopCatalog();
   const {
     stopName,
     arrivals,
@@ -20,28 +25,23 @@ function App() {
     refresh,
   } = useStopMonitor(stopId);
 
+  const selectStop = (nextStopId) => {
+    setStopId(nextStopId);
+    window.history.replaceState(null, "", `?stop=${nextStopId}`);
+  };
+
   return (
     <main className="app-shell">
-      <section className="hero" aria-labelledby="page-title">
-        <div>
-          <p className="eyebrow">Turku region public transport</p>
-          <h1 id="page-title">Föli live departures</h1>
-          <p className="hero-copy">
-            A focused real-time departure board for any Föli stop.
-          </p>
-        </div>
-        <div className="live-badge" aria-label="Updates automatically every 30 seconds">
-          <span className="live-dot" aria-hidden="true" />
-          Live
-        </div>
-      </section>
+      <header className="topbar">
+        <p className="brand">Föli departures</p>
+        <p className="context">Turku region · auto-refresh every 30 seconds</p>
+      </header>
 
-      <section className="search-card" aria-label="Choose a bus stop">
+      <section className="search-panel" aria-label="Choose a bus stop">
         <BusStopForm
           activeStopId={stopId}
           stops={stops}
-          loadingStops={loadingStops}
-          onSubmit={setStopId}
+          onSubmit={selectStop}
         />
       </section>
 
@@ -57,8 +57,7 @@ function App() {
       />
 
       <footer className="source-note">
-        Source: Turku region public transport real-time data via data.foli.fi
-        (CC BY 4.0).
+        Source: Turku region public transport · data.foli.fi · CC BY 4.0
       </footer>
     </main>
   );

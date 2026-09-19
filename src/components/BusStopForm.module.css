@@ -1,43 +1,45 @@
 .form {
-  width: 100%;
-}
-
-.field {
   display: grid;
-  gap: 9px;
+  gap: 7px;
 }
 
 .label {
-  color: #24343d;
-  font-size: 0.86rem;
+  color: #334750;
+  font-size: 0.78rem;
   font-weight: 800;
 }
 
-.controlRow {
+.controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 8px;
+}
+
+.input,
+.button {
+  min-height: 44px;
+  border-radius: 10px;
 }
 
 .input {
   width: 100%;
-  min-height: 48px;
-  padding: 0 14px;
-  border: 1px solid #b9cbd1;
-  border-radius: 12px;
+  padding: 0 12px;
+  border: 1px solid #b8cbd0;
   background: #fff;
   color: #17212b;
 }
 
 .input:hover {
-  border-color: #7ca4ab;
+  border-color: #7fa3aa;
+}
+
+.input[aria-invalid="true"] {
+  border-color: #b42318;
 }
 
 .button {
-  min-height: 48px;
   padding: 0 18px;
   border: 0;
-  border-radius: 12px;
   background: #007985;
   color: #fff;
   cursor: pointer;
@@ -45,36 +47,22 @@
 }
 
 .button:hover {
-  background: #00636d;
+  background: #00656f;
 }
 
-.metaRow {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.help,
 .error {
   margin: 0;
-  font-size: 0.78rem;
-}
-
-.help {
-  color: #687985;
-}
-
-.error {
   color: #b42318;
+  font-size: 0.76rem;
   font-weight: 700;
 }
 
-@media (max-width: 620px) {
-  .controlRow {
-    grid-template-columns: 1fr;
+@media (max-width: 480px) {
+  .controls {
+    grid-template-columns: 1fr auto;
   }
 
-  .metaRow {
-    flex-direction: column;
+  .button {
+    padding-inline: 14px;
   }
 }

@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  process.env.REACT_APP_FOLI_API_URL || "https://data.foli.fi/siri/sm";
+  import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 
 const client = axios.create({
   timeout: 8000,
@@ -9,18 +9,22 @@ const client = axios.create({
 });
 
 export async function fetchStopMonitor(stopId, signal) {
-  const response = await client.get(`${API_BASE_URL}/${encodeURIComponent(stopId)}`, {
-    signal,
-  });
-
+  const response = await client.get(
+    `${API_BASE_URL}/${encodeURIComponent(stopId)}`,
+    { signal }
+  );
   const payload = response.data;
 
-  if (!payload || !Array.isArray(payload.result)) {
-    throw new Error("Föli returned an unexpected response.");
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Invalid Föli response.");
   }
 
   if (payload.status !== "OK") {
-    throw new Error("Real-time data is temporarily unavailable.");
+    throw new Error("Föli real-time data is unavailable.");
+  }
+
+  if (!Array.isArray(payload.result)) {
+    throw new Error("Invalid Föli departures.");
   }
 
   return {
@@ -35,7 +39,7 @@ export async function fetchStopCatalog(signal) {
   const payload = response.data;
 
   if (!payload || Array.isArray(payload) || typeof payload !== "object") {
-    throw new Error("Föli returned an unexpected stop list.");
+    throw new Error("Invalid Föli stop list.");
   }
 
   return Object.entries(payload)
@@ -45,5 +49,3 @@ export async function fetchStopCatalog(signal) {
     }))
     .sort((a, b) => Number(a.id) - Number(b.id));
 }
-
-export { API_BASE_URL };

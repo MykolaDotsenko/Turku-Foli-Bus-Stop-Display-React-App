@@ -3,15 +3,20 @@ import { fetchStopMonitor } from "../api/foliApi";
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-export default function useStopMonitor(stopId) {
-  const [data, setData] = useState({
+function emptyData(stopId) {
+  return {
+    stopId,
     stopName: "",
     arrivals: [],
     serverTime: null,
-  });
+  };
+}
+
+export default function useStopMonitor(stopId) {
+  const [data, setData] = useState(() => emptyData(stopId));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(false);
   const abortRef = useRef(null);
 
   const refresh = useCallback(
@@ -22,15 +27,15 @@ export default function useStopMonitor(stopId) {
       const controller = new AbortController();
       abortRef.current = controller;
 
+      setError(false);
       initial ? setLoading(true) : setRefreshing(true);
 
       try {
         const next = await fetchStopMonitor(stopId, controller.signal);
-        setData(next);
-        setError("");
+        setData({ stopId, ...next });
       } catch (err) {
         if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
-          setError(err?.message || "Could not update departures.");
+          setError(true);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -43,6 +48,9 @@ export default function useStopMonitor(stopId) {
   );
 
   useEffect(() => {
+    setData(emptyData(stopId));
+    setError(false);
+    setRefreshing(false);
     refresh({ initial: true });
 
     const intervalId = window.setInterval(() => {
@@ -60,7 +68,15 @@ export default function useStopMonitor(stopId) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [refresh]);
+  }, [refresh, stopId]);
 
-  return { ...data, loading, refreshing, error, refresh };
+  const isCurrentStop = data.stopId === stopId;
+
+  return {
+    ...(isCurrentStop ? data : emptyData(stopId)),
+    loading: !isCurrentStop || loading,
+    refreshing: isCurrentStop && refreshing,
+    error: isCurrentStop && error,
+    refresh,
+  };
 }
