@@ -18,7 +18,13 @@ function BusStopDisplay({
   error,
   onRefresh,
 }) {
-  const visibleArrivals = arrivals.slice(0, MAX_VISIBLE_DEPARTURES);
+  const visibleArrivals = [...arrivals]
+    .sort(
+      (a, b) =>
+        (getDepartureTime(a) ?? Infinity) -
+        (getDepartureTime(b) ?? Infinity)
+    )
+    .slice(0, MAX_VISIBLE_DEPARTURES);
   const hasData = Boolean(stopName || arrivals.length);
 
   return (
