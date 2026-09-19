@@ -1,55 +1,47 @@
 .board {
   overflow: hidden;
-  border: 1px solid rgba(23, 63, 71, 0.11);
-  border-radius: 24px;
+  border: 1px solid #d8e3e6;
+  border-radius: 18px;
   background: #fff;
-  box-shadow: 0 18px 42px rgba(31, 67, 74, 0.09);
+  box-shadow: 0 12px 30px rgba(31, 67, 74, 0.06);
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 24px;
-  border-bottom: 1px solid #e7eef0;
-}
-
-.stopId {
-  margin: 0 0 4px;
-  color: #007985;
-  font-size: 0.76rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  gap: 16px;
+  padding: 18px;
+  border-bottom: 1px solid #e8eef0;
 }
 
 .stopName {
   margin: 0;
   color: #17212b;
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-size: clamp(1.3rem, 3vw, 1.75rem);
   letter-spacing: -0.025em;
 }
 
-.updated {
-  margin: 7px 0 0;
-  color: #6c7d87;
-  font-size: 0.82rem;
+.stopMeta {
+  margin: 4px 0 0;
+  color: #71818a;
+  font-size: 0.76rem;
 }
 
 .refreshButton {
-  padding: 9px 13px;
-  border: 1px solid #bed0d5;
-  border-radius: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid #bfd0d4;
+  border-radius: 9px;
   background: #fff;
-  color: #24414a;
+  color: #2b4650;
   cursor: pointer;
   font-weight: 750;
 }
 
 .refreshButton:hover:not(:disabled) {
-  border-color: #7ca4ab;
-  background: #f7fafb;
+  background: #f6f9fa;
+  border-color: #91adb3;
 }
 
 .refreshButton:disabled {
@@ -57,21 +49,22 @@
   opacity: 0.55;
 }
 
-.warning {
-  display: grid;
-  gap: 3px;
-  margin: 16px 24px 0;
-  padding: 12px 14px;
-  border: 1px solid #f0c36a;
-  border-radius: 12px;
-  background: #fff8e6;
-  color: #674d12;
-  font-size: 0.85rem;
+.staleNotice {
+  margin: 0;
+  padding: 9px 18px;
+  border-bottom: 1px solid #f0d59a;
+  background: #fff8e8;
+  color: #6b541d;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 
-.loading,
-.empty {
-  padding: 52px 24px;
+.state {
+  display: grid;
+  gap: 4px;
+  place-items: center;
+  min-height: 150px;
+  padding: 24px;
   color: #657782;
   text-align: center;
 }
@@ -87,7 +80,7 @@
 
 .table th,
 .table td {
-  padding: 16px 18px;
+  padding: 13px 16px;
   border-bottom: 1px solid #edf1f2;
   text-align: left;
   vertical-align: middle;
@@ -96,42 +89,43 @@
 .table th {
   color: #72818a;
   background: #fbfcfc;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
+}
+
+.table th:last-child,
+.table td:last-child {
+  text-align: right;
 }
 
 .table tbody tr:last-child td {
   border-bottom: 0;
 }
 
-.table tbody tr:hover {
-  background: #fbfdfd;
-}
-
 .lineBadge {
   display: inline-grid;
-  min-width: 42px;
-  min-height: 36px;
+  min-width: 38px;
+  min-height: 34px;
   place-items: center;
-  padding: 0 8px;
-  border-radius: 9px;
+  padding: 0 7px;
+  border-radius: 8px;
   background: #007985;
   color: #fff;
-  font-size: 1rem;
   font-weight: 900;
 }
 
 .destination {
-  min-width: 220px;
+  width: 100%;
+  min-width: 0;
   color: #1e2d35;
-  font-weight: 750;
+  font-weight: 800;
 }
 
-.realtime {
+.tripMeta {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: #71818a;
   font-size: 0.72rem;
   font-weight: 600;
@@ -139,52 +133,33 @@
 
 .due {
   color: #007985;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 900;
   white-space: nowrap;
 }
 
-.onTime,
-.delay {
-  display: inline-flex;
-  padding: 5px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.onTime {
-  background: #e8f7ef;
-  color: #13764e;
-}
-
-.delay {
-  background: #f3f0eb;
-  color: #685644;
-}
-
-.disclaimer {
-  margin: 0;
-  padding: 14px 24px 18px;
-  border-top: 1px solid #edf1f2;
-  color: #75848c;
-  font-size: 0.75rem;
-  line-height: 1.5;
-}
-
 @media (max-width: 620px) {
   .header {
-    align-items: flex-start;
-    padding: 18px;
+    padding: 15px;
   }
 
   .table th,
   .table td {
-    padding: 13px 12px;
+    padding: 11px 10px;
   }
 
-  .warning {
-    margin-inline: 18px;
+  .table th:first-child,
+  .table td:first-child {
+    padding-left: 14px;
+  }
+
+  .table th:last-child,
+  .table td:last-child {
+    padding-right: 14px;
+  }
+
+  .lineBadge {
+    min-width: 34px;
+    min-height: 32px;
   }
 }
