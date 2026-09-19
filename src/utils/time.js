@@ -1,15 +1,34 @@
+const DEPARTURE_TIME_FIELDS = [
+  "expecteddeparturetime",
+  "expectedarrivaltime",
+  "aimeddeparturetime",
+  "aimedarrivaltime",
+];
+
+export function getDepartureTime(arrival = {}) {
+  for (const field of DEPARTURE_TIME_FIELDS) {
+    const value = Number(arrival[field]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  return null;
+}
+
 export function formatClock(unixSeconds, locale) {
-  if (!Number.isFinite(Number(unixSeconds))) return "—";
+  const seconds = Number(unixSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
 
   return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(Number(unixSeconds) * 1000));
+  }).format(new Date(seconds * 1000));
 }
 
 export function minutesUntil(unixSeconds, nowMs = Date.now()) {
-  if (!Number.isFinite(Number(unixSeconds))) return null;
-  return Math.max(0, Math.round((Number(unixSeconds) * 1000 - nowMs) / 60_000));
+  const seconds = Number(unixSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+  return Math.max(0, Math.ceil((seconds * 1000 - nowMs) / 60_000));
 }
 
 export function formatDue(unixSeconds, nowMs = Date.now()) {
@@ -21,8 +40,16 @@ export function formatDue(unixSeconds, nowMs = Date.now()) {
 
 export function formatDelay(delaySeconds) {
   const seconds = Number(delaySeconds);
-  if (!Number.isFinite(seconds) || Math.abs(seconds) < 30) return "On time";
+  if (!Number.isFinite(seconds)) return null;
+  if (Math.abs(seconds) < 30) return "on time";
 
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
   return seconds > 0 ? `+${minutes} min` : `${minutes} min early`;
+}
+
+export function formatServiceStatus(monitored, delaySeconds) {
+  if (!monitored) return "Scheduled";
+
+  const delay = formatDelay(delaySeconds);
+  return delay ? `Live · ${delay}` : "Live";
 }
