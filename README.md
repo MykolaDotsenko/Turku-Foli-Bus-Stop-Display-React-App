@@ -26,9 +26,9 @@ hooks/
   useStopMonitor.js
   useStopCatalog.js
     ↓
-App.js
+App.jsx
     ↓
-BusStopForm + BusStopDisplay
+BusStopForm.jsx + BusStopDisplay.jsx
 ```
 
 Responsibilities stay explicit:

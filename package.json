@@ -7,11 +7,9 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run"
   },
   "dependencies": {
     "axios": "^1.6.8",
