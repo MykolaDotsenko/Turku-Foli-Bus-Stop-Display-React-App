@@ -78,6 +78,48 @@ test("renders departure time and compact trip status", () => {
   ).toBeInTheDocument();
 });
 
+test("orders the board by departure rather than arrival", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="4"
+      stopName="Turun linna"
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "A",
+          destinationdisplay: "Leaves later",
+          expectedarrivaltime: now + 60,
+          expecteddeparturetime: now + 600,
+          monitored: true,
+          delay: 0,
+        },
+        {
+          lineref: "B",
+          destinationdisplay: "Leaves first",
+          expectedarrivaltime: now + 120,
+          expecteddeparturetime: now + 300,
+          monitored: true,
+          delay: 0,
+        },
+      ]}
+    />
+  );
+
+  const destinations = screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.textContent);
+
+  expect(destinations[0]).toContain("Leaves first");
+  expect(destinations[1]).toContain("Leaves later");
+});
+
 test("shows a useful failure state when no stop data exists", () => {
   render(
     <BusStopDisplay
