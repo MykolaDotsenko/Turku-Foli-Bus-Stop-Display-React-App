@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";\nimport { beforeEach, expect, test, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, expect, test, vi } from "vitest";
 import { fetchStopMonitor } from "../api/foliApi";
 import useStopMonitor from "./useStopMonitor";
 
-jest.mock("../api/foliApi", () => ({
-  fetchStopMonitor: jest.fn(),
+vi.mock("../api/foliApi", () => ({
+  fetchStopMonitor: vi.fn(),
 }));
 
 function Harness({ stopId }) {
@@ -21,17 +22,24 @@ function Harness({ stopId }) {
 }
 
 beforeEach(() => {
-  fetchStopMonitor.mockReset();
+  vi.mocked(fetchStopMonitor).mockReset();
 });
 
-test("clears previous stop data immediately when the stop changes", async () => {
-  fetchStopMonitor
+test("never renders previous-stop data under a new stop ID", async () => {
+  let resolveSecondRequest;
+
+  vi.mocked(fetchStopMonitor)
     .mockResolvedValueOnce({
       stopName: "Kauppatori",
       arrivals: [{ lineref: "1" }],
       serverTime: 100,
     })
-    .mockImplementationOnce(() => new Promise(() => {}));
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSecondRequest = resolve;
+        })
+    );
 
   const { rerender } = render(<Harness stopId="164" />);
 
@@ -39,13 +47,19 @@ test("clears previous stop data immediately when the stop changes", async () => 
 
   rerender(<Harness stopId="32" />);
 
-  await waitFor(() => {
-    expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+
+  resolveSecondRequest({
+    stopName: "New stop",
+    arrivals: [],
+    serverTime: 200,
   });
+
+  expect(await screen.findByText("New stop")).toBeInTheDocument();
 });
 
 test("keeps same-stop data when a refresh temporarily fails", async () => {
-  fetchStopMonitor
+  vi.mocked(fetchStopMonitor)
     .mockResolvedValueOnce({
       stopName: "Kauppatori",
       arrivals: [{ lineref: "1" }],
