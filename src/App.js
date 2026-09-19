@@ -57,7 +57,7 @@ function App() {
       />
 
       <footer className="source-note">
-        Data: Föli / Turku region public transport · CC BY 4.0
+        Source: Turku region public transport · data.foli.fi · CC BY 4.0
       </footer>
     </main>
   );
