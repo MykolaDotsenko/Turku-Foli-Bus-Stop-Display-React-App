@@ -1,7 +1,7 @@
 {
   "name": "Föli Live Departures",
   "short_name": "Föli Departures",
-  "description": "Fast live departures, saved stops and service updates for Turku-region public transport.",
+  "description": "Privacy-first live Föli departures, disruptions, Safe Places and Get me Home travel help for the Turku region.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -14,5 +14,10 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
+  ],
+  "categories": [
+    "navigation",
+    "travel",
+    "utilities"
   ]
 }
