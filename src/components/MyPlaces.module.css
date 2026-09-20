@@ -21,7 +21,7 @@
 .kicker {
   margin: 0 0 3px;
   color: #007985;
-  font-size: 0.66rem;
+  font-size: 0.8125rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -108,7 +108,7 @@
   border-radius: 10px;
   cursor: pointer;
   font: inherit;
-  font-size: 0.73rem;
+  font-size: 0.82rem;
   font-weight: 850;
   text-decoration: none;
 }
@@ -150,7 +150,7 @@
   border-top: 1px solid #e2ebed;
   padding-top: 8px;
   color: #415960;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
 }
 
 .backups summary,
@@ -197,7 +197,7 @@
   background: transparent;
   cursor: pointer;
   font: inherit;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   font-weight: 850;
 }
 
@@ -362,4 +362,24 @@
   .secondaryButton {
     border: 1px solid ButtonText;
   }
+}
+
+
+.confirmSafe {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid #b8d4d7;
+  border-radius: 10px;
+  background: #f7fbfb;
+  color: #294851;
+  font-size: 0.8rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.confirmSafe input {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
