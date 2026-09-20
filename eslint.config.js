@@ -1,6 +1,13 @@
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+
 export default [
   {
     files: ["src/**/*.{js,jsx}", "e2e/**/*.js", "playwright.config.mjs"],
+    plugins: {
+      react,
+      "react-hooks": reactHooks,
+    },
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -24,6 +31,9 @@ export default [
       "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "no-unreachable": "error",
       "no-constant-condition": "error",
+      "react/jsx-uses-vars": "error",
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 ];
