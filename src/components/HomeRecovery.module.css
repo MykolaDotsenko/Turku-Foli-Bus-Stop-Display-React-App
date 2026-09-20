@@ -406,7 +406,16 @@
   }
 
   .copy {
+    display: block;
+  }
+
+  .copy .kicker,
+  .copy .description {
     display: none;
+  }
+
+  .copy h2 {
+    font-size: 0.95rem;
   }
 
   .destination {
