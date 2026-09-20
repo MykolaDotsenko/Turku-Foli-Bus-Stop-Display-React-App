@@ -93,10 +93,13 @@ test("revalidates saved stops against a fresh public catalogue without storing c
   });
 
   act(() => {
-    result.current.revalidatePlaces([
-      { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
-      { id: "32", name: "Puistokatu", lat: 60.4488, lon: 22.255 },
-    ]);
+    result.current.revalidatePlaces(
+      [
+        { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+        { id: "32", name: "Puistokatu", lat: 60.4488, lon: 22.255 },
+      ],
+      1_700_000_000_000
+    );
   });
 
   const home = result.current.byId.get("home");
@@ -119,15 +122,50 @@ test("clears Safe Place review state once every saved stop exists again", () => 
       primaryStopId: "100",
       stops: [{ id: "100", name: "Work stop" }],
     });
-    result.current.revalidatePlaces([{ id: "101", name: "Other stop" }]);
+    result.current.revalidatePlaces(
+      [{ id: "101", name: "Other stop" }],
+      1_700_000_000_000
+    );
   });
 
   expect(result.current.byId.get("work").needsReview).toBe(true);
 
   act(() => {
-    result.current.revalidatePlaces([{ id: "100", name: "Work stop renamed" }]);
+    result.current.revalidatePlaces(
+      [{ id: "100", name: "Work stop renamed" }],
+      1_700_000_100_000
+    );
   });
 
   expect(result.current.byId.get("work").needsReview).toBe(false);
   expect(result.current.byId.get("work").stops[0].name).toBe("Work stop renamed");
+});
+
+
+test("validates a place saved after the catalogue was already loaded", () => {
+  const { result } = renderHook(() => useSavedPlaces());
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      primaryStopId: "999",
+      stops: [{ id: "999", name: "Shared old stop" }],
+    });
+  });
+
+  expect(result.current.byId.get("home").validatedAt).toBe(0);
+
+  act(() => {
+    result.current.revalidatePlaces(
+      [{ id: "164", name: "Kauppatori" }],
+      1_700_000_000_000
+    );
+  });
+
+  expect(result.current.byId.get("home")).toEqual(
+    expect.objectContaining({
+      needsReview: true,
+      validatedAt: 1_700_000_000_000,
+    })
+  );
 });
