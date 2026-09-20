@@ -162,8 +162,9 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
         {replacing ? `Replace ${preset.label}?` : `Add ${preset.label}?`}
       </h3>
       <p className={styles.helper}>
-        This link contains only public Föli stop IDs and names — no private
-        address or saved location.
+        This link contains public Föli stop IDs and names, not an exact private
+        address. Those stops can still reveal the general area of this place,
+        so accept shared places only from someone you trust.
       </p>
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
@@ -319,6 +320,10 @@ function PlaceCard({
 
       <details className={styles.manage}>
         <summary>Manage {place.label}</summary>
+        <p className={styles.sharePrivacyHint}>
+          Sharing {place.label} reveals its saved public stop names and IDs,
+          which can indicate the general area.
+        </p>
         <div className={styles.manageActions}>
           <button
             type="button"
