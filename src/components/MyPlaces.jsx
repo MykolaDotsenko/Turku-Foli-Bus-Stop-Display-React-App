@@ -300,7 +300,10 @@ function PlaceCard({
         </span>
         <span className={styles.mobileSummaryText}>
           <strong>{place.label}</strong>
-          <small>{primaryStop.name} · stop {primaryStop.id}</small>
+          <small>
+            {place.needsReview ? "Needs review · " : ""}
+            {primaryStop.name} · stop {primaryStop.id}
+          </small>
         </span>
         <span className={styles.mobileSummaryAction} aria-hidden="true">
           {mobileExpanded ? "−" : "›"}
@@ -318,6 +321,13 @@ function PlaceCard({
           </p>
         </div>
       </div>
+
+      {place.needsReview && (
+        <p className={styles.reviewNotice} role="status">
+          One or more saved stops no longer appear in the current Föli stop
+          catalogue. Review this place before relying on it.
+        </p>
+      )}
 
       <div className={styles.placeActions}>
         {transitUrl ? (
