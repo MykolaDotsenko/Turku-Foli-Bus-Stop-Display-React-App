@@ -445,6 +445,9 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     page.getByRole("button", { name: "Remove Kauppatori from favorites" })
   ).toHaveAttribute("aria-pressed", "true");
 
+  const historyLengthBeforeStopChange = await page.evaluate(
+    () => globalThis.history.length
+  );
   const search = page.getByRole("combobox", { name: "Find your stop" });
   await search.fill("Turun");
   await page.getByRole("option", { name: /Turun linna/i }).click();
@@ -452,11 +455,18 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
-  await page.evaluate(() => globalThis.history.back());
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.length))
+    .toBe(historyLengthBeforeStopChange + 1);
+
+  // Use Playwright's browser-level traversal API. This exercises the same
+  // session-history contract as the browser Back/Forward controls, rather than
+  // issuing a script-initiated traversal from inside the application page.
+  await page.goBack();
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  await page.evaluate(() => globalThis.history.forward());
+  await page.goForward();
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
