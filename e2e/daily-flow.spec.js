@@ -399,8 +399,7 @@ test.beforeEach(async ({ page }) => {
   await mockFoli(page);
 });
 
-test("daily flow: search, save, navigate and restore with Back", async ({ page, context }, testInfo) => {
-  test.skip(testInfo.project.name !== "chromium-desktop", "Targeted history diagnostics");
+test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -460,63 +459,41 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page, 
     .poll(() => page.evaluate(() => globalThis.history.length))
     .toBe(historyLengthBeforeStopChange + 1);
 
-  let cdp = null;
-  if (testInfo.project.name === "chromium-desktop") {
-    cdp = await context.newCDPSession(page);
-    await cdp.send("Page.enable");
-    cdp.on("Page.navigatedWithinDocument", (event) => {
-      console.log("FOLI_CDP_WITHIN_DOCUMENT", JSON.stringify(event));
-    });
-    cdp.on("Page.frameNavigated", (event) => {
-      if (!event.frame.parentId) {
-        console.log(
-          "FOLI_CDP_FRAME_NAVIGATED",
-          JSON.stringify({
-            id: event.frame.id,
-            url: event.frame.url,
-            loaderId: event.frame.loaderId,
-          })
-        );
-      }
-    });
-    const browserHistory = await cdp.send("Page.getNavigationHistory");
-    console.log(
-      "FOLI_HISTORY_BEFORE_BACK",
-      JSON.stringify({
-        currentIndex: browserHistory.currentIndex,
-        entries: browserHistory.entries.map(({ id, url, userTypedURL, transitionType }) => ({
-          id,
-          url,
-          userTypedURL,
-          transitionType,
-        })),
-        inPage: await page.evaluate(() => ({
-          href: globalThis.location.href,
-          length: globalThis.history.length,
-          state: globalThis.history.state,
-          readyState: document.readyState,
-        })),
-      })
-    );
-  }
-
-  // Traverse the browser session history through the standard History API.
-  // Playwright's page.goBack()/goForward() waits on document-navigation
-  // lifecycle semantics and can skip/timeout on pushState-only entries. The
-  // History API uses the same browser session-history traversal that the app
-  // must handle and fires popstate for same-document stop navigation.
+  // Playwright's own History API regression tests trigger back/forward from a
+  // DOM user action. Doing the same here lets Playwright install its
+  // same-document navigation bookkeeping before the browser traverses the
+  // pushState entry, while still exercising the real History API + popstate
+  // contract used by browser Back/Forward controls.
   await page.evaluate(() => {
-    globalThis.setTimeout(() => globalThis.history.back(), 0);
+    const controls = document.createElement("div");
+    controls.setAttribute("data-history-test-controls", "");
+    controls.style.position = "fixed";
+    controls.style.inset = "auto auto 0 0";
+    controls.style.zIndex = "2147483647";
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "History test back";
+    back.setAttribute("data-history-test", "back");
+    back.addEventListener("click", () => globalThis.history.back());
+
+    const forward = document.createElement("button");
+    forward.type = "button";
+    forward.textContent = "History test forward";
+    forward.setAttribute("data-history-test", "forward");
+    forward.addEventListener("click", () => globalThis.history.forward());
+
+    controls.append(back, forward);
+    document.body.append(controls);
   });
 
-  await new Promise((resolve) => globalThis.setTimeout(resolve, 500));
-
+  await page.locator('[data-history-test="back"]').click();
+  await page.waitForURL(/stop=164/);
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  await page.evaluate(() => {
-    globalThis.setTimeout(() => globalThis.history.forward(), 0);
-  });
+  await page.locator('[data-history-test="forward"]').click();
+  await page.waitForURL(/stop=4/);
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
