@@ -6,6 +6,7 @@ import {
   formatDistance,
   hasCoordinates,
 } from "../utils/geo";
+import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildWalkingDirectionsUrl } from "../utils/maps";
 import styles from "./NearbyStops.module.css";
 
@@ -13,48 +14,6 @@ const AUTO_SELECT_MAX_DISTANCE_METERS = 10_000;
 const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
 const MIN_AMBIGUITY_GAP_METERS = 25;
 const MAX_AMBIGUITY_GAP_METERS = 150;
-const LOCATION_OPTIONS = {
-  enableHighAccuracy: true,
-  timeout: 8_000,
-  maximumAge: 30_000,
-};
-const FALLBACK_LOCATION_OPTIONS = {
-  enableHighAccuracy: false,
-  timeout: 5_000,
-  maximumAge: 120_000,
-};
-
-function locationErrorMessage(error) {
-  if (error?.code === 1) {
-    return "Location access is blocked. Allow location for this site in your browser settings and try again.";
-  }
-
-  if (error?.code === 2) {
-    return "Your device could not determine its location. Check location services and try again.";
-  }
-
-  if (error?.code === 3) {
-    return "Location took too long to respond. Move near a window or try again.";
-  }
-
-  return "Your location could not be read. Try again or search for a stop manually.";
-}
-
-function readPosition(geolocation, options) {
-  return new Promise((resolve, reject) => {
-    geolocation.getCurrentPosition(resolve, reject, options);
-  });
-}
-
-async function getBestAvailablePosition(geolocation) {
-  try {
-    return await readPosition(geolocation, LOCATION_OPTIONS);
-  } catch (error) {
-    if (error?.code !== 3) throw error;
-    return readPosition(geolocation, FALLBACK_LOCATION_OPTIONS);
-  }
-}
-
 function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
   if (nearbyStops.length < 2) return false;
 
@@ -166,18 +125,9 @@ function NearbyStops({
     setError("");
 
     try {
-      const result = await getBestAvailablePosition(navigator.geolocation);
-      const nextPosition = {
-        lat: Number(result.coords.latitude),
-        lon: Number(result.coords.longitude),
-        accuracy: Number.isFinite(Number(result.coords.accuracy))
-          ? Number(result.coords.accuracy)
-          : null,
-      };
-
-      if (!hasCoordinates(nextPosition)) {
-        throw new Error("Invalid browser location.");
-      }
+      const nextPosition = await requestOneTimePosition(
+        navigator.geolocation
+      );
 
       const nearest = findNearestStops(stops, nextPosition, 3);
       const ambiguousChoice = nearestChoiceIsAmbiguous(
