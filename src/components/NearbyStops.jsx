@@ -74,13 +74,17 @@ function NearbyStopButton({ stop, isActive, isNearest, onSelect }) {
   );
 }
 
-function NearbyStops({ stops, activeStopId, onSelect }) {
+function NearbyStops({
+  stops,
+  coordinatesStatus,
+  activeStopId,
+  onSelect,
+}) {
   const [status, setStatus] = useState("idle");
   const [position, setPosition] = useState(null);
   const [error, setError] = useState("");
 
   const hasStopCoordinates = stops.some(hasCoordinates);
-  const catalogLoaded = stops.length > 0;
   const geolocationSupported =
     typeof navigator !== "undefined" && "geolocation" in navigator;
 
@@ -113,9 +117,9 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
     if (!hasStopCoordinates) {
       setStatus("error");
       setError(
-        catalogLoaded
-          ? "Stop coordinates are temporarily unavailable. Search for a stop manually and try again later."
-          : "Nearby-stop data is still loading. Try again in a moment."
+        coordinatesStatus === "loading"
+          ? "Nearby-stop data is still loading. Try again in a moment."
+          : "Stop coordinates are temporarily unavailable. Search for a stop manually and try again later."
       );
       return;
     }
@@ -132,6 +136,11 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
           ? Number(result.coords.accuracy)
           : null,
       };
+
+      if (!hasCoordinates(nextPosition)) {
+        throw new Error("Invalid browser location.");
+      }
+
       const nearest = findNearestStops(stops, nextPosition, 3);
 
       setPosition(nextPosition);
@@ -160,6 +169,8 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
     nearbyStops[0]?.distanceMeters > AUTO_SELECT_MAX_DISTANCE_METERS;
   const lowAccuracy =
     position?.accuracy > AUTO_SELECT_MAX_ACCURACY_METERS;
+  const locationDataLoading =
+    coordinatesStatus === "loading" && !hasStopCoordinates;
 
   return (
     <section className={styles.wrapper} aria-labelledby="nearby-stops-title">
@@ -178,6 +189,7 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
           className={styles.locateButton}
           onClick={locate}
           disabled={status === "locating" || !hasStopCoordinates}
+          aria-busy={status === "locating"}
         >
           <span aria-hidden="true">{status === "locating" ? "…" : "⌖"}</span>
           {status === "locating"
@@ -190,9 +202,9 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
 
       {!hasStopCoordinates && (
         <p className={styles.meta} role="status">
-          {catalogLoaded
-            ? "Location search is temporarily unavailable; stop search still works normally."
-            : "Preparing stop coordinates…"}
+          {locationDataLoading
+            ? "Preparing stop coordinates…"
+            : "Location search is temporarily unavailable; stop search still works normally."}
         </p>
       )}
 
