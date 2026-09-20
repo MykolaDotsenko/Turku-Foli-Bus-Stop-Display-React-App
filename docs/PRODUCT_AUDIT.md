@@ -186,13 +186,13 @@ The intended gate is:
 2. Vitest / Testing Library
 3. production Vite build
 4. generated PWA precache verification
-5. Playwright Chromium
-6. Playwright Firefox
-7. Playwright mobile WebKit
+5. deterministic Playwright Chromium with service workers blocked
+6. deterministic Playwright Firefox with service workers blocked
+7. deterministic Playwright mobile WebKit with service workers blocked
 8. real browser geolocation scenarios
 9. Safe Place privacy/import scenarios
 10. Get me Home recovery
-11. production service-worker offline reload
+11. dedicated Chromium PWA project with real service-worker offline reload
 12. axe WCAG A/AA checks
 13. worst-case mobile overflow
 14. deterministic desktop/mobile screenshots
