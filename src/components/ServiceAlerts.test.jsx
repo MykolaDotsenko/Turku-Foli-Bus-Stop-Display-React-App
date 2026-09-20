@@ -65,3 +65,36 @@ test("marks retained disruption data when the last successful check is old", () 
   ).toBeInTheDocument();
   expect(screen.getByText("Update 1")).toBeInTheDocument();
 });
+
+
+test("shows validity and mounts disruption media only after details are opened", () => {
+  render(
+    <ServiceAlerts
+      alerts={[
+        {
+          ...message(1),
+          validity: { start: 1_900_000_000, end: 1_900_003_600 },
+          images: [
+            {
+              url: "https://data.foli.fi/media/detour.png",
+              title: "Temporary stop map",
+              type: "image/png",
+            },
+          ],
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText(/Valid until/i)).toBeInTheDocument();
+  expect(screen.queryByAltText("Temporary stop map")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByText("View disruption details"));
+
+  const image = screen.getByAltText("Temporary stop map");
+  expect(image).toHaveAttribute(
+    "src",
+    "https://data.foli.fi/media/detour.png"
+  );
+  expect(image).toHaveAttribute("loading", "lazy");
+});
