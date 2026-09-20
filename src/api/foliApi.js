@@ -7,6 +7,8 @@ const ALERTS_URL =
   import.meta.env.VITE_FOLI_ALERTS_URL || "https://data.foli.fi/alerts";
 const STOPS_URL =
   import.meta.env.VITE_FOLI_STOPS_URL || "https://data.foli.fi/gtfs/stops";
+const ROUTES_URL =
+  import.meta.env.VITE_FOLI_ROUTES_URL || "https://data.foli.fi/gtfs/routes";
 
 const client = axios.create({
   timeout: 8000,
@@ -34,6 +36,17 @@ function coordinateNumber(value, min, max) {
     : null;
 }
 
+function optionalString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function gtfsColor(value) {
+  const normalized = optionalString(value).replace(/^#/, "");
+  return /^[0-9a-f]{6}$/i.test(normalized)
+    ? `#${normalized.toLowerCase()}`
+    : null;
+}
+
 function normalizeArrival(arrival) {
   if (!arrival || Array.isArray(arrival) || typeof arrival !== "object") {
     return null;
@@ -51,6 +64,12 @@ function normalizeArrival(arrival) {
     monitored: arrival.monitored === true,
     delay: optionalNumber(arrival.delay),
     recordedattime: positiveNumber(arrival.recordedattime),
+    latitude: coordinateNumber(arrival.latitude, -90, 90),
+    longitude: coordinateNumber(arrival.longitude, -180, 180),
+    originaimeddeparturetime: positiveNumber(arrival.originaimeddeparturetime),
+    destinationaimedarrivaltime: positiveNumber(
+      arrival.destinationaimedarrivaltime
+    ),
     expecteddeparturetime: positiveNumber(arrival.expecteddeparturetime),
     expectedarrivaltime: positiveNumber(arrival.expectedarrivaltime),
     aimeddeparturetime: positiveNumber(arrival.aimeddeparturetime),
@@ -133,7 +152,45 @@ export async function fetchStopCoordinates(signal) {
   return coordinates;
 }
 
-export async function fetchStopAlerts(stopId, signal) {
+export async function fetchRouteCatalog(signal) {
+  const response = await client.get(ROUTES_URL, { signal });
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS route list.");
+  }
+
+  return payload
+    .map((route) => {
+      const id =
+        route?.route_id === null || route?.route_id === undefined
+          ? ""
+          : String(route.route_id);
+      const shortName = optionalString(route?.route_short_name);
+
+      return {
+        id,
+        shortName,
+        longName: optionalString(route?.route_long_name),
+        type: optionalNumber(route?.route_type),
+        color: gtfsColor(route?.route_color),
+        textColor: gtfsColor(route?.route_text_color),
+      };
+    })
+    .filter((route) => route.id && route.shortName);
+}
+
+export async function fetchAlerts(signal) {
   const response = await client.get(ALERTS_URL, { signal });
-  return extractStopAlerts(response.data, stopId);
+  const payload = response.data;
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    throw new Error("Invalid Föli alerts response.");
+  }
+
+  return payload;
+}
+
+export function selectStopAlerts(payload, context) {
+  return extractStopAlerts(payload, context);
 }
