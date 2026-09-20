@@ -90,14 +90,17 @@ function normalizeSpecial(value, type, fallbackTitle) {
 
   if (Array.isArray(value) || typeof value !== "object") return null;
 
-  const normalized = normalizeMessage(value, 0, type, new Map());
-  const hasContent =
-    normalized.title !== effectLabel("") ||
-    normalized.message ||
-    normalized.information ||
-    text(value?.header);
+  const hasContent = [
+    value.header,
+    value.message,
+    value.information,
+    value.effect,
+    value.cause,
+  ].some((field) => text(field));
 
   if (!hasContent) return null;
+
+  const normalized = normalizeMessage(value, 0, type, new Map());
 
   return {
     ...normalized,
