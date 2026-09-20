@@ -410,3 +410,40 @@ test("normalizes the compact Föli service boundary", async () => {
     coordinates: [[[[22, 60], [23, 60], [23, 61], [22, 60]]]],
   });
 });
+
+test("rejects malformed realtime payloads instead of presenting partial data", async () => {
+  mocks.get.mockResolvedValueOnce({ data: { status: "OK", result: "not-an-array" } });
+  await expect(fetchStopMonitor("164")).rejects.toThrow(
+    "Invalid Föli departures."
+  );
+
+  mocks.get.mockResolvedValueOnce({ data: { status: "ERROR", result: [] } });
+  await expect(fetchStopMonitor("164")).rejects.toThrow(
+    "Föli real-time data is unavailable."
+  );
+});
+
+test("filters malformed arrival rows while keeping a valid realtime response usable", async () => {
+  mocks.get.mockResolvedValue({
+    data: {
+      status: "OK",
+      servertime: 1900000000,
+      stopname: "Kauppatori",
+      result: [
+        null,
+        [],
+        "broken",
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: false,
+          aimeddeparturetime: 1900000300,
+        },
+      ],
+    },
+  });
+
+  const result = await fetchStopMonitor("164");
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.arrivals[0].lineref).toBe("1");
+});
