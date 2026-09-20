@@ -790,10 +790,6 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  const moreHomeOptions = recovery.getByText("More Home options");
-  if (await moreHomeOptions.isVisible()) {
-    await moreHomeOptions.click();
-  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
