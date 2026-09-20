@@ -474,7 +474,6 @@
   .placeCard > .placeActions,
   .placeCard > .backups,
   .placeCard > .manage,
-  .placeCard > [role="dialog"],
   .emptyCard > .emptyBody {
     display: none;
   }
@@ -482,8 +481,7 @@
   .placeCard[data-mobile-expanded="true"] > .placeHeading,
   .placeCard[data-mobile-expanded="true"] > .placeActions,
   .placeCard[data-mobile-expanded="true"] > .backups,
-  .placeCard[data-mobile-expanded="true"] > .manage,
-  .placeCard[data-mobile-expanded="true"] > [role="dialog"] {
+  .placeCard[data-mobile-expanded="true"] > .manage {
     display: flex;
   }
 
