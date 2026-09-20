@@ -4,6 +4,7 @@ import {
   findNearestStops,
   formatDistance,
   hasCoordinates,
+  isInsideMultiPolygon,
 } from "./geo";
 
 test("calculates realistic short WGS84 distances", () => {
@@ -53,4 +54,34 @@ test("formats distance without implying false precision", () => {
   expect(formatDistance(84)).toBe("80 m");
   expect(formatDistance(1_420)).toBe("1.4 km");
   expect(formatDistance(12_400)).toBe("12 km");
+});
+
+
+test("checks service-area multipolygons locally and respects holes", () => {
+  const geometry = {
+    type: "MultiPolygon",
+    coordinates: [
+      [
+        [
+          [22, 60],
+          [23, 60],
+          [23, 61],
+          [22, 61],
+          [22, 60],
+        ],
+        [
+          [22.4, 60.4],
+          [22.6, 60.4],
+          [22.6, 60.6],
+          [22.4, 60.6],
+          [22.4, 60.4],
+        ],
+      ],
+    ],
+  };
+
+  expect(isInsideMultiPolygon({ lat: 60.2, lon: 22.2 }, geometry)).toBe(true);
+  expect(isInsideMultiPolygon({ lat: 60.5, lon: 22.5 }, geometry)).toBe(false);
+  expect(isInsideMultiPolygon({ lat: 62, lon: 24 }, geometry)).toBe(false);
+  expect(isInsideMultiPolygon({ lat: null, lon: 22.2 }, geometry)).toBeNull();
 });
