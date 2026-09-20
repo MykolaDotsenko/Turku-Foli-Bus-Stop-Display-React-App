@@ -18,6 +18,29 @@ function encodeSharedPlaceForTest(payload) {
     .replace(/=+$/g, "");
 }
 
+
+async function seedHome(page) {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "foli-my-places-v1",
+      JSON.stringify([
+        {
+          id: "home",
+          label: "Home",
+          icon: "⌂",
+          primaryStopId: "164",
+          stops: [
+            { id: "164", name: "Kauppatori" },
+            { id: "32", name: "Puistokatu" },
+          ],
+          updatedAt: 1,
+        },
+      ])
+    );
+  });
+  await page.reload();
+}
+
 function monitorPayload(stopId) {
   const now = Math.floor(Date.now() / 1000);
   const isMarket = stopId === "164";
@@ -331,25 +354,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   page,
 }) => {
   await page.goto("/?stop=164");
-  await page.evaluate(() => {
-    localStorage.setItem(
-      "foli-my-places-v1",
-      JSON.stringify([
-        {
-          id: "home",
-          label: "Home",
-          icon: "⌂",
-          primaryStopId: "164",
-          stops: [
-            { id: "164", name: "Kauppatori" },
-            { id: "32", name: "Puistokatu" },
-          ],
-          updatedAt: 1,
-        },
-      ])
-    );
-  });
-  await page.reload();
+  await seedHome(page);
 
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
@@ -395,7 +400,14 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
+  await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await expect(recovery.getByRole("dialog")).toBeVisible();
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
@@ -414,7 +426,14 @@ test("mobile layout does not create horizontal page overflow", async ({
   test.skip(testInfo.project.name !== "webkit-mobile");
 
   await page.goto("/?stop=164");
+  await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  await recovery.getByText("Other safe Home stop").click();
+  await expect(recovery.getByText("Puistokatu")).toBeVisible();
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth
@@ -429,25 +448,7 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   }
 
   await page.goto("/?stop=164");
-  await page.evaluate(() => {
-    localStorage.setItem(
-      "foli-my-places-v1",
-      JSON.stringify([
-        {
-          id: "home",
-          label: "Home",
-          icon: "⌂",
-          primaryStopId: "164",
-          stops: [
-            { id: "164", name: "Kauppatori" },
-            { id: "32", name: "Puistokatu" },
-          ],
-          updatedAt: 1,
-        },
-      ])
-    );
-  });
-  await page.reload();
+  await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Go Home by public transit" })
