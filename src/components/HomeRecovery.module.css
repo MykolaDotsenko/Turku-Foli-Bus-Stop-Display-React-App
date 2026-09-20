@@ -205,6 +205,52 @@
   text-decoration: none;
 }
 
+.batteryBackup {
+  grid-column: 1 / -1;
+  border-top: 1px solid #cfe1e3;
+  padding-top: 9px;
+  color: #3f5960;
+  font-size: 0.72rem;
+}
+
+.batteryBackup summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.batteryBackup p {
+  margin: 6px 0 8px;
+  max-width: 68ch;
+  line-height: 1.45;
+}
+
+.printButton {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid #bfd4d7;
+  border-radius: 9px;
+  background: #fff;
+  color: #294851;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.printButton:hover {
+  background: #f4fafa;
+}
+
+.printButton:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
+}
+
+.printCard {
+  display: none;
+}
+
 .wrapper [role="dialog"] {
   grid-column: 1 / -1;
 }
@@ -230,12 +276,84 @@
   }
 }
 
+@media print {
+  :global(body *) {
+    visibility: hidden !important;
+  }
+
+  .printCard,
+  .printCard * {
+    visibility: visible !important;
+  }
+
+  .printCard {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid !important;
+    width: 100%;
+    max-width: 620px;
+    gap: 12px;
+    padding: 24px;
+    background: #fff;
+    color: #111;
+    font-family: Arial, sans-serif;
+  }
+
+  .printCard h2,
+  .printCard p {
+    margin: 0;
+  }
+
+  .printKicker {
+    font-size: 11pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .printPrimary {
+    display: grid;
+    gap: 3px;
+    font-size: 20pt;
+    font-weight: 800;
+  }
+
+  .printPrimary span {
+    font-size: 13pt;
+    font-weight: 600;
+  }
+
+  .printBackups {
+    display: grid;
+    gap: 4px;
+  }
+
+  .printBackups p {
+    font-size: 12pt;
+  }
+
+  .printHelp {
+    padding: 12px;
+    border: 2px solid #111;
+    font-size: 15pt;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .printNote {
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+}
+
 @media (forced-colors: active) {
   .wrapper,
   .destination,
   .primaryAction,
   .secondaryAction,
-  .backupRow {
+  .backupRow,
+  .printButton {
     border-color: CanvasText;
   }
 }
