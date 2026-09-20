@@ -43,7 +43,7 @@ test("offers one-tap transit recovery without embedding the current origin", () 
 
   expect(
     screen.getByRole("heading", {
-      name: "Lost or unsure? Get home from here.",
+      name: "Need help getting home?",
     })
   ).toBeInTheDocument();
   expect(
@@ -102,7 +102,7 @@ test("exposes saved backup stops only on demand", () => {
   render(<HomeRecovery home={home} stops={stops} onOpenStop={onOpenStop} />);
 
   fireEvent.click(
-    screen.getByText("Other safe Home stop")
+    screen.getByText("Other saved Home stop")
   );
 
   const backupRoute = screen.getByRole("link", {
