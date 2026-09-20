@@ -47,12 +47,16 @@ async function canReachAppOrigin() {
   );
 
   try {
-    // HEAD is deliberately not handled by the app's GET-only service worker.
-    // A cached PWA shell therefore cannot make this network probe look online.
+    // This path is deliberately absent from the production precache. The
+    // service worker can therefore only satisfy it by reaching the network.
+    // A cached application shell cannot make this probe look online.
     await globalThis.fetch(
-      new globalThis.URL("/", window.location.href).toString(),
+      new globalThis.URL(
+        "/__foli_connectivity_probe__",
+        window.location.href
+      ).toString(),
       {
-        method: "HEAD",
+        method: "GET",
         cache: "no-store",
         signal: controller.signal,
       }
