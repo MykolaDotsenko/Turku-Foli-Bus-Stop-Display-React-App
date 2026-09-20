@@ -13,7 +13,7 @@ import {
 } from "../utils/time";
 
 const MAX_VISIBLE_DEPARTURES = 10;
-const DEPARTED_GRACE_SECONDS = 90;
+const DEPARTED_GRACE_SECONDS = 30;
 
 function vehicleProximity(arrival, stop, route, serverTime) {
   if (
@@ -92,7 +92,7 @@ function BusStopDisplay({
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
   const hasData = Boolean(stopName || arrivals.length);
-  const liveCount = visibleArrivals.filter(
+  const realtimeCount = visibleArrivals.filter(
     (arrival) => arrival.monitored
   ).length;
 
@@ -149,9 +149,9 @@ function BusStopDisplay({
         <div className={styles.summary} aria-label="Departure data summary">
           <span>{visibleArrivals.length} upcoming</span>
           <span>
-            <strong>{liveCount}</strong> live
+            <strong>{realtimeCount}</strong> realtime
           </span>
-          <span>{visibleArrivals.length - liveCount} scheduled</span>
+          <span>{visibleArrivals.length - realtimeCount} scheduled</span>
         </div>
       )}
 
