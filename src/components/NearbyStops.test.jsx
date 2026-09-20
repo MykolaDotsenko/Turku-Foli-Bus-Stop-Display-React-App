@@ -303,3 +303,49 @@ test("does not auto-select a clearly nearest stop when it is still too far away"
   ).toBeInTheDocument();
   expect(onSelect).not.toHaveBeenCalled();
 });
+
+test("does not auto-select when the position is outside the published Föli boundary", async () => {
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.45182,
+        longitude: 22.26662,
+        accuracy: 15,
+      },
+    })
+  );
+  const onSelect = vi.fn();
+  const outsideGeometry = {
+    type: "MultiPolygon",
+    coordinates: [
+      [
+        [
+          [24, 61],
+          [25, 61],
+          [25, 62],
+          [24, 62],
+          [24, 61],
+        ],
+      ],
+    ],
+  };
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      serviceBoundary={outsideGeometry}
+      onSelect={onSelect}
+    />
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Find nearest stop" }));
+
+  expect(
+    await screen.findByText(/outside Föli’s published service area/i)
+  ).toBeInTheDocument();
+  expect(onSelect).not.toHaveBeenCalled();
+});

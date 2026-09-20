@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
-import { findNearestStops, formatAccuracy, formatDistance, hasCoordinates } from "../utils/geo";
+import {
+  findNearestStops,
+  formatAccuracy,
+  formatDistance,
+  hasCoordinates,
+  isInsideMultiPolygon,
+} from "../utils/geo";
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildTransitDirectionsUrl } from "../utils/maps";
 import { buildSharedPlaceUrl } from "../utils/sharedPlaces";
@@ -416,6 +422,7 @@ function MyPlaces({
   activeStopId,
   placesById,
   sharedPlace,
+  serviceBoundary = null,
   online = true,
   onSavePlace,
   onImportSharedPlace,
@@ -463,6 +470,23 @@ function MyPlaces({
 
     try {
       const position = await requestOneTimePosition(navigator.geolocation);
+      const insideServiceArea = isInsideMultiPolygon(
+        position,
+        serviceBoundary
+      );
+
+      const boundaryDecisionReliable =
+        Number.isFinite(position.accuracy) &&
+        position.accuracy <= LOW_ACCURACY_METERS;
+
+      if (insideServiceArea === false && boundaryDecisionReliable) {
+        setStatus("idle");
+        setError(
+          "This location appears outside Föli’s published service area. Choose a public stop manually instead."
+        );
+        return;
+      }
+
       const nearest = findNearestStops(stops, position, 3);
 
       if (nearest.length === 0) {

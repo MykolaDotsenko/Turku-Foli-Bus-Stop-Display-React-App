@@ -7,6 +7,9 @@ const GTFS_BASE_URL =
   import.meta.env.VITE_FOLI_GTFS_URL || "https://data.foli.fi/gtfs/";
 const STOPS_URL_OVERRIDE = import.meta.env.VITE_FOLI_STOPS_URL || "";
 const ROUTES_URL_OVERRIDE = import.meta.env.VITE_FOLI_ROUTES_URL || "";
+const SERVICE_BOUNDARY_URL =
+  import.meta.env.VITE_FOLI_BOUNDARY_URL ||
+  "https://data.foli.fi/geojson/bounds/compact";
 
 const client = axios.create({
   timeout: 8000,
@@ -14,6 +17,10 @@ const client = axios.create({
 });
 
 let gtfsDatasetBasePromise = null;
+const tripDetailsCache = new Map();
+const tripStopTimesCache = new Map();
+const stopBoardingTripsCache = new Map();
+const routeTripsCache = new Map();
 
 function gtfsDatasetBase() {
   if (!gtfsDatasetBasePromise) {
@@ -47,6 +54,10 @@ async function gtfsResourceUrl(resource, overrideUrl) {
 
 export function resetGtfsDatasetForTests() {
   gtfsDatasetBasePromise = null;
+  tripDetailsCache.clear();
+  tripStopTimesCache.clear();
+  stopBoardingTripsCache.clear();
+  routeTripsCache.clear();
 }
 
 function positiveNumber(value) {
@@ -95,7 +106,39 @@ function normalizeArrival(arrival) {
       typeof arrival.destinationdisplay === "string"
         ? arrival.destinationdisplay
         : "",
+    destinationdisplay_en: optionalString(arrival.destinationdisplay_en),
+    destinationdisplay_sv: optionalString(arrival.destinationdisplay_sv),
     monitored: arrival.monitored === true,
+    vehicleatstop: arrival.vehicleatstop === true,
+    vehicleref:
+      arrival.vehicleref === null || arrival.vehicleref === undefined
+        ? ""
+        : String(arrival.vehicleref),
+    incongestion: arrival.incongestion === true,
+    directionname: optionalString(arrival.directionname),
+    destinationref:
+      arrival.destinationref === null || arrival.destinationref === undefined
+        ? ""
+        : String(arrival.destinationref),
+    originref:
+      arrival.originref === null || arrival.originref === undefined
+        ? ""
+        : String(arrival.originref),
+    visitnumber: optionalNumber(arrival.visitnumber),
+    blockref:
+      arrival.blockref === null || arrival.blockref === undefined
+        ? ""
+        : String(arrival.blockref),
+    dataframeref: optionalString(arrival.dataframeref),
+    datedvehiclejourneyref: optionalString(arrival.datedvehiclejourneyref),
+    tripref:
+      arrival.__tripref === null || arrival.__tripref === undefined
+        ? ""
+        : String(arrival.__tripref),
+    routeref:
+      arrival.__routeref === null || arrival.__routeref === undefined
+        ? ""
+        : String(arrival.__routeref),
     delay: optionalNumber(arrival.delay),
     recordedattime: positiveNumber(arrival.recordedattime),
     latitude: coordinateNumber(arrival.latitude, -90, 90),
@@ -231,3 +274,213 @@ export async function fetchAlerts(signal) {
   return payload;
 }
 
+
+
+function requiredId(value, label) {
+  const id =
+    value === null || value === undefined ? "" : String(value).trim();
+  if (!id || id.length > 160) {
+    throw new Error(`Invalid Föli ${label}.`);
+  }
+  return id;
+}
+
+function gtfsTime(value) {
+  if (typeof value === "string" && /^\d{1,3}:\d{2}:\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+  return "";
+}
+
+export async function fetchTripDetails(tripId, signal) {
+  const id = requiredId(tripId, "trip ID");
+  if (tripDetailsCache.has(id)) return tripDetailsCache.get(id);
+  const response = await client.get(
+    await gtfsResourceUrl(`trips/trip/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload) || payload.length === 0) {
+    throw new Error("Föli GTFS trip metadata is unavailable.");
+  }
+
+  const trip = payload[0];
+
+  const normalized = {
+    tripId: id,
+    routeId:
+      trip?.route_id === null || trip?.route_id === undefined
+        ? ""
+        : String(trip.route_id),
+    serviceId:
+      trip?.service_id === null || trip?.service_id === undefined
+        ? ""
+        : String(trip.service_id),
+    headsign: optionalString(trip?.trip_headsign),
+    directionId: optionalNumber(trip?.direction_id),
+    blockId:
+      trip?.block_id === null || trip?.block_id === undefined
+        ? ""
+        : String(trip.block_id),
+    shapeId:
+      trip?.shape_id === null || trip?.shape_id === undefined
+        ? ""
+        : String(trip.shape_id),
+    wheelchairAccessible: optionalNumber(trip?.wheelchair_accessible),
+    bikesAllowed: optionalNumber(trip?.bikes_allowed),
+  };
+
+  tripDetailsCache.set(id, normalized);
+  return normalized;
+}
+
+export async function fetchTripStopTimes(tripId, signal) {
+  const id = requiredId(tripId, "trip ID");
+  if (tripStopTimesCache.has(id)) return tripStopTimesCache.get(id);
+  const response = await client.get(
+    await gtfsResourceUrl(`stop_times/trip/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS trip stop sequence.");
+  }
+
+  const normalized = payload
+    .map((item) => ({
+      stopId:
+        item?.stop_id === null || item?.stop_id === undefined
+          ? ""
+          : String(item.stop_id),
+      arrivalTime: gtfsTime(item?.arrival_time),
+      departureTime: gtfsTime(item?.departure_time),
+      stopSequence: optionalNumber(item?.stop_sequence),
+      pickupType: optionalNumber(item?.pickup_type),
+      dropOffType: optionalNumber(item?.drop_off_type),
+      timepoint: optionalNumber(item?.timepoint),
+    }))
+    .filter((item) => item.stopId && item.stopSequence !== null)
+    .sort((a, b) => a.stopSequence - b.stopSequence);
+
+  tripStopTimesCache.set(id, normalized);
+  return normalized;
+}
+
+export async function fetchStopBoardingTripIds(stopId, signal) {
+  const id = requiredId(stopId, "stop ID");
+  if (stopBoardingTripsCache.has(id)) {
+    return new Set(stopBoardingTripsCache.get(id));
+  }
+  const response = await client.get(
+    await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS stop timetable.");
+  }
+
+  const tripIds = payload
+      .filter((item) => optionalNumber(item?.pickup_type) !== 1)
+      .map((item) =>
+        item?.trip_id === null || item?.trip_id === undefined
+          ? ""
+          : String(item.trip_id)
+      )
+      .filter(Boolean);
+
+  stopBoardingTripsCache.set(id, tripIds);
+  return new Set(tripIds);
+}
+
+export async function fetchRouteTripIds(routeId, signal) {
+  const id = requiredId(routeId, "route ID");
+  if (routeTripsCache.has(id)) return new Set(routeTripsCache.get(id));
+  const response = await client.get(
+    await gtfsResourceUrl(`trips/route/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS route trips.");
+  }
+
+  const tripIds = payload
+      .map((trip) =>
+        trip?.trip_id === null || trip?.trip_id === undefined
+          ? ""
+          : String(trip.trip_id)
+      )
+      .filter(Boolean);
+
+  routeTripsCache.set(id, tripIds);
+  return new Set(tripIds);
+}
+
+export async function fetchStopServedRouteIds(stopId, routeIds, signal) {
+  const uniqueRouteIds = [
+    ...new Set(
+      (Array.isArray(routeIds) ? routeIds : [])
+        .map((routeId) => String(routeId || "").trim())
+        .filter(Boolean)
+    ),
+  ].slice(0, 32);
+
+  if (uniqueRouteIds.length === 0) return new Set();
+
+  const boardingTripIds = await fetchStopBoardingTripIds(stopId, signal);
+  if (boardingTripIds.size === 0) return new Set();
+
+  const routeTripSets = [];
+
+  for (let index = 0; index < uniqueRouteIds.length; index += 6) {
+    const batch = uniqueRouteIds.slice(index, index + 6);
+    const results = await Promise.all(
+      batch.map(async (routeId) => ({
+        routeId,
+        tripIds: await fetchRouteTripIds(routeId, signal),
+      }))
+    );
+    routeTripSets.push(...results);
+  }
+
+  return new Set(
+    routeTripSets
+      .filter(({ tripIds }) =>
+        [...tripIds].some((tripId) => boardingTripIds.has(tripId))
+      )
+      .map(({ routeId }) => routeId)
+  );
+}
+
+export async function fetchServiceBoundary(signal) {
+  const response = await client.get(SERVICE_BOUNDARY_URL, { signal });
+  const payload = response.data;
+
+  if (
+    !payload ||
+    payload.type !== "FeatureCollection" ||
+    !Array.isArray(payload.features)
+  ) {
+    throw new Error("Invalid Föli service boundary.");
+  }
+
+  const feature = payload.features.find(
+    (candidate) =>
+      candidate?.geometry?.type === "MultiPolygon" &&
+      Array.isArray(candidate.geometry.coordinates)
+  );
+
+  if (!feature) {
+    throw new Error("Föli service boundary is unavailable.");
+  }
+
+  return {
+    type: "MultiPolygon",
+    coordinates: feature.geometry.coordinates,
+  };
+}

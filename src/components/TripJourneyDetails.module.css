@@ -1,0 +1,83 @@
+.wrapper {
+  margin-top: 5px;
+}
+
+.toggle {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #006b75;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 850;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.toggle:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.22);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.panel {
+  max-width: 420px;
+  margin-top: 6px;
+  padding: 10px 11px;
+  border: 1px solid #dbe8ea;
+  border-radius: 10px;
+  background: #f8fbfb;
+}
+
+.kicker,
+.status,
+.more {
+  margin: 0;
+  color: #536b72;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.kicker {
+  margin-bottom: 6px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.list li {
+  padding-left: 2px;
+  color: #29434b;
+  font-size: 0.8rem;
+}
+
+.list li span,
+.list li small {
+  display: block;
+}
+
+.list li small {
+  margin-top: 1px;
+  color: #687b81;
+  font-size: 0.72rem;
+}
+
+.more {
+  margin-top: 8px;
+}
+
+@media (max-width: 620px) {
+  .panel {
+    max-width: none;
+  }
+}

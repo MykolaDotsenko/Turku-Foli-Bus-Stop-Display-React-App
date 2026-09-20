@@ -79,7 +79,11 @@ function monitorPayload(stopId) {
       {
         lineref: isMarket ? "1" : "8",
         destinationdisplay: isMarket ? "Satama" : "Kauppatori",
+        destinationdisplay_en: isMarket ? "Harbour" : "Market Square",
+        destinationdisplay_sv: isMarket ? "Hamnen" : "Salutorget",
         monitored: true,
+        vehicleatstop: isMarket,
+        __tripref: isMarket ? "trip-164-1" : "trip-4-8",
         delay: 35,
         recordedattime: now - 20,
         latitude: isMarket ? 60.4538 : 60.437,
@@ -90,7 +94,10 @@ function monitorPayload(stopId) {
       {
         lineref: isMarket ? "7" : "2",
         destinationdisplay: isMarket ? "Runosmäki" : "Satama",
+        destinationdisplay_en: isMarket ? "" : "Harbour",
+        destinationdisplay_sv: isMarket ? "Runosbacken" : "Hamnen",
         monitored: false,
+        __tripref: isMarket ? "trip-164-7" : "trip-4-2",
         delay: null,
         aimeddeparturetime: now + 540,
       },
@@ -178,6 +185,14 @@ async function mockFoli(page) {
           route_text_color: "ffffff",
         },
         {
+          route_id: "99",
+          route_short_name: "99",
+          route_long_name: "Static-only test route",
+          route_type: 3,
+          route_color: "355c7d",
+          route_text_color: "ffffff",
+        },
+        {
           route_id: "2",
           route_short_name: "2",
           route_long_name: "Test route",
@@ -189,6 +204,140 @@ async function mockFoli(page) {
     });
     }
   );
+
+  await page.route(
+    "https://data.foli.fi/geojson/bounds/compact",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "MultiPolygon",
+                coordinates: [
+                  [
+                    [
+                      [21.9, 60.3],
+                      [22.6, 60.3],
+                      [22.6, 60.7],
+                      [21.9, 60.7],
+                      [21.9, 60.3],
+                    ],
+                  ],
+                ],
+              },
+            },
+          ],
+        }),
+      });
+    }
+  );
+
+  await page.route(
+    /https:\/\/data\.foli\.fi\/gtfs\/v0\/20260920-120000\/stop_times\/stop\/(164|4|32)/,
+    async (route) => {
+      const stopId = route.request().url().split("/").pop();
+      const data =
+        stopId === "164"
+          ? [
+              { trip_id: "trip-164-1", pickup_type: 0 },
+              { trip_id: "trip-164-99", pickup_type: 0 },
+            ]
+          : stopId === "4"
+            ? [{ trip_id: "trip-4-8", pickup_type: 0 }]
+            : [];
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(data),
+      });
+    }
+  );
+
+  await page.route(
+    /https:\/\/data\.foli\.fi\/gtfs\/v0\/20260920-120000\/trips\/route\/(1|99)/,
+    async (route) => {
+      const routeId = route.request().url().split("/").pop();
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(
+          routeId === "1"
+            ? [{ trip_id: "trip-164-1" }]
+            : [{ trip_id: "trip-164-99" }]
+        ),
+      });
+    }
+  );
+
+  await page.route(
+    /https:\/\/data\.foli\.fi\/gtfs\/v0\/20260920-120000\/trips\/trip\/(trip-164-1|trip-164-7|trip-4-8|trip-4-2)/,
+    async (route) => {
+      const tripId = route.request().url().split("/").pop();
+      const wheelchair = tripId === "trip-164-7" ? 2 : 1;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            route_id: tripId.includes("-7") ? "7" : tripId.includes("-8") ? "8" : tripId.includes("-2") ? "2" : "1",
+            service_id: "weekday",
+            trip_headsign: tripId.includes("-7") ? "Runosmäki" : "Harbour",
+            direction_id: 0,
+            block_id: "block-1",
+            shape_id: "shape-1",
+            wheelchair_accessible: wheelchair,
+            bikes_allowed: 0,
+          },
+        ]),
+      });
+    }
+  );
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/stop_times/trip/trip-164-1",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            stop_id: "164",
+            arrival_time: "17:40:00",
+            departure_time: "17:41:00",
+            stop_sequence: 1,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 1,
+          },
+          {
+            stop_id: "32",
+            arrival_time: "17:46:00",
+            departure_time: "17:46:00",
+            stop_sequence: 2,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 0,
+          },
+          {
+            stop_id: "4",
+            arrival_time: "17:55:00",
+            departure_time: "17:55:00",
+            stop_sequence: 3,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 1,
+          },
+        ]),
+      });
+    }
+  );
+
+  await page.route("https://data.foli.fi/media/detour.png", async (route) => {
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"></svg>',
+    });
+  });
 
   await page.route(/https:\/\/data\.foli\.fi\/siri\/sm\/(164|4|32)/, async (route) => {
     const stopId = route.request().url().split("/").pop();
@@ -202,6 +351,7 @@ async function mockFoli(page) {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
+        servertime: Math.floor(Date.now() / 1000),
         global_message: {},
         emergency_message: {},
         messages: [
@@ -216,6 +366,27 @@ async function mockFoli(page) {
             header: "Line 1 city-centre detour",
             message: "Line 1 uses a temporary route.",
             information: "Stop 14 is not in use during the works.",
+            repeat: [[
+              Math.floor(Date.now() / 1000) - 60,
+              Math.floor(Date.now() / 1000) + 3600,
+            ]],
+            images: [
+              {
+                url: "//data.foli.fi/media/detour.png",
+                title: "Temporary detour map",
+                type: "image/png",
+              },
+            ],
+          },
+          {
+            message_id: 22,
+            isactive: true,
+            priority: 950,
+            effect: "NO_SERVICE",
+            affected_stops: [],
+            affected_routes: ["99"],
+            header: "Line 99 service change",
+            message: "This route has no current departure row.",
           },
         ],
         cancellations: [],
@@ -235,8 +406,10 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByText("Line 1 city-centre detour")).toBeVisible();
   await expect(page.getByText("Detour", { exact: true })).toBeVisible();
   await expect(page.getByText("Affects line 1")).toBeVisible();
-  await expect(page.getByText("Satama")).toBeVisible();
-  await expect(page.getByText(/Bus nearby/i)).toBeVisible();
+  await expect(page.getByText("Line 99 service change")).toBeVisible();
+  await expect(page.getByText("Harbour")).toBeVisible();
+  await expect(page.getByText(/Bus at stop · board now/i)).toBeVisible();
+  await expect(page.getByText("Wheelchair accessible").first()).toBeVisible();
 
   const boardPrecedesPlaceManagement = await page.evaluate(() => {
     const board = document.querySelector('[aria-labelledby="departures-title"]');
@@ -250,10 +423,16 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   });
   expect(boardPrecedesPlaceManagement).toBe(true);
 
-  await page.getByText("Show details").click();
+  await page.getByText("View disruption details").click();
   await expect(
     page.getByText("Stop 14 is not in use during the works.")
   ).toBeVisible();
+  await expect(page.getByAltText("Temporary detour map")).toBeVisible();
+
+  await page.getByRole("button", { name: "Next stops" }).first().click();
+  await expect(page.getByText("Planned stop sequence")).toBeVisible();
+  await expect(page.getByText("around 17:46")).toBeVisible();
+  await expect(page.getByText("Puistokatu")).toBeVisible();
 
   const lineOneBadge = page.getByTitle("Satama-Kauppatori-Lentoasema");
   await expect(lineOneBadge).toHaveCSS("background-color", "rgb(255, 255, 0)");
@@ -272,7 +451,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
 
-  await page.goBack();
+  await page.evaluate(() => globalThis.history.back());
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });

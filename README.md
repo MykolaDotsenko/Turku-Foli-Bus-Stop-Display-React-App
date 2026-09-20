@@ -28,9 +28,10 @@ For the adversarial product review, scores, fixed risks and deliberately unresol
 6. If location access is unavailable, search/select a stop normally and save that public stop to My Places.
 7. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
 8. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
-9. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**.
-10. Scan line, destination, due time, realtime status, official Föli route identity, and — when available — the live vehicle's approximate distance from the stop.
-11. Save frequent stops with **☆** and return to favorites or recent stops in one tap.
+9. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**, including provider disruption maps/images and validity when supplied.
+10. Scan line, localized destination, due time, realtime status, official Föli route identity, trip accessibility and — when available — the provider's **vehicle at stop** state or conservative live distance.
+11. Expand **Next stops** only when needed for a planned downstream stop sequence; approximate GTFS timepoints are labelled as approximate instead of exact.
+12. Save frequent stops with **☆** and return to favorites or recent stops in one tap.
 
 No account, backend, or tracking is required. Favorites, recents and My Places stay in the browser. My Places stores public stop IDs/names only; the exact location used during setup is discarded. Location is requested only after a user action.
 
@@ -56,7 +57,7 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - opening a shared place never overwrites local data automatically: the recipient must explicitly Add or Replace it
 - place editing/removal is kept behind Manage instead of exposing destructive controls in the main child-friendly flow
 - one-tap geolocation removes the need to know a nearby stop's name or number
-- the closest stop is selected automatically only when location quality is reasonable, the device is near the Föli network, and one candidate is meaningfully closer than the next
+- the closest stop is selected automatically only when location quality is reasonable, the point is not outside Föli’s published compact service boundary, the device is near the network, and one candidate is meaningfully closer than the next
 - the three nearest alternatives remain visible because the physically closest stop may serve the wrong travel direction
 - location accuracy is exposed instead of pretending GPS/Wi-Fi positioning is exact
 - stop distances are labelled as approximate straight-line distances rather than walking-route distances
@@ -70,12 +71,18 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - stop-specific and route-specific service messages appear before the board
 - global Föli notices are included and emergency messages replace lower-priority disruption content
 - semantic alert effects such as Detour, Stop moved, Significant delays and No service are surfaced directly
+- route-only alerts are cross-checked against static GTFS stop membership, so a disrupted route can still be surfaced even when it has no current realtime departure row
+- provider alert validity is surfaced when available; provider images/maps are HTTPS-normalized and are not mounted until the user explicitly expands disruption details
 - detailed alert information stays collapsed until the user asks for it
 - the first four alerts preserve a low-noise default, while additional relevant updates are explicitly discoverable through **Show N more updates**
 - official GTFS route colors and names improve line recognition without hard-coded branding
 - route text colors are contrast-checked at runtime and corrected when the provider color pair would fail WCAG AA
-- monitored SIRI vehicle coordinates are converted into an approximate vehicle-to-stop distance
+- fresh SIRI `vehicleatstop` truth is preferred when available; otherwise monitored coordinates are converted into a conservative approximate vehicle-to-stop distance
 - proximity is labelled **nearby**, not “approaching”, because distance alone cannot prove the vehicle's travel direction
+- SIRI English/Swedish destination variants are selected from the browser language when available, with the normal provider destination as fallback
+- the undocumented live `__tripref` field is used only as optional GTFS enrichment: trip lookup failure never blocks the departure board
+- trip-level `wheelchair_accessible` is shown only for explicit yes/no values; unknown data is not turned into a claim
+- **Next stops** loads `stop_times/trip` only after user expansion and distinguishes approximate `timepoint=0` times from exact planned timepoints
 - already-departed rows and rows without a usable departure timestamp are filtered instead of being presented as current departures
 - line, destination, and due time remain the strongest visual hierarchy
 - the live departure board appears before My Places management in the normal flow; shared-place import is the context-aware exception because confirmation is then the user's immediate task
@@ -100,11 +107,12 @@ When the user taps **Find nearest stop**:
 2. the app requests a high-accuracy one-time position, with a lower-power timeout fallback
 3. distances are calculated locally with the Haversine formula
 4. the three nearest active Föli stops are ranked
-5. the nearest stop is auto-selected only when:
+5. when the compact Föli service boundary is available, the point is checked locally before automatic selection
+6. the nearest stop is auto-selected only when:
    - reported location accuracy is at most 250 m,
    - the nearest stop is within 2 km, and
    - the second-nearest candidate is not effectively tied within the uncertainty margin
-6. poor/unknown accuracy, a stop farther than the 2 km auto-select range, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
+7. poor/unknown accuracy, a point outside the published service area, a stop farther than the 2 km auto-select range, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
 
 No map SDK, geocoding service, analytics service, or location backend is required. **Walk there** uses a standard Google Maps URL with only the public stop destination; the app does not put the user's current coordinates into the external URL.
 
@@ -143,6 +151,8 @@ hooks/
   useStopMonitor.js   30s visible-tab polling + cancellation + stale-data safety
   useStopCatalog.js   non-blocking SIRI catalogue + async GTFS enrichment
   useRouteCatalog.js  cached route identity/colors for line recognition + alerts
+  useServiceBoundary.js cached compact Föli service geometry for local checks
+  useTripEnrichment.js optional trip metadata for visible departures
   useSavedStops.js    local-first favorites + recents
   useSavedPlaces.js   privacy-first Home / School / Work safe-stop zones
   useStopAlerts.js    conservative active-disruption polling
@@ -157,11 +167,12 @@ BusStopForm.jsx       search / accessible autocomplete
 NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
 MyPlaces.jsx          Safe Arrival Zones + transit handoff + explicit share/import
 QuickStops.jsx        favorites / recents
-ServiceAlerts.jsx     stop + route disruptions / emergency + global notices
-BusStopDisplay.jsx    live departure board + route identity + vehicle proximity
+ServiceAlerts.jsx     stop + complete route disruptions / validity + lazy media
+BusStopDisplay.jsx    live board + localized destination + trip accessibility
+TripJourneyDetails.jsx lazy planned next-stop sequence / timepoint semantics
         ↓
 utils/
-  geo.js              Haversine distance + nearest-stop + vehicle distance
+  geo.js              Haversine distance + nearest-stop + local MultiPolygon boundary check
   routes.js           route indexing + WCAG-safe route text color
   maps.js             keyless privacy-conscious walking + transit URLs
   location.js         shared one-time geolocation + timeout fallback semantics

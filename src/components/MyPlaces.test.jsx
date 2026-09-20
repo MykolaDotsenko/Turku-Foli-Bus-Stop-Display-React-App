@@ -508,3 +508,57 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   expect(screen.getByRole("button", { name: "Save Home" })).toBeDisabled();
   expect(onSavePlace).not.toHaveBeenCalled();
 });
+
+test("does not create a location-based Safe Place outside the Föli boundary", async () => {
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.45182,
+        longitude: 22.26662,
+        accuracy: 15,
+      },
+    })
+  );
+  const onSavePlace = vi.fn();
+  const outsideGeometry = {
+    type: "MultiPolygon",
+    coordinates: [
+      [
+        [
+          [24, 61],
+          [25, 61],
+          [25, 62],
+          [24, 62],
+          [24, 61],
+        ],
+      ],
+    ],
+  };
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      serviceBoundary={outsideGeometry}
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up Home where I am now" })
+  );
+
+  expect(
+    await screen.findByText(/outside Föli’s published service area/i)
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Choose safe stops for Home" })
+  ).not.toBeInTheDocument();
+  expect(onSavePlace).not.toHaveBeenCalled();
+});

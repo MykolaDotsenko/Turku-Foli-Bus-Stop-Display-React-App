@@ -171,3 +171,65 @@ test("keeps aging a last successful payload while refreshes fail", () => {
   expect(screen.getByText(/Live data · 3 min old/i)).toBeInTheDocument();
   expect(screen.getByText(/Last bus position/i)).toHaveTextContent("3 min old");
 });
+
+
+test("prefers provider vehicle-at-stop truth over geometric proximity", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      stop={{ id: "164", name: "Kauppatori" }}
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: true,
+          vehicleatstop: true,
+          recordedattime: now - 10,
+          expecteddeparturetime: now + 60,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Bus at stop · board now")).toBeInTheDocument();
+});
+
+test("uses the browser language destination when Föli provides it", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          destinationdisplay_en: "Harbour",
+          monitored: false,
+          aimeddeparturetime: now + 300,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Harbour")).toBeInTheDocument();
+  expect(screen.queryByText("Satama")).not.toBeInTheDocument();
+});

@@ -341,9 +341,9 @@ Trips belonging to one service. Current rows include `route_id` and omit the alr
 
 **Shape:** array containing the matching trip (normally one item). Current row omits the already-known `trip_id` and includes route/service/headsign/direction/block/shape/accessibility/bike fields.
 
-**Application use:** ❌ Not yet.
+**Application use:** ✅ **Partial, progressive enrichment.** Visible realtime rows can use a matching `__tripref` to fetch one trip record for `trip_headsign` and `wheelchair_accessible`; failure never blocks departures.
 
-**High-value future use:** ★★★★★  
+**High-value relationship use:** ★★★★★  
 Together with `stop_times`, this is the cleanest static-data route to determine **all routes normally serving a selected stop**, rather than only routes that happen to have a visible realtime departure. That would close the remaining route-level ALERTS coverage gap.
 
 ---
@@ -409,8 +409,9 @@ shape_dist_traveled
 timepoint
 ```
 
-**Application use:** ❌ Not yet.  
-**Future value:** ★★★★★ for complete stop→trip→route membership, planned fallback information and route context.
+**Application use:** ✅ **Yes, selectively.** `/stop_times/stop/<stop_id>` participates in complete route-alert membership and excludes `pickup_type=1`; `/stop_times/trip/<trip_id>` is loaded only when the user expands “Next stops”. `timepoint=0` is presented as an approximate planned time.
+
+**Remaining future value:** planned fallback information beyond the current journey-detail flow.
 
 ---
 
@@ -559,8 +560,8 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | --- | --- | --- |
 | `lineref` | Public line reference used by SIRI | ✅ line badge / route lookup |
 | `destinationdisplay` | Destination/front-display text | ✅ |
-| `destinationdisplay_en` | English destination variant | ❌ candidate |
-| `destinationdisplay_sv` | Swedish destination variant | ❌ candidate |
+| `destinationdisplay_en` | English destination variant | ✅ preferred for English browser locales, with safe fallback |
+| `destinationdisplay_sv` | Swedish destination variant | ✅ preferred for Swedish browser locales, with safe fallback |
 | `monitored` | Realtime monitoring available | ✅ realtime vs scheduled semantics |
 | `delay` | Delay value supplied by current JSON adapter | ✅ |
 | `recordedattime` | Vehicle observation time | ✅ freshness |
@@ -571,7 +572,7 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | `expectedarrivaltime` | Estimated arrival at selected stop | ✅ time fallback |
 | `aimeddeparturetime` | Planned departure at selected stop | ✅ time fallback |
 | `expecteddeparturetime` | Estimated departure at selected stop | ✅ preferred due time |
-| `vehicleatstop` | Provider says vehicle is at stop | ❌ high-value candidate |
+| `vehicleatstop` | Provider says vehicle is at stop | ✅ preferred over distance inference when fresh |
 | `vehicleref` | Vehicle identifier | ❌ candidate for stronger row identity/debugging |
 | `incongestion` | Congestion flag | ❌ candidate, semantics should remain provider-attributed |
 | `directionname` | Direction label | ❌ |
@@ -583,7 +584,7 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | `datedvehiclejourneyref` | SIRI journey identity | ❌ |
 | `__directionid` | Provider adapter/internal helper field observed live | ❌ do not depend on undocumented `__*` fields |
 | `__routeref` | Provider adapter/internal route helper observed live | ❌ do not make a hard contract |
-| `__tripref` | Provider adapter/internal trip helper observed live | ❌ potentially useful experimentally, not a stable contract |
+| `__tripref` | Provider adapter/internal trip helper observed live | ✅ optional enrichment key only; never required for core departures |
 
 ### Time choice in this app
 
@@ -792,8 +793,8 @@ Field behavior:
 | `icon` | Suggested BUS/BOAT/BIKE/NONE-style icon code | normalized but not currently rendered |
 | `cause` | GTFS-RT-style cause | retained; shown for cancellations, not normal messages |
 | `effect` | GTFS-RT-style effect | ✅ user-facing semantic badge |
-| `images` | Related media objects `{url,type,title}` | ❌ |
-| `repeat` | Active time ranges `[[start,end], ...]` | ❌; app trusts `isactive` |
+| `images` | Related media objects `{url,type,title}` | ✅ HTTPS-only; mounted only after explicit details expansion |
+| `repeat` | Active time ranges `[[start,end], ...]` | ✅ active validity window is surfaced when an end time is available |
 | `isactive` | Whether message should currently be shown | ✅ mandatory filter |
 | `priority` | Smaller number = more important | ✅ sorting |
 | `categories` | Message category tags | ❌ |
@@ -832,24 +833,25 @@ POLICE_ACTIVITY
 MEDICAL_EMERGENCY
 ```
 
-### Known application limitation
+### Route-level alert completeness
 
-A route-only alert is currently matched when:
-1. its `affected_routes` GTFS route ID maps to a `route_short_name`, and
-2. that line appears among the currently returned Stop Monitoring departures.
-
-This can miss a route-level alert when the disrupted route has **no current departure row at all**. The robust fix is static membership:
+Route-only disruptions are no longer limited to lines visible in the current SIRI board. The app first keeps the cheap realtime match, then progressively checks only still-unmatched `affected_routes` against the pinned GTFS dataset:
 
 ```text
 selected stop
 → stop_times/stop/<stop_id>
-→ trip_id
-→ trips/trip/<trip_id> or precomputed trips index
-→ complete route_id set
+→ boardable trip_id set (pickup_type != 1)
++
+affected route_id
+→ trips/route/<route_id>
+→ trip_id set
+→ intersection
 → ALERTS affected_routes
 ```
 
-This is the highest-value unused GTFS relationship for a future refactor.
+The relation lookups are cached for the page session and fetched in small batches. Failure falls back to the existing realtime-line match, so disruption enrichment cannot break core departures.
+
+This is **static membership**, not a claim that a specific scheduled trip is running now. The alert itself must still be active according to Föli.
 
 ## 3.2 Cancellations
 
@@ -917,7 +919,7 @@ descr_en
 
 Messages can include `images[]` with protocol-relative provider URLs. Treat them as provider media assets, normalize to HTTPS before rendering, validate content type, and never inject provider `information` as raw HTML.
 
-**Application use:** ❌ No.
+**Application use:** ✅ Yes. Provider image URLs are normalized to HTTPS and media is mounted only after the user explicitly expands disruption details. Raw provider `information` remains text rather than injected HTML.
 
 ---
 
@@ -1055,8 +1057,9 @@ Provider-documented trade-off:
 - default: roughly 900 points / ~20 KiB
 - `compact`: roughly 400 points / ~8 KiB and specifically recommended for mobile
 
-**Application use:** ❌ Not yet.  
-**Future value:** ★★★★★. `/geojson/bounds/compact` is a better “are you inside the Föli region?” signal than a simple distance-to-nearest-stop threshold. If adopted, keep distance as a secondary sanity check rather than the sole service-area heuristic.
+**Application use:** ✅ **Yes.** `/geojson/bounds/compact` is cached locally and checked client-side before automatic nearest-stop selection and location-based Safe Place setup. If it is unavailable, the existing conservative distance/accuracy logic remains the fallback.
+
+**Value:** ★★★★★. `/geojson/bounds/compact` is a better “are you inside the Föli region?” signal than a simple distance-to-nearest-stop threshold. If adopted, keep distance as a secondary sanity check rather than the sole service-area heuristic.
 
 ---
 
@@ -1073,15 +1076,15 @@ Provider-documented trade-off:
 | pinned `/routes` | route ID/name/type/color metadata | Important enrichment |
 | `/alerts` | global/emergency messages, stop/route messages, cancellations | Core pre-trip context |
 | `/siri/vm` | unused | Not justified yet |
-| `trips` | unused | High-value future relationship data |
-| `stop_times` | unused | High-value future relationship data |
+| `trips` | trip-specific accessibility/headsign enrichment + route membership lookups | High-value progressive enrichment |
+| `stop_times` | boardable stop→trip membership + lazy next-stop sequence | High-value correctness and journey context |
 | `shapes` | unused | Future maps only |
 | `calendar*` | unused | Future planned-service logic |
 | `trip_notes` | unused | Optional timetable semantics |
 | `translations` | unused | Future app-wide localization |
 | `/alerts/categories` | unused | Optional UX enrichment |
-| alert images/channels | unused | Low/medium |
-| `/geojson/bounds/compact` | unused | High-value location correctness |
+| alert images/channels | images used on explicit expansion; channel flags remain unused | High for detours/stop moves |
+| `/geojson/bounds/compact` | client-side service-area validation for geolocation flows | High-value location correctness |
 | GEOJSON POIs | unused | Optional support/travel-help feature |
 
 ## Data minimization is intentional
@@ -1107,38 +1110,27 @@ Not using every available field is a feature, not a deficiency. For every provid
 4. Preserve outage backoff and visible-tab-only realtime polling.
 5. Continue treating provider timestamps and vehicle coordinates as estimates.
 
-## P1 — complete disruption coverage
+## Implemented high-value safeguards
 
-Precompute or locally derive:
+- route-only ALERTS use progressive static stop/route membership without downloading `trips/all`
+- `/geojson/bounds/compact` is checked locally before automatic geolocation decisions
+- fresh `vehicleatstop` truth is preferred before distance heuristics
+- `destinationdisplay_en` / `destinationdisplay_sv` are selected by browser language with fallback
+- `__tripref` is accepted only as optional enrichment; core departures never depend on it
+- trip-specific `wheelchair_accessible` is shown only for explicit values
+- `stop_times/trip` powers lazy “Next stops”; `timepoint=0` is labelled approximate
+- `pickup_type=1` is excluded from boarding-route membership
+- ALERTS media and validity are surfaced conservatively
 
-```text
-stop_id → trips → route_id
-```
+## Remaining candidates
 
-from one pinned GTFS dataset. Use that full route set to match `affected_routes`. Avoid downloading `trips/all` repeatedly on mobile; cache/precompute intelligently.
-
-## P1 — replace service-area distance heuristic
-
-Use `/geojson/bounds/compact` with a local point-in-multipolygon check. This directly answers whether the user's one-time coordinate lies inside the Föli region and costs only a small static payload.
-
-## P2 — richer but honest realtime status
-
-Candidate SM fields:
-- `vehicleatstop`: stronger than a distance-only “nearby” statement
-- `destinationdisplay_en` / `destinationdisplay_sv`: localized destinations
-- `vehicleref`: better diagnostic identity
-- `incongestion`: only if clearly labeled as provider status
+- `vehicleref`: useful mainly for diagnostics or a future vehicle-detail surface
+- `incongestion`: consider only with clear provider-attributed wording and proven live coverage
+- `platform_code`: progressive enhancement for the small subset of stops where it is populated
+- GEOJSON service/ticket POIs: potentially valuable support flow, but not core departure information
+- Vehicle Monitoring: justify bandwidth with a concrete user problem before adding a fleet/map feature
 
 Do **not** present `__tripref`, `__routeref` or other double-underscore fields as stable public contracts without a fallback.
-
-## P2 — accessibility and bike information
-
-Use:
-- `stops.wheelchair_boarding`
-- `trips.wheelchair_accessible`
-- `trips.bikes_allowed`
-
-only after validating value coverage and product semantics across the current dataset.
 
 ---
 
@@ -1173,9 +1165,13 @@ Observed approximate snapshot:
 | ALERTS categories | 12 |
 
 Other verified live characteristics:
-- current `stops` includes `wheelchair_boarding`
-- current trips include `bikes_allowed`
-- current stop_times include `timepoint`
+- `wheelchair_boarding` was `0` (unknown) for all 3575 audited stops, so the app does not make stop-level accessibility claims from it
+- `wheelchair_accessible` had an explicit yes/no value for 12,216 of 12,417 audited trips; this supports trip-level accessibility enrichment
+- `bikes_allowed` was `0` (unknown) for all 12,417 audited trips, so the app does not show a bike-access claim
+- `pickup_type=1` appeared in 14,196 of 549,037 audited stop-time rows and is treated as no boarding for route membership
+- `timepoint=0` appeared in 461,843 stop-time rows and is surfaced as approximate planned time rather than exact
+- a 40-stop SIRI sample exposed `vehicleatstop` on every sampled arrival and `destinationdisplay_sv` on most sampled rows; English destination coverage was materially lower, so fallback remains mandatory
+- at the audit instant, 13 of 15 active ALERTS messages contained images, supporting explicit on-demand disruption media
 - current GTFS metadata advertises `trip_notes` and `translations`
 - current `calendar` is populated despite historical docs claiming it could be ignored
 - live `/gtfs` without trailing slash returned 404 while `/gtfs/` and `/gtfs/v0` returned metadata

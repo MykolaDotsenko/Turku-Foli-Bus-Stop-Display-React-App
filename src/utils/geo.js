@@ -88,3 +88,78 @@ export function formatAccuracy(accuracyMeters) {
   if (!Number.isFinite(accuracyMeters) || accuracyMeters < 0) return "";
   return formatDistance(accuracyMeters);
 }
+
+
+function pointOnSegment(point, start, end, epsilon = 1e-10) {
+  const [x, y] = point;
+  const [x1, y1] = start;
+  const [x2, y2] = end;
+  const cross = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1);
+
+  if (Math.abs(cross) > epsilon) return false;
+
+  return (
+    x >= Math.min(x1, x2) - epsilon &&
+    x <= Math.max(x1, x2) + epsilon &&
+    y >= Math.min(y1, y2) - epsilon &&
+    y <= Math.max(y1, y2) + epsilon
+  );
+}
+
+function pointInRing(point, ring) {
+  if (!Array.isArray(ring) || ring.length < 4) return false;
+
+  let inside = false;
+  const [x, y] = point;
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const current = ring[i];
+    const previous = ring[j];
+
+    if (
+      !Array.isArray(current) ||
+      current.length < 2 ||
+      !Array.isArray(previous) ||
+      previous.length < 2
+    ) {
+      continue;
+    }
+
+    if (pointOnSegment(point, previous, current)) return true;
+
+    const [xi, yi] = current;
+    const [xj, yj] = previous;
+    const crosses =
+      yi > y !== yj > y &&
+      x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+
+    if (crosses) inside = !inside;
+  }
+
+  return inside;
+}
+
+export function isInsideMultiPolygon(position, geometry) {
+  const lat = coordinate(position?.lat, -90, 90);
+  const lon = coordinate(position?.lon, -180, 180);
+
+  if (
+    lat === null ||
+    lon === null ||
+    geometry?.type !== "MultiPolygon" ||
+    !Array.isArray(geometry.coordinates)
+  ) {
+    return null;
+  }
+
+  const point = [lon, lat];
+
+  return geometry.coordinates.some((polygon) => {
+    if (!Array.isArray(polygon) || polygon.length === 0) return false;
+
+    const [outer, ...holes] = polygon;
+    if (!pointInRing(point, outer)) return false;
+
+    return !holes.some((hole) => pointInRing(point, hole));
+  });
+}

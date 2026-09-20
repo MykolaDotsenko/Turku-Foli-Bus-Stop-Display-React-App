@@ -62,12 +62,21 @@ function routeNamesFor(message, routesById) {
     .filter(Boolean);
 }
 
-function messageMatchesContext(message, stopId, activeLines, routesById) {
+function messageMatchesContext(
+  message,
+  stopId,
+  activeLines,
+  routesById,
+  servedRouteIds
+) {
   const stopMatch = asArray(message?.affected_stops).some(
     (affectedStop) => String(affectedStop) === String(stopId)
   );
 
   if (stopMatch) return true;
+
+  const routeIds = asArray(message?.affected_routes).map(String);
+  if (routeIds.some((routeId) => servedRouteIds.has(routeId))) return true;
 
   const routeNames = routeNamesFor(message, routesById);
   return routeNames.some((line) => activeLines.has(line));
@@ -87,16 +96,69 @@ function effectLabel(effect) {
   return labels[effect] || "Service update";
 }
 
+
+function safeImageUrl(value) {
+  const raw = text(value);
+  if (!raw) return "";
+
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^https:\/\/[^\s]+$/i.test(raw)) return raw;
+
+  return "";
+}
+
+function normalizeImages(value) {
+  return asArray(value)
+    .map((image) => ({
+      url: safeImageUrl(image?.url),
+      title: text(image?.title),
+      type: text(image?.type),
+    }))
+    .filter((image) => image.url)
+    .slice(0, 4);
+}
+
+function normalizeValidity(repeat, referenceTime) {
+  const periods = asArray(repeat)
+    .map((period) => {
+      if (!Array.isArray(period) || period.length < 2) return null;
+      const start = Number(period[0]);
+      const end = Number(period[1]);
+      return {
+        start: Number.isFinite(start) && start > 0 ? start : null,
+        end: Number.isFinite(end) && end > 0 ? end : null,
+      };
+    })
+    .filter(Boolean);
+
+  if (periods.length === 0) return null;
+
+  const now = Number.isFinite(Number(referenceTime))
+    ? Number(referenceTime)
+    : Math.floor(Date.now() / 1000);
+
+  return (
+    periods.find(
+      ({ start, end }) =>
+        (start === null || start <= now) && (end === null || end >= now)
+    ) ||
+    periods.find(({ start }) => start !== null && start > now) ||
+    periods[0]
+  );
+}
+
 function normalizeMessage(
   message,
   index,
   type,
   routesById,
-  preferredLanguages = []
+  preferredLanguages = [],
+  referenceTime = null
 ) {
   const routeNames = routeNamesFor(message, routesById);
   const effect = text(message?.effect);
   const localized = localizedFields(message, preferredLanguages);
+  const validity = normalizeValidity(message?.repeat, referenceTime);
 
   return {
     id: messageId(message, index, type),
@@ -116,6 +178,8 @@ function normalizeMessage(
     cause: text(message?.cause),
     icon: text(message?.icon),
     routeNames,
+    images: normalizeImages(message?.images),
+    validity,
   };
 }
 
@@ -123,7 +187,8 @@ function normalizeSpecial(
   value,
   type,
   fallbackTitle,
-  preferredLanguages = []
+  preferredLanguages = [],
+  referenceTime = null
 ) {
   if (!value) return null;
 
@@ -163,7 +228,8 @@ function normalizeSpecial(
     0,
     type,
     new Map(),
-    preferredLanguages
+    preferredLanguages,
+    referenceTime
   );
 
   return {
@@ -182,17 +248,23 @@ export function extractStopAlerts(
     lineRefs = [],
     routesById = new Map(),
     preferredLanguages = [],
+    servedRouteIds = new Set(),
   } = {}
 ) {
   if (!payload || Array.isArray(payload) || typeof payload !== "object") {
     return [];
   }
 
+  const referenceTime = Number(payload.servertime) || null;
+  const routeMembership =
+    servedRouteIds instanceof Set ? servedRouteIds : new Set(servedRouteIds);
+
   const emergency = normalizeSpecial(
     payload.emergency_message,
     "emergency",
     "Emergency service notice",
-    preferredLanguages
+    preferredLanguages,
+    referenceTime
   );
 
   if (emergency) return [emergency];
@@ -203,14 +275,21 @@ export function extractStopAlerts(
     payload.global_message,
     "global",
     "Föli service notice",
-    preferredLanguages
+    preferredLanguages,
+    referenceTime
   );
 
   const messages = asArray(payload.messages)
     .filter(
       (message) =>
         message?.isactive === true &&
-        messageMatchesContext(message, stopId, activeLines, routesById)
+        messageMatchesContext(
+          message,
+          stopId,
+          activeLines,
+          routesById,
+          routeMembership
+        )
     )
     .map((message, index) =>
       normalizeMessage(
@@ -218,7 +297,8 @@ export function extractStopAlerts(
         index,
         "message",
         routesById,
-        preferredLanguages
+        preferredLanguages,
+        referenceTime
       )
     );
 

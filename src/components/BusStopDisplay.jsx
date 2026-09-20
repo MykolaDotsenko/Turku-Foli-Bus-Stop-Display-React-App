@@ -1,4 +1,7 @@
+import { useMemo } from "react";
 import styles from "./BusStopDisplay.module.css";
+import TripJourneyDetails from "./TripJourneyDetails";
+import useTripEnrichment from "../hooks/useTripEnrichment";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor } from "../utils/routes";
 import {
@@ -16,8 +19,19 @@ const MAX_VISIBLE_DEPARTURES = 10;
 const DEPARTED_GRACE_SECONDS = 30;
 
 function vehicleProximity(arrival, stop, route, serverTime) {
+  if (!arrival.monitored) return "";
+
+  const vehicle = route?.type === 4 ? "Waterbus" : "Bus";
+  const ageSeconds = dataAgeSeconds(arrival.recordedattime, serverTime);
+
   if (
-    !arrival.monitored ||
+    arrival.vehicleatstop === true &&
+    (ageSeconds === null || ageSeconds <= 120)
+  ) {
+    return `${vehicle} at stop · board now`;
+  }
+
+  if (
     !hasCoordinates(stop) ||
     !hasCoordinates({ lat: arrival.latitude, lon: arrival.longitude })
   ) {
@@ -29,9 +43,6 @@ function vehicleProximity(arrival, stop, route, serverTime) {
     stop
   );
   if (!Number.isFinite(distance)) return "";
-
-  const vehicle = route?.type === 4 ? "Waterbus" : "Bus";
-  const ageSeconds = dataAgeSeconds(arrival.recordedattime, serverTime);
 
   if (ageSeconds !== null && ageSeconds > 120) {
     return `Last ${vehicle.toLowerCase()} position ≈${formatDistance(
@@ -56,10 +67,45 @@ function routeBadgeStyle(route) {
   };
 }
 
+
+function browserLanguages() {
+  if (typeof navigator === "undefined") return ["en"];
+  const languages = Array.isArray(navigator.languages)
+    ? navigator.languages
+    : [navigator.language];
+  return languages.filter(Boolean);
+}
+
+function localizedDestination(arrival, preferredLanguages) {
+  for (const language of preferredLanguages) {
+    const base = String(language || "").toLowerCase().split("-")[0];
+    if (base === "sv" && arrival.destinationdisplay_sv) {
+      return arrival.destinationdisplay_sv;
+    }
+    if (base === "en" && arrival.destinationdisplay_en) {
+      return arrival.destinationdisplay_en;
+    }
+  }
+
+  return (
+    arrival.destinationdisplay ||
+    arrival.destinationdisplay_en ||
+    arrival.destinationdisplay_sv ||
+    ""
+  );
+}
+
+function wheelchairLabel(value) {
+  if (value === 1) return "Wheelchair accessible";
+  if (value === 2) return "Wheelchair access not available";
+  return "";
+}
+
 function BusStopDisplay({
   stopId,
   stopName,
   stop,
+  stops = [],
   arrivals,
   routesByShortName,
   serverTime,
@@ -95,6 +141,12 @@ function BusStopDisplay({
   const realtimeCount = visibleArrivals.filter(
     (arrival) => arrival.monitored
   ).length;
+  const tripDetailsById = useTripEnrichment(visibleArrivals);
+  const stopsById = useMemo(
+    () => new Map(stops.map((candidate) => [candidate.id, candidate])),
+    [stops]
+  );
+  const preferredLanguages = useMemo(browserLanguages, []);
 
   return (
     <section
@@ -208,12 +260,22 @@ function BusStopDisplay({
                   route,
                   effectiveServerTime
                 );
+                const tripDetails = arrival.tripref
+                  ? tripDetailsById.get(arrival.tripref)
+                  : null;
+                const destination =
+                  localizedDestination(arrival, preferredLanguages) ||
+                  tripDetails?.headsign ||
+                  "Unknown destination";
+                const accessibility = wheelchairLabel(
+                  tripDetails?.wheelchairAccessible
+                );
 
                 return (
                   <tr
                     key={[
                       arrival.lineref,
-                      arrival.destinationdisplay,
+                      arrival.tripref || arrival.destinationdisplay,
                       departureTime,
                       index,
                     ].join("-")}
@@ -228,12 +290,32 @@ function BusStopDisplay({
                       </span>
                     </td>
                     <td className={styles.destination}>
-                      {arrival.destinationdisplay || "Unknown destination"}
+                      {destination}
                       <span className={styles.tripMeta}>
                         {serviceStatus} · {formatClock(departureTime)}
                       </span>
+                      {accessibility && (
+                        <span
+                          className={styles.accessibility}
+                          data-accessible={
+                            tripDetails?.wheelchairAccessible === 1
+                              ? "true"
+                              : "false"
+                          }
+                        >
+                          {tripDetails?.wheelchairAccessible === 1 ? "♿ " : ""}
+                          {accessibility}
+                        </span>
+                      )}
                       {proximity && (
                         <span className={styles.proximity}>{proximity}</span>
+                      )}
+                      {arrival.tripref && (
+                        <TripJourneyDetails
+                          tripId={arrival.tripref}
+                          currentStopId={stopId}
+                          stopsById={stopsById}
+                        />
                       )}
                     </td>
                     <td className={styles.due}>
