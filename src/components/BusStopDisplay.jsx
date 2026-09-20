@@ -42,7 +42,7 @@ function BusStopDisplay({
         <div className={styles.stopHeading}>
           <div className={styles.stopTitleRow}>
             <h1 id="departures-title" className={styles.stopName}>
-              {stopName || (loading ? "Loading…" : \`Stop \${stopId}\`)}
+              {stopName || (loading ? "Loading…" : `Stop ${stopId}`)}
             </h1>
             {stopName && (
               <button
@@ -52,8 +52,8 @@ function BusStopDisplay({
                 aria-pressed={isFavorite}
                 aria-label={
                   isFavorite
-                    ? \`Remove \${stopName} from favorites\`
-                    : \`Save \${stopName} to favorites\`
+                    ? `Remove ${stopName} from favorites`
+                    : `Save ${stopName} to favorites`
                 }
                 title={isFavorite ? "Remove favorite" : "Save favorite"}
               >
@@ -63,7 +63,7 @@ function BusStopDisplay({
           </div>
           <p className={styles.stopMeta} aria-live="polite">
             Stop {stopId}
-            {serverTime ? \` · Updated \${formatClock(serverTime)}\` : ""}
+            {serverTime ? ` · Updated ${formatClock(serverTime)}` : ""}
             {refreshing ? " · Refreshing…" : ""}
           </p>
         </div>
