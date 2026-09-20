@@ -4,6 +4,7 @@ import useOnlineStatus from "./useOnlineStatus";
 
 const originalOnLine = Object.getOwnPropertyDescriptor(navigator, "onLine");
 const originalFetch = globalThis.fetch;
+const originalCaches = Object.getOwnPropertyDescriptor(globalThis, "caches");
 
 function setOnline(value) {
   Object.defineProperty(navigator, "onLine", {
@@ -23,6 +24,14 @@ afterEach(() => {
   }
 
   globalThis.fetch = originalFetch;
+
+  if (originalCaches) {
+    Object.defineProperty(globalThis, "caches", originalCaches);
+  } else {
+    delete globalThis.caches;
+  }
+
+  localStorage.clear();
 });
 
 test("reacts immediately to an explicit browser offline event", async () => {
@@ -136,4 +145,25 @@ test("persists an offline hint on pagehide before a PWA-style reload", async () 
 
   expect(globalThis.localStorage.getItem("foli-offline-hint")).toBe("1");
   unmount();
+});
+
+
+test("keeps the app in degraded mode when the service worker served the shell offline", async () => {
+  setOnline(true);
+  localStorage.setItem("foli-offline-hint", "1");
+
+  const match = vi.fn().mockResolvedValue(new Response("offline"));
+  const keys = vi.fn().mockResolvedValue([]);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: { match, keys },
+  });
+
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result } = renderHook(() => useOnlineStatus());
+
+  await waitFor(() => expect(result.current).toBe(false));
+  expect(match).toHaveBeenCalledWith("/__foli_offline_shell__");
+  expect(globalThis.fetch).not.toHaveBeenCalled();
 });
