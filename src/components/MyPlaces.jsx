@@ -24,6 +24,7 @@ function SetupPlace({
   preset,
   candidates,
   accuracy,
+  preselectFirst = false,
   onCancel,
   onSave,
 }) {
@@ -32,11 +33,13 @@ function SetupPlace({
     accuracy <= LOW_ACCURACY_METERS &&
     Number.isFinite(candidates[0]?.distanceMeters) &&
     candidates[0].distanceMeters <= AUTO_PRESELECT_MAX_DISTANCE_METERS;
+  const shouldPreselectFirst = preselectFirst || reliableLocation;
   const [selectedIds, setSelectedIds] = useState(
-    () => new Set(reliableLocation && candidates[0] ? [candidates[0].id] : [])
+    () =>
+      new Set(shouldPreselectFirst && candidates[0] ? [candidates[0].id] : [])
   );
   const [primaryStopId, setPrimaryStopId] = useState(
-    reliableLocation ? candidates[0]?.id || "" : ""
+    shouldPreselectFirst ? candidates[0]?.id || "" : ""
   );
   const [confirmedSafe, setConfirmedSafe] = useState(false);
 
@@ -64,7 +67,7 @@ function SetupPlace({
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
   const confirmationLabel = `I confirm the selected ${
     selectedStops.length === 1 ? "stop is" : "stops are"
-  } safe and useful for arriving at ${preset.label}.`;
+  } suitable and intended for arriving at ${preset.label}.`;
 
   return (
     <section
@@ -84,19 +87,22 @@ function SetupPlace({
       </div>
 
       <p className={styles.helper}>
-        When location quality is good and a stop is reasonably close, the
-        nearest stop is selected first. Otherwise you must choose manually.
-        Add backup stops only if you know they are safe and useful for arriving
-        at {preset.label}. Only public stop IDs and names are saved; your exact
-        location is discarded.
+        {preselectFirst
+          ? "Review the public stop you selected and confirm that it is suitable for this destination."
+          : "When location quality is good and a stop is reasonably close, the nearest stop is selected first. Otherwise you must choose manually."}
+        {" "}Add backup stops only if you know they are suitable and familiar for
+        arriving at {preset.label}. Only public stop IDs and names are saved;
+        your exact location is discarded.
       </p>
 
       <p className={styles.meta}>
-        {Number.isFinite(accuracy)
-          ? `Location accuracy ±${formatAccuracy(accuracy)}`
-          : "Location accuracy unavailable"}
-        {!reliableLocation
-          ? " · no stop was preselected — choose and confirm a safe arrival stop yourself"
+        {preselectFirst
+          ? "Using the stop you selected manually"
+          : Number.isFinite(accuracy)
+            ? `Location accuracy ±${formatAccuracy(accuracy)}`
+            : "Location accuracy unavailable"}
+        {!preselectFirst && !reliableLocation
+          ? " · no stop was preselected — choose and confirm an arrival stop yourself"
           : ""}
       </p>
 
@@ -421,6 +427,7 @@ function MyPlaces({
   const [setupId, setSetupId] = useState("");
   const [setupCandidates, setSetupCandidates] = useState([]);
   const [setupAccuracy, setSetupAccuracy] = useState(null);
+  const [setupPreselectFirst, setSetupPreselectFirst] = useState(false);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
@@ -475,11 +482,24 @@ function MyPlaces({
       setSetupId(preset.id);
       setSetupCandidates(nearest);
       setSetupAccuracy(position.accuracy);
+      setSetupPreselectFirst(false);
       setStatus("ready");
     } catch (locationError) {
       setStatus("idle");
       setError(locationErrorMessage(locationError));
     }
+  };
+
+  const startFromSelectedStop = (placeId) => {
+    const preset = PLACE_PRESETS.find((candidate) => candidate.id === placeId);
+    if (!preset || !activeStop) return;
+
+    setError("");
+    setSetupId(preset.id);
+    setSetupCandidates([{ id: activeStop.id, name: activeStop.name }]);
+    setSetupAccuracy(null);
+    setSetupPreselectFirst(true);
+    setStatus("ready");
   };
 
   return (
@@ -553,16 +573,10 @@ function MyPlaces({
                   <button
                     type="button"
                     className={styles.textButton}
-                    onClick={() =>
-                      onSavePlace({
-                        id: preset.id,
-                        stops: [{ id: activeStop.id, name: activeStop.name }],
-                        primaryStopId: activeStop.id,
-                      })
-                    }
-                    aria-label={`Save selected stop as ${preset.label}`}
+                    onClick={() => startFromSelectedStop(preset.id)}
+                    aria-label={`Review selected stop for ${preset.label}`}
                   >
-                    Save selected stop
+                    Review selected stop
                   </button>
                 )}
               </div>
@@ -582,10 +596,12 @@ function MyPlaces({
           preset={PLACE_PRESETS.find((preset) => preset.id === setupId)}
           candidates={setupCandidates}
           accuracy={setupAccuracy}
+          preselectFirst={setupPreselectFirst}
           onCancel={() => {
             setSetupId("");
             setSetupCandidates([]);
             setSetupAccuracy(null);
+            setSetupPreselectFirst(false);
             setStatus("idle");
           }}
           onSave={(place) => {
@@ -593,6 +609,7 @@ function MyPlaces({
             setSetupId("");
             setSetupCandidates([]);
             setSetupAccuracy(null);
+            setSetupPreselectFirst(false);
             setStatus("idle");
           }}
         />
