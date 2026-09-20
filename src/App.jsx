@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
 import useSavedStops from "./hooks/useSavedStops";
@@ -90,6 +91,12 @@ function App() {
           onSubmit={selectStop}
         />
       </section>
+
+      <NearbyStops
+        stops={stops}
+        activeStopId={stopId}
+        onSelect={selectStop}
+      />
 
       <QuickStops
         favorites={favorites}
