@@ -220,6 +220,53 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   expect(mapsUrl.searchParams.has("origin")).toBe(false);
 });
 
+
+test("saves Home as a privacy-first safe arrival zone", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+  });
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Set up Home where I am now" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Choose safe stops for Home" })
+  ).toBeVisible();
+  await expect(page.getByText(/Location accuracy/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Save Home" }).click();
+
+  const goHome = page.getByRole("link", {
+    name: "Go Home by public transit",
+  });
+  await expect(goHome).toBeVisible();
+
+  const href = await goHome.getAttribute("href");
+  const transitUrl = new globalThis.URL(href);
+  expect(transitUrl.searchParams.get("travelmode")).toBe("transit");
+  expect(transitUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
+  expect(transitUrl.searchParams.has("origin")).toBe(false);
+
+  const placeStorage = await page.evaluate(() =>
+    localStorage.getItem("foli-my-places-v1")
+  );
+  expect(placeStorage).toContain('"id":"164"');
+  expect(placeStorage).not.toContain("60.45182");
+  expect(placeStorage).not.toContain("22.26662");
+  expect(placeStorage).not.toContain("distanceMeters");
+});
+
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -256,7 +303,29 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   }
 
   await page.goto("/?stop=164");
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "foli-my-places-v1",
+      JSON.stringify([
+        {
+          id: "home",
+          label: "Home",
+          icon: "⌂",
+          primaryStopId: "164",
+          stops: [
+            { id: "164", name: "Kauppatori" },
+            { id: "32", name: "Puistokatu" },
+          ],
+          updatedAt: 1,
+        },
+      ])
+    );
+  });
+  await page.reload();
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Go Home by public transit" })
+  ).toBeVisible();
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
   const fileName =

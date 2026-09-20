@@ -18,18 +18,27 @@ These screenshots are generated from the same deterministic Playwright flow that
 
 ## Daily workflow
 
-1. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
-2. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
-3. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**.
-4. Scan line, destination, due time, realtime status, official Föli route identity, and — when available — the live vehicle's approximate distance from the stop.
-5. Save frequent stops with **☆**.
-6. Return to favorites or recent stops in one tap.
-7. Use browser Back/Forward or share a bookmarkable stop URL.
+1. Save **Home, School or Work** once as a **Safe Arrival Zone** made from 1–3 public Föli stops — no private address required.
+2. Tap **Go Home / Go School / Go Work** to open public-transit directions to the primary safe stop. The external URL omits the user's origin.
+3. If location access is unavailable, search/select a stop normally and save that public stop to My Places.
+4. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
+5. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
+6. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**.
+7. Scan line, destination, due time, realtime status, official Föli route identity, and — when available — the live vehicle's approximate distance from the stop.
+8. Save frequent stops with **☆** and return to favorites or recent stops in one tap.
+9. Use **Show driver** when a child or newcomer needs a simple destination card instead of remembering or pronouncing an address.
 
-No account, backend, tracking, or setup is required. Favorites and recents stay in the browser. Location is requested only after a user action and coordinates are not persisted.
+No account, backend, or tracking is required. Favorites, recents and My Places stay in the browser. My Places stores public stop IDs/names only; the exact location used during setup is discarded. Location is requested only after a user action.
 
 ## Product decisions
 
+- **My Places** replaces memorized private addresses with intent-based destinations such as Home, School and Work
+- each place is a **Safe Arrival Zone** of up to three public Föli stops; one is primary and the others are backups
+- setup by **where I am now** uses one-time geolocation only to discover nearby public stops, then discards the exact position
+- a no-geolocation fallback lets the user search/select a stop and save that public stop directly
+- **Go Home / School / Work** launches keyless transit directions to the primary public stop with no origin embedded in the URL
+- **Show driver** provides a large stop-focused destination card plus a simple Finnish help sentence
+- place editing/removal is kept behind Manage instead of exposing destructive controls in the main child-friendly flow
 - one-tap geolocation removes the need to know a nearby stop's name or number
 - the closest stop is selected automatically only when location quality is reasonable, the device is near the Föli network, and one candidate is meaningfully closer than the next
 - the three nearest alternatives remain visible because the physically closest stop may serve the wrong travel direction
@@ -106,12 +115,14 @@ hooks/
   useStopCatalog.js   non-blocking SIRI catalogue + async GTFS enrichment
   useRouteCatalog.js  cached route identity/colors for line recognition + alerts
   useSavedStops.js    local-first favorites + recents
+  useSavedPlaces.js   privacy-first Home / School / Work safe-stop zones
   useStopAlerts.js    conservative active-disruption polling
         ↓
 App.jsx
         ↓
 BusStopForm.jsx       search / accessible autocomplete
 NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
+MyPlaces.jsx          address-free Safe Arrival Zones + transit handoff + driver card
 QuickStops.jsx        favorites / recents
 ServiceAlerts.jsx     stop + route disruptions / emergency + global notices
 BusStopDisplay.jsx    live departure board + route identity + vehicle proximity
@@ -119,7 +130,8 @@ BusStopDisplay.jsx    live departure board + route identity + vehicle proximity
 utils/
   geo.js              Haversine distance + nearest-stop + vehicle distance
   routes.js           route indexing + WCAG-safe route text color
-  maps.js             keyless privacy-conscious walking directions URL
+  maps.js             keyless privacy-conscious walking + transit URLs
+  location.js         shared one-time geolocation + timeout fallback semantics
   time.js             timing + freshness semantics
   alerts.js           pure alert filtering
 ~~~
@@ -141,7 +153,10 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - geolocation is requested only from a direct user gesture
 - high-accuracy geolocation timeout retries once with a lower-power cached-position strategy
 - low-accuracy, far-from-network, and ambiguous opposite-direction results do not silently auto-select a stop
-- walking navigation is an explicit external handoff; the user's origin is not embedded in the generated Maps URL
+- walking and transit navigation are explicit external handoffs; the user's origin is not embedded in generated Maps URLs
+- My Places persistence strips coordinates, distance and any other setup-only fields before writing to storage
+- only public stop IDs/names are persisted for Safe Arrival Zones; exact home/school/work coordinates are not required
+- Safe Arrival setup is capped at three stops and refuses clearly out-of-network location results
 - service alerts refresh conservatively every five minutes while visible
 - the last successful raw alert payload is re-filtered locally when the active stop, visible lines, or route metadata changes
 - route-only disruptions are matched through GTFS route_id → route_short_name rather than guessed from identifiers
@@ -160,6 +175,8 @@ Accessibility is a release gate, not a checklist claim.
 - full keyboard autocomplete navigation
 - location feedback uses status/alert semantics rather than visual-only state
 - nearest-stop buttons expose stop name, number, and distance to assistive technology
+- Safe Arrival setup uses native checkbox/radio semantics to distinguish allowed stops from the primary stop
+- Show driver uses a labelled dialog region and does not rely on color or map interpretation
 - official line colors are paired with runtime contrast correction before rendering text
 - alert effect labels, route scope and expandable detail text remain available without color dependence
 - walking-direction links have explicit destination-aware accessible names and keyboard focus states
@@ -179,7 +196,7 @@ Every pull request to `master` must pass:
 | Gate | Coverage |
 | --- | --- |
 | ESLint | JavaScript/JSX correctness + React Hooks rules |
-| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, stop/vehicle distance math, Maps URL privacy, failure states |
+| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence privacy, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
 | Production build | Vite production compilation |
 | Playwright · Chromium | real DOM daily-flow + real browser geolocation permission flow |
 | Playwright · Firefox | cross-browser behavior |
@@ -244,6 +261,8 @@ Source: Turku region public transport transit and timetable data, maintained by 
 Official Stop Monitoring documentation: https://data.foli.fi/doc/siri/v0/sm-en
 
 Official GTFS stops documentation: https://data.foli.fi/doc/gtfs/v0/stops
+
+Google Maps URLs documentation (keyless directions handoff): https://developers.google.com/maps/documentation/urls/get-started
 
 This is an independent portfolio project and is not an official Föli application.
 
