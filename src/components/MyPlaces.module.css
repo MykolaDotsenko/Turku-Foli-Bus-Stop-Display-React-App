@@ -245,6 +245,13 @@
   color: #60747d;
 }
 
+.sharePrivacyHint {
+  margin: 8px 0 0;
+  color: #60747d;
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+
 .shareFeedback {
   margin: 8px 0 0;
   color: #486067;
