@@ -125,6 +125,7 @@ function App() {
       <MyPlaces
         stops={stops}
         coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId}
         placesById={placesById}
         onSavePlace={savePlace}
         onRemovePlace={removePlace}
