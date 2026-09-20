@@ -87,7 +87,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is safe and useful for arriving at Home/i,
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -187,7 +187,7 @@ test("shows a simple driver card without exposing a private address", () => {
 });
 
 
-test("can save the already-selected public stop when location is unavailable", () => {
+test("reviews and confirms the selected public stop when location is unavailable", () => {
   const onSavePlace = vi.fn();
 
   render(
@@ -204,8 +204,23 @@ test("can save the already-selected public stop when location is unavailable", (
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Save selected stop as Home" })
+    screen.getByRole("button", { name: "Review selected stop for Home" })
   );
+
+  expect(
+    screen.getByRole("heading", { name: "Choose safe stops for Home" })
+  ).toBeInTheDocument();
+  expect(screen.getByText("Using the stop you selected manually")).toBeInTheDocument();
+
+  const saveHome = screen.getByRole("button", { name: "Save Home" });
+  expect(saveHome).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+    })
+  );
+  fireEvent.click(saveHome);
 
   expect(onSavePlace).toHaveBeenCalledWith({
     id: "home",
@@ -388,7 +403,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is safe and useful for arriving at Home/i,
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -398,7 +413,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stops are safe and useful for arriving at Home/i,
+      name: /I confirm the selected stops are suitable and intended for arriving at Home/i,
     })
   );
   fireEvent.click(saveHome);
