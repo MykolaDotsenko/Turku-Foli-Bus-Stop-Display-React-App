@@ -6,7 +6,7 @@ const MAX_VISIBLE_NEXT_STOPS = 7;
 
 function formatGtfsClock(value) {
   if (typeof value !== "string") return "";
-  const match = value.match(/^(\d{1,2}):(\d{2}):\d{2}$/);
+  const match = value.match(/^(\d{1,3}):(\d{2}):\d{2}$/);
   if (!match) return "";
 
   const hour = Number(match[1]);
