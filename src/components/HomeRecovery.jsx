@@ -46,7 +46,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <p className={styles.kicker}>Travel recovery</p>
         <h2 id="home-recovery-title">Need help getting home?</h2>
         <p className={styles.description}>
-          Travel help only · not an emergency service.
+          Travel help, not an emergency service.
         </p>
       </div>
 
