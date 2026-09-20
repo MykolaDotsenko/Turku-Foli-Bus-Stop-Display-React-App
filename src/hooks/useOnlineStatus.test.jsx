@@ -152,7 +152,7 @@ test("keeps the app in degraded mode when the service worker served the shell of
   setOnline(true);
   localStorage.setItem("foli-offline-hint", "1");
 
-  const match = vi.fn().mockResolvedValue(new Response("offline"));
+  const match = vi.fn().mockResolvedValue(new globalThis.Response("offline"));
   const keys = vi.fn().mockResolvedValue([]);
   Object.defineProperty(globalThis, "caches", {
     configurable: true,
