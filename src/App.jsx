@@ -177,14 +177,6 @@ function App() {
         />
       </section>
 
-      <NearbyStops
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        online={online}
-        onSelect={selectStop}
-      />
-
       <QuickStops
         favorites={favorites}
         recents={recents}
@@ -212,6 +204,14 @@ function App() {
         onRefresh={() => refresh()}
         isFavorite={favoriteIds.has(stopId)}
         onToggleFavorite={() => toggleFavorite(currentStop)}
+      />
+
+      <NearbyStops
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId}
+        online={online}
+        onSelect={selectStop}
       />
 
       {!sharedPlace && (
