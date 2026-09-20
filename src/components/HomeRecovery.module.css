@@ -378,3 +378,103 @@
     grid-column: auto;
   }
 }
+
+
+.mobileOptions {
+  display: none;
+}
+
+.mobileRouteNote {
+  margin: 8px 0 0;
+  color: #3f5960;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.mobileOptionActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 620px) {
+  .wrapper {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 15px;
+  }
+
+  .copy {
+    display: none;
+  }
+
+  .destination {
+    min-height: 48px;
+    padding: 7px 9px;
+  }
+
+  .destination strong,
+  .destination small,
+  .status,
+  .backupHint,
+  .backups,
+  .batteryBackup {
+    font-size: 0.8125rem;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    min-height: 44px;
+    font-size: 0.875rem;
+  }
+
+  .desktopSecondary,
+  .routeNote {
+    display: none;
+  }
+
+  .mobileOptions {
+    display: block;
+    grid-column: 1 / -1;
+    border-top: 1px solid #cfe1e3;
+    padding-top: 4px;
+    color: #3f5960;
+    font-size: 0.8125rem;
+  }
+
+  .mobileOptions summary,
+  .backups summary,
+  .batteryBackup summary {
+    display: flex;
+    min-height: 44px;
+    width: 100%;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 850;
+  }
+
+  .backupActions a,
+  .backupActions button,
+  .printButton {
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+  }
+
+  .printButton {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .mobileOptionActions {
+    grid-template-columns: 1fr;
+  }
+}
