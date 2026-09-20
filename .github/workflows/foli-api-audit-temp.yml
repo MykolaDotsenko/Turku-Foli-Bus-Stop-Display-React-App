@@ -140,7 +140,7 @@ jobs:
           }
 
           // GTFS metadata + coherent pinned dataset
-          const gtfsMeta = await request(`${ORIGIN}/gtfs`);
+          const gtfsMeta = await request(`${ORIGIN}/gtfs/`);
           log("GTFS /gtfs", summary(gtfsMeta));
 
           const gtfs = gtfsMeta.data || {};
