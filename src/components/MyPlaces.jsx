@@ -184,8 +184,9 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
       </h3>
       <p className={styles.helper}>
         This link contains public Föli stop IDs and names, not an exact private
-        address. Those stops can still reveal the general area of this place,
-        so accept shared places only from someone you trust.
+        address. Those stops can still reveal the general area of this place.
+        The app cannot verify who created the link, so accept shared places only
+        from someone you trust.
       </p>
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
