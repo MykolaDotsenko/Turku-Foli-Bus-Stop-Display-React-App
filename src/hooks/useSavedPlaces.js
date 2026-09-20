@@ -104,7 +104,7 @@ export default function useSavedPlaces() {
         stops: normalizedStops,
         primaryStopId: resolvedPrimary,
         updatedAt: Date.now(),
-        validatedAt: Date.now(),
+        validatedAt: 0,
         needsReview: false,
       };
 
