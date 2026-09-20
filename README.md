@@ -1,105 +1,140 @@
 # Föli Live Departures
 
-A small, production-minded React departure board for Turku region public transport.
+A fast, local-first departure board for Turku-region public transport, designed for the everyday moment when you need to answer one question quickly:
 
-Enter a Föli stop number and get the information that matters most: **line, destination, and time to departure**.
+> **When does my next bus leave?**
 
-## Product principles
+**Live demo:** https://nuppu-assignment.vercel.app
 
-- one primary task: check the next departures
-- departure time is preferred over arrival time
-- scheduled vehicles are never presented as real-time
+## Daily workflow
+
+1. Search by **stop name or stop number**.
+2. Read the next departures at a glance.
+3. Save a frequent stop with **☆**.
+4. Return to favorites or recent stops in one tap.
+5. Trust the status: **Live** means realtime vehicle data; **Scheduled** does not.
+
+No account, backend, tracking, or setup is required. Favorites and recents stay in the browser.
+
+## UX decisions
+
+- stop-name search removes the need to remember numeric stop IDs
+- keyboard-friendly autocomplete supports ↑ / ↓ / Enter / Escape
+- favorites optimize repeated commute flows
+- recent stops recover common journeys automatically
+- bookmarkable stop query URLs make stops shareable
+- browser Back/Forward follows stop navigation
+- the board keeps line, destination, and due time visually dominant
+- mobile controls use large touch targets and a single-column search action
+- loading, empty, stale, scheduled, realtime, and failed states are explicit
 - failed refreshes keep the last successful data for the same stop
-- data from one stop can never appear under another stop number
-- selected stops are bookmarkable with `?stop=<id>`
-- background tabs do not keep polling unnecessarily
-- no state library, design system, backend, or unnecessary abstraction
+- data from one stop can never render under another stop number
 
-## Architecture
+## Realtime semantics
 
-```text
-Föli SIRI API
-    ↓
-api/foliApi.js
-    ↓
-hooks/
-  useStopMonitor.js
-  useStopCatalog.js
-    ↓
-App.jsx
-    ↓
-BusStopForm.jsx + BusStopDisplay.jsx
-```
+Föli Stop Monitoring exposes both planned and estimated times. The board prefers:
 
-Responsibilities stay explicit:
-
-- **API module** — HTTP and response validation
-- **hooks** — polling, cancellation, caching, and UI state
-- **utils** — pure time/status formatting
-- **components** — interaction and presentation
-
-## Reliability
-
-The app:
-
-- polls every 30 seconds while the tab is visible
-- refreshes when the user returns to the tab
-- aborts obsolete requests
-- uses an 8-second request timeout
-- preserves same-stop data during temporary API failures
-- prevents previous-stop data from rendering under a new stop ID
-- handles loading, empty, stale, scheduled, and failed states explicitly
-- caches the stop catalog for 24 hours without making it a requirement
-- sorts the board by departure time
-
-Föli's Stop Monitoring API distinguishes planned and estimated arrival/departure times. This project uses:
-
-```text
+~~~text
 expecteddeparturetime
 → expectedarrivaltime
 → aimeddeparturetime
 → aimedarrivaltime
-```
+~~~
 
-as a defensive fallback order.
+A vehicle is only labelled **Live** when monitored is true.
+
+recordedattime is compared with the Föli servertime; older vehicle updates are surfaced as aged live data instead of pretending that every realtime estimate has equal freshness.
+
+Föli documents that Stop Monitoring replies may be cached by the provider for roughly 15–30 seconds and that realtime estimates can vary with traffic, connectivity, signals, and passenger loading. The UI therefore treats realtime values as estimates rather than promises.
+
+## Architecture
+
+~~~text
+Föli SIRI API
+    ↓
+api/foliApi.js
+  normalize + validate provider data
+    ↓
+hooks/
+  useStopMonitor.js   polling + cancellation + stale-data safety
+  useStopCatalog.js   24h optional stop catalogue cache
+  useSavedStops.js    local-first favorites + recents
+    ↓
+App.jsx
+    ↓
+BusStopForm.jsx     search / autocomplete
+QuickStops.jsx      favorites / recents
+BusStopDisplay.jsx  live departure board
+    ↓
+utils/time.js       pure timing + freshness semantics
+~~~
+
+The app intentionally avoids a router, global state library, backend, and design system. The product is small enough that browser APIs and focused React hooks keep the architecture easy to inspect and maintain.
+
+## Reliability
+
+- 30-second polling while the page is visible
+- immediate refresh when returning to the tab
+- obsolete requests are aborted
+- HTTP requests time out after 8 seconds
+- same-stop data survives temporary refresh failures
+- cross-stop stale-data leakage is prevented
+- provider payloads are normalized before reaching the UI
+- malformed arrivals are ignored defensively
+- stop catalogue caching is optional, not required for the core flow
+- background tabs do not create unnecessary Föli API load
+
+## Accessibility
+
+- semantic headings, form labels, table headers, status and alert regions
+- accessible combobox/listbox semantics
+- full keyboard autocomplete navigation
+- visible focus states
+- ARIA busy, live, invalid, and pressed states
+- reduced-motion support
+- forced-colors-aware styling
+- touch-friendly controls
 
 ## Stack
 
 - React 18
 - Vite 8
 - Vitest 5
+- Testing Library
 - Axios
 - CSS Modules
-- Testing Library
+- browser History, Storage, Visibility and AbortController APIs
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
 
-The build tooling is intentionally small. Vite replaces the retired Create React App toolchain without changing the application architecture.
-
 ## Run locally
 
-```bash
+~~~bash
 npm ci
 npm run dev
-```
+~~~
 
 Optional compatible API override:
 
-```bash
+~~~bash
 VITE_FOLI_API_URL=https://example.test/siri/sm npm run dev
-```
+~~~
 
 ## Quality checks
 
-```bash
+~~~bash
 npm test
 npm run build
-```
+~~~
 
 CI runs both checks on pushes and pull requests using Node 24.
 
+Tests cover departure-time semantics, delay/status formatting, stop ordering, failure states, stale-data safety, autocomplete selection, keyboard navigation, favorites, and recent-stop deduplication.
+
 ## Data source
 
-Source: Turku region public transport transit and timetable data, maintained by Turku region public transport and distributed through `data.foli.fi` under the Creative Commons Attribution 4.0 International license (CC BY 4.0).
+Source: Turku region public transport transit and timetable data, maintained by Turku region public transport and distributed through data.foli.fi under the Creative Commons Attribution 4.0 International license (CC BY 4.0).
 
-API documentation: https://data.foli.fi/doc/siri/v0/sm-en
+Official Stop Monitoring documentation: https://data.foli.fi/doc/siri/v0/sm-en
+
+This project is an independent portfolio project and is not an official Föli application.
