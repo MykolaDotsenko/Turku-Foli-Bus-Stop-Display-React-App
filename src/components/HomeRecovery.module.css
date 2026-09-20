@@ -618,3 +618,10 @@
     grid-column: auto;
   }
 }
+
+
+@media (max-width: 620px) {
+  .copy .description {
+    display: block;
+  }
+}
