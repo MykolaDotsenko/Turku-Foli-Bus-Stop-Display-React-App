@@ -384,13 +384,24 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   });
 
   const choices = screen.getAllByRole("checkbox");
+  const saveHome = screen.getByRole("button", { name: "Save Home" });
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is safe and useful for arriving at Home/i,
+    })
+  );
+  expect(saveHome).toBeEnabled();
+
   fireEvent.click(choices[1]);
+  expect(saveHome).toBeDisabled();
+
   fireEvent.click(
     screen.getByRole("checkbox", {
       name: /I confirm the selected stops are safe and useful for arriving at Home/i,
     })
   );
-  fireEvent.click(screen.getByRole("button", { name: "Save Home" }));
+  fireEvent.click(saveHome);
 
   await waitFor(() => expect(onSavePlace).toHaveBeenCalledTimes(1));
   expect(onSavePlace.mock.calls[0][0].stops).toEqual([
