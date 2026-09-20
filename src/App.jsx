@@ -54,6 +54,7 @@ function App() {
     stopName,
     arrivals,
     serverTime,
+    receivedAtMs,
     loading,
     refreshing,
     error,
@@ -192,6 +193,7 @@ function App() {
         arrivals={arrivals}
         routesByShortName={routesByShortName}
         serverTime={serverTime}
+        receivedAtMs={receivedAtMs}
         loading={loading}
         refreshing={refreshing}
         error={error}
