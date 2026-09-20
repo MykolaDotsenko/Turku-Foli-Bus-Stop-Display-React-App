@@ -124,6 +124,8 @@ export function elapsedSince(receivedAtMs, nowMs = Date.now()) {
 }
 
 export function formatElapsedAge(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") return "";
+
   const value = Number(seconds);
   if (!Number.isFinite(value) || value < 0) return "";
   if (value < 60) return "just now";
