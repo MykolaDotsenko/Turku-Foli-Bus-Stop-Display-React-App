@@ -30,8 +30,8 @@ function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
   );
 }
 
-function NearbyStopCard({ stop, isActive, isNearest, onSelect }) {
-  const directionsUrl = buildWalkingDirectionsUrl(stop);
+function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
+  const directionsUrl = online ? buildWalkingDirectionsUrl(stop) : "";
 
   return (
     <article
@@ -75,6 +75,7 @@ function NearbyStops({
   stops,
   coordinatesStatus,
   activeStopId,
+  online = true,
   onSelect,
 }) {
   const [status, setStatus] = useState("idle");
@@ -256,6 +257,7 @@ function NearbyStops({
                   stop={stop}
                   isNearest={index === 0}
                   isActive={stop.id === activeStopId}
+                  online={online}
                   onSelect={onSelect}
                 />
               ))}
@@ -263,8 +265,9 @@ function NearbyStops({
           )}
 
           <p className={styles.disclaimer}>
-            Distances are approximate straight-line distances. “Walk there”
-            opens an external walking route in Google Maps.
+            {online
+              ? "Distances are approximate straight-line distances. “Walk there” opens an external walking route in Google Maps."
+              : "Distances are approximate straight-line distances. Walking route links return when you’re online."}
           </p>
         </>
       )}
