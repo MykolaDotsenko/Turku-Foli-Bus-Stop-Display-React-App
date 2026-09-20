@@ -205,12 +205,29 @@
   font-weight: 600;
 }
 
+.accessibility,
 .proximity {
   display: block;
   margin-top: 3px;
+  font-size: 0.72rem;
+  font-weight: 780;
+}
+
+.accessibility {
+  width: fit-content;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #edf7f4;
+  color: #285b4e;
+}
+
+.accessibility[data-accessible="false"] {
+  background: #fff4ef;
+  color: #8a3f2b;
+}
+
+.proximity {
   color: #3f626b;
-  font-size: 0.7rem;
-  font-weight: 750;
 }
 
 .due {
