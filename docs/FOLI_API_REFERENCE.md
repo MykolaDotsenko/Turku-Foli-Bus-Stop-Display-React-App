@@ -341,9 +341,9 @@ Trips belonging to one service. Current rows include `route_id` and omit the alr
 
 **Shape:** array containing the matching trip (normally one item). Current row omits the already-known `trip_id` and includes route/service/headsign/direction/block/shape/accessibility/bike fields.
 
-**Application use:** ❌ Not yet.
+**Application use:** ✅ **Partial, progressive enrichment.** Visible realtime rows can use a matching `__tripref` to fetch one trip record for `trip_headsign` and `wheelchair_accessible`; failure never blocks departures.
 
-**High-value future use:** ★★★★★  
+**High-value relationship use:** ★★★★★  
 Together with `stop_times`, this is the cleanest static-data route to determine **all routes normally serving a selected stop**, rather than only routes that happen to have a visible realtime departure. That would close the remaining route-level ALERTS coverage gap.
 
 ---
@@ -409,8 +409,9 @@ shape_dist_traveled
 timepoint
 ```
 
-**Application use:** ❌ Not yet.  
-**Future value:** ★★★★★ for complete stop→trip→route membership, planned fallback information and route context.
+**Application use:** ✅ **Yes, selectively.** `/stop_times/stop/<stop_id>` participates in complete route-alert membership and excludes `pickup_type=1`; `/stop_times/trip/<trip_id>` is loaded only when the user expands “Next stops”. `timepoint=0` is presented as an approximate planned time.
+
+**Remaining future value:** planned fallback information beyond the current journey-detail flow.
 
 ---
 
@@ -559,8 +560,8 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | --- | --- | --- |
 | `lineref` | Public line reference used by SIRI | ✅ line badge / route lookup |
 | `destinationdisplay` | Destination/front-display text | ✅ |
-| `destinationdisplay_en` | English destination variant | ❌ candidate |
-| `destinationdisplay_sv` | Swedish destination variant | ❌ candidate |
+| `destinationdisplay_en` | English destination variant | ✅ preferred for English browser locales, with safe fallback |
+| `destinationdisplay_sv` | Swedish destination variant | ✅ preferred for Swedish browser locales, with safe fallback |
 | `monitored` | Realtime monitoring available | ✅ realtime vs scheduled semantics |
 | `delay` | Delay value supplied by current JSON adapter | ✅ |
 | `recordedattime` | Vehicle observation time | ✅ freshness |
@@ -571,7 +572,7 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | `expectedarrivaltime` | Estimated arrival at selected stop | ✅ time fallback |
 | `aimeddeparturetime` | Planned departure at selected stop | ✅ time fallback |
 | `expecteddeparturetime` | Estimated departure at selected stop | ✅ preferred due time |
-| `vehicleatstop` | Provider says vehicle is at stop | ❌ high-value candidate |
+| `vehicleatstop` | Provider says vehicle is at stop | ✅ preferred over distance inference when fresh |
 | `vehicleref` | Vehicle identifier | ❌ candidate for stronger row identity/debugging |
 | `incongestion` | Congestion flag | ❌ candidate, semantics should remain provider-attributed |
 | `directionname` | Direction label | ❌ |
@@ -583,7 +584,7 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | `datedvehiclejourneyref` | SIRI journey identity | ❌ |
 | `__directionid` | Provider adapter/internal helper field observed live | ❌ do not depend on undocumented `__*` fields |
 | `__routeref` | Provider adapter/internal route helper observed live | ❌ do not make a hard contract |
-| `__tripref` | Provider adapter/internal trip helper observed live | ❌ potentially useful experimentally, not a stable contract |
+| `__tripref` | Provider adapter/internal trip helper observed live | ✅ optional enrichment key only; never required for core departures |
 
 ### Time choice in this app
 
@@ -792,8 +793,8 @@ Field behavior:
 | `icon` | Suggested BUS/BOAT/BIKE/NONE-style icon code | normalized but not currently rendered |
 | `cause` | GTFS-RT-style cause | retained; shown for cancellations, not normal messages |
 | `effect` | GTFS-RT-style effect | ✅ user-facing semantic badge |
-| `images` | Related media objects `{url,type,title}` | ❌ |
-| `repeat` | Active time ranges `[[start,end], ...]` | ❌; app trusts `isactive` |
+| `images` | Related media objects `{url,type,title}` | ✅ HTTPS-only; mounted only after explicit details expansion |
+| `repeat` | Active time ranges `[[start,end], ...]` | ✅ active validity window is surfaced when an end time is available |
 | `isactive` | Whether message should currently be shown | ✅ mandatory filter |
 | `priority` | Smaller number = more important | ✅ sorting |
 | `categories` | Message category tags | ❌ |
@@ -1055,8 +1056,9 @@ Provider-documented trade-off:
 - default: roughly 900 points / ~20 KiB
 - `compact`: roughly 400 points / ~8 KiB and specifically recommended for mobile
 
-**Application use:** ❌ Not yet.  
-**Future value:** ★★★★★. `/geojson/bounds/compact` is a better “are you inside the Föli region?” signal than a simple distance-to-nearest-stop threshold. If adopted, keep distance as a secondary sanity check rather than the sole service-area heuristic.
+**Application use:** ✅ **Yes.** `/geojson/bounds/compact` is cached locally and checked client-side before automatic nearest-stop selection and location-based Safe Place setup. If it is unavailable, the existing conservative distance/accuracy logic remains the fallback.
+
+**Value:** ★★★★★. `/geojson/bounds/compact` is a better “are you inside the Föli region?” signal than a simple distance-to-nearest-stop threshold. If adopted, keep distance as a secondary sanity check rather than the sole service-area heuristic.
 
 ---
 
@@ -1073,15 +1075,15 @@ Provider-documented trade-off:
 | pinned `/routes` | route ID/name/type/color metadata | Important enrichment |
 | `/alerts` | global/emergency messages, stop/route messages, cancellations | Core pre-trip context |
 | `/siri/vm` | unused | Not justified yet |
-| `trips` | unused | High-value future relationship data |
-| `stop_times` | unused | High-value future relationship data |
+| `trips` | trip-specific accessibility/headsign enrichment + route membership lookups | High-value progressive enrichment |
+| `stop_times` | boardable stop→trip membership + lazy next-stop sequence | High-value correctness and journey context |
 | `shapes` | unused | Future maps only |
 | `calendar*` | unused | Future planned-service logic |
 | `trip_notes` | unused | Optional timetable semantics |
 | `translations` | unused | Future app-wide localization |
 | `/alerts/categories` | unused | Optional UX enrichment |
 | alert images/channels | unused | Low/medium |
-| `/geojson/bounds/compact` | unused | High-value location correctness |
+| `/geojson/bounds/compact` | client-side service-area validation for geolocation flows | High-value location correctness |
 | GEOJSON POIs | unused | Optional support/travel-help feature |
 
 ## Data minimization is intentional
