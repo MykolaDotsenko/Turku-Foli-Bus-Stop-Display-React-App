@@ -10,6 +10,7 @@ import {
 } from "../utils/time";
 
 const MAX_VISIBLE_DEPARTURES = 10;
+const DEPARTED_GRACE_SECONDS = 90;
 
 function vehicleProximity(arrival, stop, route, serverTime) {
   if (
@@ -37,7 +38,7 @@ function vehicleProximity(arrival, stop, route, serverTime) {
 
   if (distance <= 50) return `${vehicle} at or near stop`;
   if (distance <= 250) {
-    return `${vehicle} approaching · ≈${formatDistance(distance)} away`;
+    return `${vehicle} nearby · ≈${formatDistance(distance)} from stop`;
   }
 
   return `${vehicle} ≈${formatDistance(distance)} from stop`;
@@ -66,11 +67,21 @@ function BusStopDisplay({
   isFavorite,
   onToggleFavorite,
 }) {
+  const referenceTime =
+    Number.isFinite(Number(serverTime)) && Number(serverTime) > 0
+      ? Number(serverTime)
+      : Math.floor(Date.now() / 1000);
   const visibleArrivals = [...arrivals]
+    .filter((arrival) => {
+      const departureTime = getDepartureTime(arrival);
+      return (
+        Number.isFinite(departureTime) &&
+        departureTime >= referenceTime - DEPARTED_GRACE_SECONDS
+      );
+    })
     .sort(
       (a, b) =>
-        (getDepartureTime(a) ?? Infinity) -
-        (getDepartureTime(b) ?? Infinity)
+        getDepartureTime(a) - getDepartureTime(b)
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
   const hasData = Boolean(stopName || arrivals.length);
