@@ -294,6 +294,7 @@ function PlaceCard({
 function MyPlaces({
   stops,
   coordinatesStatus,
+  activeStopId,
   placesById,
   onSavePlace,
   onRemovePlace,
@@ -309,6 +310,10 @@ function MyPlaces({
   const hasStopCoordinates = useMemo(
     () => stops.some(hasCoordinates),
     [stops]
+  );
+  const activeStop = useMemo(
+    () => stops.find((stop) => stop.id === activeStopId) || null,
+    [activeStopId, stops]
   );
 
   const startSetup = async (placeId) => {
@@ -406,15 +411,32 @@ function MyPlaces({
                 <h3>{preset.label}</h3>
                 <p>Save nearby safe stops without typing an address.</p>
               </div>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => startSetup(preset.id)}
-                disabled={status === "locating"}
-                aria-busy={status === "locating" && setupId === preset.id}
-              >
-                Set up here
-              </button>
+              <div className={styles.emptyActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => startSetup(preset.id)}
+                  disabled={status === "locating"}
+                  aria-busy={status === "locating" && setupId === preset.id}
+                >
+                  Set up here
+                </button>
+                {activeStop && (
+                  <button
+                    type="button"
+                    className={styles.textButton}
+                    onClick={() =>
+                      onSavePlace({
+                        id: preset.id,
+                        stops: [{ id: activeStop.id, name: activeStop.name }],
+                        primaryStopId: activeStop.id,
+                      })
+                    }
+                  >
+                    Save selected stop
+                  </button>
+                )}
+              </div>
             </article>
           );
         })}
