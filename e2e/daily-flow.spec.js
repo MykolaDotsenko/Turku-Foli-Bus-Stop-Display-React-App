@@ -445,6 +445,10 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     page.getByRole("button", { name: "Remove Kauppatori from favorites" })
   ).toHaveAttribute("aria-pressed", "true");
 
+  const historyLengthBeforeStopChange = await page.evaluate(
+    () => globalThis.history.length
+  );
+
   const search = page.getByRole("combobox", { name: "Find your stop" });
   await search.fill("Turun");
   await page.getByRole("option", { name: /Turun linna/i }).click();
@@ -452,7 +456,33 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
-  await page.goBack({ waitUntil: "commit" });
+
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.length))
+    .toBe(historyLengthBeforeStopChange + 1);
+
+  // Playwright's page.goBack() waits for a document-navigation lifecycle event
+  // that same-document History API traversal does not emit consistently across
+  // Chromium, Firefox and WebKit. Trigger history.back() from a trusted click
+  // instead: this exercises the browser's real history traversal + popstate
+  // while avoiding an automation-specific navigation wait.
+  await page.evaluate(() => {
+    const button = document.createElement("button");
+    button.id = "__foli_history_back_test__";
+    button.type = "button";
+    button.textContent = "Browser back";
+    button.style.position = "fixed";
+    button.style.inset = "0 auto auto 0";
+    button.style.zIndex = "2147483647";
+    button.addEventListener(
+      "click",
+      () => globalThis.history.back(),
+      { once: true }
+    );
+    document.body.append(button);
+  });
+
+  await page.locator("#__foli_history_back_test__").click();
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });
