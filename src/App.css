@@ -92,8 +92,19 @@ input:focus-visible,
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #12a36d;
-  box-shadow: 0 0 0 4px rgba(18, 163, 109, 0.12);
+  background: #0b8b96;
+  box-shadow: 0 0 0 4px rgba(11, 139, 150, 0.12);
+}
+
+.live-pill[data-online="false"] {
+  border-color: #d9c889;
+  background: #fff9e8;
+  color: #5b4c20;
+}
+
+.live-pill[data-online="false"] .live-dot {
+  background: #9a7b24;
+  box-shadow: 0 0 0 4px rgba(154, 123, 36, 0.12);
 }
 
 .search-panel {
