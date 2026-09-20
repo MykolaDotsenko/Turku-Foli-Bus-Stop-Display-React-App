@@ -286,7 +286,7 @@ function requiredId(value, label) {
 }
 
 function gtfsTime(value) {
-  if (typeof value === "string" && /^\d{1,2}:\d{2}:\d{2}$/.test(value.trim())) {
+  if (typeof value === "string" && /^\d{1,3}:\d{2}:\d{2}$/.test(value.trim())) {
     return value.trim();
   }
   return "";
@@ -435,12 +435,18 @@ export async function fetchStopServedRouteIds(stopId, routeIds, signal) {
   const boardingTripIds = await fetchStopBoardingTripIds(stopId, signal);
   if (boardingTripIds.size === 0) return new Set();
 
-  const routeTripSets = await Promise.all(
-    uniqueRouteIds.map(async (routeId) => ({
-      routeId,
-      tripIds: await fetchRouteTripIds(routeId, signal),
-    }))
-  );
+  const routeTripSets = [];
+
+  for (let index = 0; index < uniqueRouteIds.length; index += 6) {
+    const batch = uniqueRouteIds.slice(index, index + 6);
+    const results = await Promise.all(
+      batch.map(async (routeId) => ({
+        routeId,
+        tripIds: await fetchRouteTripIds(routeId, signal),
+      }))
+    );
+    routeTripSets.push(...results);
+  }
 
   return new Set(
     routeTripSets
