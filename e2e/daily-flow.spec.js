@@ -409,7 +409,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   );
   await expect(
     recovery.getByRole("heading", {
-      name: "Lost or unsure? Get home from here.",
+      name: "Need help getting home?",
     })
   ).toBeVisible();
   await expect(
@@ -434,7 +434,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
   await driver.getByRole("button", { name: "Close" }).click();
-  await recovery.getByText("Other safe Home stop").click();
+  await recovery.getByText("Other saved Home stop").click();
 
   const backupRoute = recovery.getByRole("link", {
     name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
@@ -537,7 +537,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   );
   await expect(
     recovery.getByRole("heading", {
-      name: "Lost or unsure? Get home from here.",
+      name: "Need help getting home?",
     })
   ).toBeVisible();
   await expect(
@@ -595,7 +595,7 @@ test("mobile layout does not create horizontal page overflow", async ({
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  await recovery.getByText("Other safe Home stop").click();
+  await recovery.getByText("Other saved Home stop").click();
   await expect(
     recovery.getByRole("link", {
       name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
