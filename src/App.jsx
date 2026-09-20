@@ -148,10 +148,10 @@ function App() {
       return;
     }
 
-    // Preserve unrelated browser/router state, but keep the stop identity only
-    // in the shareable URL so Back/Forward has one canonical source of truth.
-    canonicalizeCurrentStop(stopId);
-    window.history.pushState(currentHistoryState(), "", stopUrl(nextStopId));
+    // The URL is the navigation source of truth. Add exactly one history entry
+    // per user-selected stop; do not replace the current entry immediately
+    // before pushing, because that can make Back/Forward traversal brittle.
+    window.history.pushState(null, "", stopUrl(nextStopId));
     setStopId(nextStopId);
   };
 
