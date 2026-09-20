@@ -6,7 +6,11 @@
 .label {
   color: #334750;
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 850;
+}
+
+.searchWrap {
+  position: relative;
 }
 
 .controls {
@@ -17,16 +21,20 @@
 
 .input,
 .button {
-  min-height: 44px;
-  border-radius: 10px;
+  min-height: 46px;
+  border-radius: 12px;
 }
 
 .input {
   width: 100%;
-  padding: 0 12px;
-  border: 1px solid #b8cbd0;
+  padding: 0 13px;
+  border: 1px solid #afc5ca;
   background: #fff;
   color: #17212b;
+}
+
+.input::placeholder {
+  color: #8a9ba3;
 }
 
 .input:hover {
@@ -43,26 +51,85 @@
   background: #007985;
   color: #fff;
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 850;
+  box-shadow: 0 6px 16px rgba(0, 121, 133, 0.16);
 }
 
 .button:hover {
   background: #00656f;
 }
 
-.error {
-  margin: 0;
-  color: #b42318;
-  font-size: 0.76rem;
+.suggestions {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 7px);
+  right: 0;
+  left: 0;
+  overflow: hidden;
+  border: 1px solid #cbdcdf;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(31, 67, 74, 0.16);
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 48px;
+  padding: 10px 13px;
+  border-bottom: 1px solid #edf2f3;
+  cursor: pointer;
+}
+
+.suggestion:last-child {
+  border-bottom: 0;
+}
+
+.suggestion:hover,
+.suggestion[aria-selected="true"] {
+  background: #edf8f8;
+}
+
+.suggestionName {
+  overflow: hidden;
+  color: #20343b;
+  font-size: 0.84rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestionId {
+  flex: 0 0 auto;
+  color: #6e8088;
+  font-size: 0.72rem;
   font-weight: 700;
 }
 
-@media (max-width: 480px) {
+.help,
+.error {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.help {
+  color: #71818a;
+}
+
+.error {
+  color: #b42318;
+  font-weight: 750;
+}
+
+@media (max-width: 560px) {
   .controls {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
   }
 
   .button {
-    padding-inline: 14px;
+    width: 100%;
   }
 }

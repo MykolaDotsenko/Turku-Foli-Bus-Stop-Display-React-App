@@ -47,9 +47,39 @@ export function formatDelay(delaySeconds) {
   return seconds > 0 ? `+${minutes} min` : `${minutes} min early`;
 }
 
-export function formatServiceStatus(monitored, delaySeconds) {
+export function dataAgeSeconds(recordedAt, serverTime) {
+  const recorded = Number(recordedAt);
+  const server = Number(serverTime);
+
+  if (
+    !Number.isFinite(recorded) ||
+    recorded <= 0 ||
+    !Number.isFinite(server) ||
+    server <= 0
+  ) {
+    return null;
+  }
+
+  return Math.max(0, server - recorded);
+}
+
+export function formatServiceStatus(
+  monitored,
+  delaySeconds,
+  recordedAt,
+  serverTime
+) {
   if (!monitored) return "Scheduled";
 
   const delay = formatDelay(delaySeconds);
-  return delay ? `Live · ${delay}` : "Live";
+  const ageSeconds = dataAgeSeconds(recordedAt, serverTime);
+
+  let freshness = "Live";
+  if (ageSeconds !== null && ageSeconds > 120) {
+    freshness = `Live data · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
+  } else if (ageSeconds !== null && ageSeconds > 60) {
+    freshness = "Live data · 1 min old";
+  }
+
+  return delay ? `${freshness} · ${delay}` : freshness;
 }

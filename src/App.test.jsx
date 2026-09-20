@@ -31,6 +31,14 @@ test("formats Föli delay values as seconds", () => {
   expect(formatDelay(15)).toBe("on time");
 });
 
+
+
+test("surfaces aged realtime data instead of overstating freshness", () => {
+  expect(formatServiceStatus(true, 60, 100, 250)).toBe(
+    "Live data · 3 min old · +1 min"
+  );
+});
+
 test("never calls a scheduled vehicle on time", () => {
   expect(formatServiceStatus(false, 0)).toBe("Scheduled");
   expect(formatServiceStatus(true, 0)).toBe("Live · on time");
@@ -137,6 +145,6 @@ test("shows a useful failure state when no stop data exists", () => {
 
   expect(screen.getByText("Couldn’t load departures.")).toBeInTheDocument();
   expect(
-    screen.getByText("Check the stop number and try again.")
+    screen.getByText("Check the stop number or connection and try again.")
   ).toBeInTheDocument();
 });

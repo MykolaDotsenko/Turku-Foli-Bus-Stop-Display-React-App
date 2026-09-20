@@ -7,46 +7,47 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function readCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
-    if (
-      cached?.savedAt &&
-      Date.now() - cached.savedAt < CACHE_TTL_MS &&
-      Array.isArray(cached.stops)
-    ) {
-      return cached.stops;
+    if (Array.isArray(cached?.stops)) {
+      return {
+        stops: cached.stops,
+        savedAt: Number(cached.savedAt) || 0,
+      };
     }
   } catch {
     // Suggestions are optional; direct stop lookup still works.
   }
 
-  return [];
+  return { stops: [], savedAt: 0 };
 }
 
 export default function useStopCatalog() {
-  const [stops, setStops] = useState(readCache);
+  const [cache, setCache] = useState(readCache);
 
   useEffect(() => {
-    if (stops.length > 0) return undefined;
+    const isFresh =
+      cache.savedAt > 0 && Date.now() - cache.savedAt < CACHE_TTL_MS;
+
+    if (isFresh) return undefined;
 
     const controller = new AbortController();
 
     fetchStopCatalog(controller.signal)
       .then((nextStops) => {
-        setStops(nextStops);
+        const next = { savedAt: Date.now(), stops: nextStops };
+        setCache(next);
+
         try {
-          localStorage.setItem(
-            CACHE_KEY,
-            JSON.stringify({ savedAt: Date.now(), stops: nextStops })
-          );
+          localStorage.setItem(CACHE_KEY, JSON.stringify(next));
         } catch {
           // Storage is an optimization, not a requirement.
         }
       })
       .catch(() => {
-        // Suggestions can fail without blocking the core user flow.
+        // Keep an expired cached catalogue as a stale-while-revalidate fallback.
       });
 
     return () => controller.abort();
-  }, [stops.length]);
+  }, [cache.savedAt]);
 
-  return stops;
+  return cache.stops;
 }

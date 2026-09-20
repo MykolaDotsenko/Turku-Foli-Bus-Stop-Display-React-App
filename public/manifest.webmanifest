@@ -1,0 +1,18 @@
+{
+  "name": "Föli Live Departures",
+  "short_name": "Föli Departures",
+  "description": "Fast live departures, saved stops and service updates for Turku-region public transport.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#edf4f5",
+  "theme_color": "#007985",
+  "icons": [
+    {
+      "src": "/foli-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
