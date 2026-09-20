@@ -899,6 +899,163 @@ test("narrow 320 and 360px layouts keep core controls on-screen", async ({
   }
 });
 
+test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
+  await page.goto("/?stop=4");
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("4");
+
+  await page.reload();
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+
+  await page.goto("/?stop=not-a-stop");
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+});
+
+test("ten departures remain scan-friendly without horizontal table scrolling", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "OK",
+        stopname: "Kauppatori",
+        servertime: now,
+        result: Array.from({ length: 10 }, (_, index) => ({
+          lineref: String(index + 1),
+          destinationdisplay:
+            index === 0
+              ? "Very long destination name through the city centre"
+              : `Destination ${index + 1}`,
+          monitored: index % 2 === 0,
+          delay: index % 2 === 0 ? index * 10 : null,
+          recordedattime: now - 15,
+          expecteddeparturetime: index % 2 === 0 ? now + 180 + index * 120 : null,
+          aimeddeparturetime: now + 180 + index * 120,
+        })),
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(10);
+
+  const tableMetrics = await page.locator("table").evaluate((table) => ({
+    scrollWidth: table.scrollWidth,
+    clientWidth: table.parentElement.clientWidth,
+    viewportWidth: window.innerWidth,
+  }));
+  expect(tableMetrics.scrollWidth - tableMetrics.clientWidth).toBeLessThanOrEqual(1);
+
+  const pageOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  expect(pageOverflow).toBeLessThanOrEqual(1);
+
+  fs.mkdirSync("artifacts/screenshots", { recursive: true });
+  await page.screenshot({
+    path: `artifacts/screenshots/foli-${testInfo.project.name}-ten-departures.png`,
+    fullPage: true,
+  });
+});
+
+test("six simultaneous alerts stay compact and keep departures reachable", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: Array.from({ length: 6 }, (_, index) => ({
+          message_id: 100 + index,
+          isactive: true,
+          priority: 1000 - index,
+          effect: index === 0 ? "NO_SERVICE" : "DETOUR",
+          cause: "CONSTRUCTION",
+          affected_stops: ["164"],
+          affected_routes: [],
+          header: `Service update ${index + 1}`,
+          message: `Important passenger information ${index + 1}.`,
+          repeat: [[now - 60, now + 3600]],
+          images: [],
+        })),
+        cancellations: [],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await expect(page.getByLabel("6 service updates")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show 2 more updates" })
+  ).toBeVisible();
+
+  const firstDeparture = page.locator("tbody tr").first();
+  await expect(firstDeparture).toBeVisible();
+  const position = await firstDeparture.evaluate((row) => {
+    const rect = row.getBoundingClientRect();
+    return { top: rect.top, viewportHeight: window.innerHeight };
+  });
+  expect(position.top).toBeLessThan(position.viewportHeight);
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("200 percent text scaling keeps core mobile controls usable", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/?stop=164");
+  await page.addStyleTag({ content: ":root { font-size: 200% !important; }" });
+
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Find your stop" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Show departures" })
+  ).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  for (const locator of [
+    page.getByRole("combobox", { name: "Find your stop" }),
+    page.getByRole("button", { name: "Show departures" }),
+    page.getByRole("button", { name: "Refresh" }),
+  ]) {
+    const box = await locator.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(360);
+  }
+});
+
 test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
   if (
     !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
