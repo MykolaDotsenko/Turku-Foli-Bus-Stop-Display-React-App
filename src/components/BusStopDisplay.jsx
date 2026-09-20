@@ -2,6 +2,7 @@ import styles from "./BusStopDisplay.module.css";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor } from "../utils/routes";
 import {
+  dataAgeSeconds,
   formatClock,
   formatDue,
   formatServiceStatus,
@@ -10,7 +11,7 @@ import {
 
 const MAX_VISIBLE_DEPARTURES = 10;
 
-function vehicleProximity(arrival, stop, route) {
+function vehicleProximity(arrival, stop, route, serverTime) {
   if (
     !arrival.monitored ||
     !hasCoordinates(stop) ||
@@ -26,6 +27,13 @@ function vehicleProximity(arrival, stop, route) {
   if (!Number.isFinite(distance)) return "";
 
   const vehicle = route?.type === 4 ? "Waterbus" : "Bus";
+  const ageSeconds = dataAgeSeconds(arrival.recordedattime, serverTime);
+
+  if (ageSeconds !== null && ageSeconds > 120) {
+    return `Last ${vehicle.toLowerCase()} position ≈${formatDistance(
+      distance
+    )} from stop · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
+  }
 
   if (distance <= 50) return `${vehicle} at or near stop`;
   if (distance <= 250) {
@@ -170,7 +178,7 @@ function BusStopDisplay({
                   arrival.recordedattime,
                   serverTime
                 );
-                const proximity = vehicleProximity(arrival, stop, route);
+                const proximity = vehicleProximity(arrival, stop, route, serverTime);
 
                 return (
                   <tr
