@@ -93,7 +93,7 @@ test("shows validity and mounts disruption media only after details are opened",
   const details = summary.closest("details");
   fireEvent.click(summary);
   details.open = true;
-  fireEvent(details, new Event("toggle"));
+  fireEvent(details, new globalThis.Event("toggle"));
 
   const image = screen.getByAltText("Temporary stop map");
   expect(image).toHaveAttribute(
