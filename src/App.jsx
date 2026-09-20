@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import ConnectivityStatus from "./components/ConnectivityStatus";
 import HomeRecovery from "./components/HomeRecovery";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
+import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
 import useSavedPlaces from "./hooks/useSavedPlaces";
 import useSavedStops from "./hooks/useSavedStops";
@@ -28,6 +30,7 @@ function App() {
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
   );
+  const online = useOnlineStatus();
   const { stops, coordinatesStatus } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
@@ -131,9 +134,12 @@ function App() {
         </span>
       </header>
 
+      <ConnectivityStatus online={online} />
+
       <HomeRecovery
         home={placesById.get("home") || null}
         stops={stops}
+        online={online}
         onOpenStop={selectStop}
       />
 
@@ -149,6 +155,7 @@ function App() {
         stops={stops}
         coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
+        online={online}
         onSelect={selectStop}
       />
 
@@ -182,6 +189,7 @@ function App() {
         activeStopId={stopId}
         placesById={placesById}
         sharedPlace={sharedPlace}
+        online={online}
         onSavePlace={savePlace}
         onImportSharedPlace={importSharedPlace}
         onDismissSharedPlace={dismissSharedPlace}
