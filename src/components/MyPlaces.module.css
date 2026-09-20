@@ -93,7 +93,8 @@
 
 .placeActions,
 .setupActions,
-.manageActions {
+.manageActions,
+.emptyActions {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
