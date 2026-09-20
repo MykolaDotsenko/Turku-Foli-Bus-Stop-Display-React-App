@@ -197,3 +197,41 @@
     justify-self: start;
   }
 }
+
+
+.validity {
+  color: #5d6a49 !important;
+  font-weight: 800;
+}
+
+.mediaGrid {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.mediaLink {
+  display: grid;
+  gap: 6px;
+  color: #4f3e1c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.mediaLink img {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  border: 1px solid #e2cfaa;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #fff;
+}
+
+.mediaLink:focus-visible {
+  outline: 3px solid rgba(139, 100, 29, 0.28);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
