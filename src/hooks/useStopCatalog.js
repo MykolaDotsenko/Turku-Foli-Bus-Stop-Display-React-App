@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchStopCatalog } from "../api/foliApi";
 
-const CACHE_KEY = "foli-stop-catalog-v1";
+const CACHE_KEY = "foli-stop-catalog-v2";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function readCache() {
