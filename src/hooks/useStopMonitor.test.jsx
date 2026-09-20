@@ -108,3 +108,37 @@ test("backs off repeated automatic retries without exceeding five minutes", () =
   expect(pollDelayMs(5)).toBe(300_000);
   expect(pollDelayMs(20)).toBe(300_000);
 });
+
+test("refreshes on foreground return but not while hidden, and cleans up the listener", async () => {
+  let visibility = "hidden";
+  const visibilitySpy = vi
+    .spyOn(document, "visibilityState", "get")
+    .mockImplementation(() => visibility);
+
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 100,
+  });
+
+  const { unmount } = render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  visibility = "visible";
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await waitFor(() => {
+    expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+  });
+
+  unmount();
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+
+  visibilitySpy.mockRestore();
+});
