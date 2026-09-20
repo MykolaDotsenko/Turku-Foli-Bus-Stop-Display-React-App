@@ -380,33 +380,13 @@
 }
 
 
-.mobileOptions {
-  display: none;
-}
-
-.mobileRouteNote {
-  margin: 8px 0 0;
-  color: #3f5960;
-  font-size: 0.8125rem;
-  line-height: 1.45;
-}
-
-.mobileOptionActions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
-}
 
 @media (max-width: 620px) {
   .wrapper {
+    grid-template-columns: 1fr;
     gap: 8px;
     padding: 10px;
     border-radius: 15px;
-  }
-
-  .copy {
-    display: block;
   }
 
   .copy .kicker,
@@ -426,6 +406,7 @@
   .destination strong,
   .destination small,
   .status,
+  .routeNote,
   .backupHint,
   .backups,
   .batteryBackup {
@@ -433,39 +414,27 @@
   }
 
   .actions {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: 1fr repeat(2, minmax(0, 1fr));
+    gap: 7px;
   }
 
   .primaryAction,
   .secondaryAction {
     min-height: 44px;
-    font-size: 0.875rem;
-  }
-
-  .desktopSecondary,
-  .routeNote {
-    display: none;
-  }
-
-  .mobileOptions {
-    display: block;
-    grid-column: 1 / -1;
-    border-top: 1px solid #cfe1e3;
-    padding-top: 4px;
-    color: #3f5960;
     font-size: 0.8125rem;
   }
 
-  .mobileOptions summary,
+  .status,
+  .routeNote {
+    margin-top: 0;
+  }
+
   .backups summary,
   .batteryBackup summary {
     display: flex;
     min-height: 44px;
     width: 100%;
     align-items: center;
-    cursor: pointer;
-    font-weight: 850;
   }
 
   .backupActions a,
@@ -482,8 +451,22 @@
   }
 }
 
-@media (max-width: 360px) {
-  .mobileOptionActions {
+@media (max-width: 430px) {
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primaryAction {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 350px) {
+  .actions {
     grid-template-columns: 1fr;
+  }
+
+  .primaryAction {
+    grid-column: auto;
   }
 }
