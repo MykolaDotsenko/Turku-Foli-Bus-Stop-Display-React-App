@@ -311,3 +311,26 @@
     padding: 8px 11px;
   }
 }
+
+
+.alertMeta {
+  margin-top: 4px;
+  color: #6b541d;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .alertMeta {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+  }
+
+  .message {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+}
