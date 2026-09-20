@@ -64,7 +64,11 @@ function App() {
     () => [...new Set(arrivals.map((arrival) => arrival.lineref).filter(Boolean))],
     [arrivals]
   );
-  const serviceAlerts = useStopAlerts(stopId, activeLines, routesById);
+  const {
+    alerts: serviceAlerts,
+    error: serviceAlertsError,
+    receivedAtMs: serviceAlertsReceivedAtMs,
+  } = useStopAlerts(stopId, activeLines, routesById);
   const selectedStop = useMemo(
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
@@ -188,7 +192,11 @@ function App() {
         onSelect={selectStop}
       />
 
-      <ServiceAlerts alerts={serviceAlerts} />
+      <ServiceAlerts
+        alerts={serviceAlerts}
+        error={serviceAlertsError}
+        receivedAtMs={serviceAlertsReceivedAtMs}
+      />
 
       <BusStopDisplay
         stopId={stopId}
