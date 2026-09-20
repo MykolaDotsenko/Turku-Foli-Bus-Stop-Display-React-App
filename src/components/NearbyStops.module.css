@@ -257,3 +257,48 @@
     border: 2px solid ButtonText;
   }
 }
+
+
+@media (max-width: 620px) {
+  .wrapper {
+    gap: 7px;
+    margin: 9px 0 10px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .header {
+    align-items: center;
+    flex-direction: row;
+    gap: 10px;
+  }
+
+  .heading,
+  .description,
+  .meta,
+  .error,
+  .notice,
+  .disclaimer,
+  .stopText strong,
+  .stopText span,
+  .nearestBadge,
+  .walkLink {
+    font-size: 0.8125rem;
+  }
+
+  .description {
+    display: none;
+  }
+
+  .locateButton {
+    width: auto;
+    min-height: 44px;
+    margin-left: auto;
+    padding-inline: 12px;
+    font-size: 0.8125rem;
+  }
+
+  .walkLink {
+    min-height: 44px;
+  }
+}

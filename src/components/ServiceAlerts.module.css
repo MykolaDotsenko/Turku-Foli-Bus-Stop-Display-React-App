@@ -235,3 +235,167 @@
   outline-offset: 3px;
   border-radius: 12px;
 }
+
+
+@media (max-width: 620px) {
+  .panel {
+    margin-bottom: 9px;
+    border-radius: 14px;
+  }
+
+  .headingRow {
+    padding: 9px 11px;
+    gap: 10px;
+  }
+
+  .kicker {
+    display: none;
+  }
+
+  .heading {
+    font-size: 0.875rem;
+  }
+
+  .count {
+    min-width: 26px;
+    height: 26px;
+    font-size: 0.8125rem;
+  }
+
+  .alert {
+    padding: 9px 11px;
+  }
+
+  .alertHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+  }
+
+  .alert strong,
+  .alert p,
+  .effectBadge,
+  .details,
+  .feedStatus,
+  .moreButton,
+  .mediaLink {
+    font-size: 0.8125rem;
+  }
+
+  .alert p {
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+
+  .effectBadge {
+    padding: 3px 6px;
+  }
+
+  .details {
+    margin-top: 3px;
+  }
+
+  .details summary {
+    display: flex;
+    min-height: 44px;
+    width: fit-content;
+    align-items: center;
+  }
+
+  .moreButton {
+    min-height: 44px;
+  }
+
+  .feedStatus {
+    padding: 8px 11px;
+  }
+}
+
+
+.alertMeta {
+  margin-top: 4px;
+  color: #6b541d;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .alertMeta {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    line-height: 1.3;
+  }
+
+  .message {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+}
+
+
+.alert {
+  padding: 0;
+}
+
+.alertSummary {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alertSummary::-webkit-details-marker {
+  display: none;
+}
+
+.alertSummary:focus-visible {
+  outline: 3px solid rgba(139, 100, 29, 0.28);
+  outline-offset: -3px;
+}
+
+.disclosureIcon {
+  color: #725a2b;
+  font-size: 1.15rem;
+  font-weight: 900;
+  transition: transform 120ms ease;
+}
+
+.alert[open] .disclosureIcon {
+  transform: rotate(90deg);
+}
+
+.alertBody {
+  padding: 0 15px 12px;
+}
+
+@media (max-width: 620px) {
+  .alert {
+    padding: 0;
+  }
+
+  .alertSummary {
+    min-height: 46px;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .alertSummary strong,
+  .effectBadge {
+    font-size: 0.8125rem;
+  }
+
+  .alertBody {
+    padding: 0 10px 10px;
+  }
+
+  .disclosureIcon {
+    font-size: 1rem;
+  }
+}

@@ -79,3 +79,32 @@
   font-size: 0.68rem;
   font-weight: 650;
 }
+
+
+@media (max-width: 620px) {
+  .wrapper {
+    gap: 8px;
+    margin: 8px 0 9px;
+  }
+
+  .group {
+    gap: 5px;
+  }
+
+  .heading,
+  .chipLabel strong,
+  .chipLabel span {
+    font-size: 0.8125rem;
+  }
+
+  .chip {
+    min-height: 44px;
+    padding-block: 5px;
+  }
+
+  .chipIcon {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+  }
+}

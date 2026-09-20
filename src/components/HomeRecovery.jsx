@@ -15,6 +15,7 @@ function resolveStops(place, stops) {
 
 function HomeRecovery({ home, stops, online = true, onOpenStop }) {
   const [showDriver, setShowDriver] = useState(false);
+  const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false);
   const canPrint = typeof globalThis.print === "function";
 
   const resolvedStops = useMemo(
@@ -36,12 +37,16 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
       : "";
 
   return (
-    <section className={styles.wrapper} aria-labelledby="home-recovery-title">
+    <section
+      className={styles.wrapper}
+      data-mobile-options-open={mobileOptionsOpen ? "true" : "false"}
+      aria-labelledby="home-recovery-title"
+    >
       <div className={styles.copy}>
         <p className={styles.kicker}>Travel recovery</p>
         <h2 id="home-recovery-title">Need help getting home?</h2>
         <p className={styles.description}>
-          Use your saved Home stops. Travel help, not an emergency service.
+          Travel help, not an emergency service.
         </p>
       </div>
 
@@ -78,6 +83,15 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             Get me Home
           </button>
         )}
+
+        <button
+          type="button"
+          className={styles.mobileOptionsToggle}
+          aria-expanded={mobileOptionsOpen}
+          onClick={() => setMobileOptionsOpen((current) => !current)}
+        >
+          {mobileOptionsOpen ? "Less" : "More"}
+        </button>
 
         <button
           type="button"

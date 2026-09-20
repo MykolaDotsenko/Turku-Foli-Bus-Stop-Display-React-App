@@ -236,6 +236,7 @@ function PlaceCard({
   onRemove,
 }) {
   const [showDriver, setShowDriver] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const [shareFeedback, setShareFeedback] = useState("");
   const [shareUrl, setShareUrl] = useState("");
   const resolvedStops = resolvePlaceStops(place, stops);
@@ -279,7 +280,33 @@ function PlaceCard({
   };
 
   return (
-    <article className={styles.placeCard}>
+    <article
+      className={styles.placeCard}
+      data-mobile-expanded={mobileExpanded ? "true" : "false"}
+    >
+      <button
+        type="button"
+        className={styles.mobileSummary}
+        onClick={() =>
+          setMobileExpanded((current) => {
+            if (current) setShowDriver(false);
+            return !current;
+          })
+        }
+        aria-expanded={mobileExpanded}
+      >
+        <span className={styles.placeIcon} aria-hidden="true">
+          {place.icon}
+        </span>
+        <span className={styles.mobileSummaryText}>
+          <strong>{place.label}</strong>
+          <small>{primaryStop.name} · stop {primaryStop.id}</small>
+        </span>
+        <span className={styles.mobileSummaryAction} aria-hidden="true">
+          {mobileExpanded ? "−" : "›"}
+        </span>
+      </button>
+
       <div className={styles.placeHeading}>
         <span className={styles.placeIcon} aria-hidden="true">
           {place.icon}
@@ -412,6 +439,73 @@ function PlaceCard({
           onClose={() => setShowDriver(false)}
         />
       )}
+    </article>
+  );
+}
+
+function EmptyPlaceCard({
+  preset,
+  activeStop,
+  status,
+  onStartSetup,
+  onStartFromSelectedStop,
+}) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
+  return (
+    <article
+      className={styles.emptyCard}
+      data-mobile-expanded={mobileExpanded ? "true" : "false"}
+    >
+      <button
+        type="button"
+        className={styles.mobileSummary}
+        onClick={() => setMobileExpanded((current) => !current)}
+        aria-expanded={mobileExpanded}
+      >
+        <span className={styles.placeIcon} aria-hidden="true">
+          {preset.icon}
+        </span>
+        <span className={styles.mobileSummaryText}>
+          <strong>{preset.label}</strong>
+          <small>Not set</small>
+        </span>
+        <span className={styles.mobileSummaryAction} aria-hidden="true">
+          {mobileExpanded ? "−" : "+"}
+        </span>
+      </button>
+
+      <div className={styles.emptyBody}>
+        <span className={styles.placeIcon} aria-hidden="true">
+          {preset.icon}
+        </span>
+        <div>
+          <h3>{preset.label}</h3>
+          <p>Save nearby safe stops without typing an address.</p>
+        </div>
+        <div className={styles.emptyActions}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => onStartSetup(preset.id)}
+            disabled={status === "locating"}
+            aria-busy={status === "locating"}
+            aria-label={`Set up ${preset.label} where I am now`}
+          >
+            Set up here
+          </button>
+          {activeStop && (
+            <button
+              type="button"
+              className={styles.textButton}
+              onClick={() => onStartFromSelectedStop(preset.id)}
+              aria-label={`Review selected stop for ${preset.label}`}
+            >
+              Review selected stop
+            </button>
+          )}
+        </div>
+      </div>
     </article>
   );
 }
@@ -574,37 +668,14 @@ function MyPlaces({
           }
 
           return (
-            <article key={preset.id} className={styles.emptyCard}>
-              <span className={styles.placeIcon} aria-hidden="true">
-                {preset.icon}
-              </span>
-              <div>
-                <h3>{preset.label}</h3>
-                <p>Save nearby safe stops without typing an address.</p>
-              </div>
-              <div className={styles.emptyActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => startSetup(preset.id)}
-                  disabled={status === "locating"}
-                  aria-busy={status === "locating" && setupId === preset.id}
-                  aria-label={`Set up ${preset.label} where I am now`}
-                >
-                  Set up here
-                </button>
-                {activeStop && (
-                  <button
-                    type="button"
-                    className={styles.textButton}
-                    onClick={() => startFromSelectedStop(preset.id)}
-                    aria-label={`Review selected stop for ${preset.label}`}
-                  >
-                    Review selected stop
-                  </button>
-                )}
-              </div>
-            </article>
+            <EmptyPlaceCard
+              key={preset.id}
+              preset={preset}
+              activeStop={activeStop}
+              status={status}
+              onStartSetup={startSetup}
+              onStartFromSelectedStop={startFromSelectedStop}
+            />
           );
         })}
       </div>

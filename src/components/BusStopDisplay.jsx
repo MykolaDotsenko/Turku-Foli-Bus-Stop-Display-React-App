@@ -330,11 +330,14 @@ function BusStopDisplay({
       )}
 
       {visibleArrivals.length > 0 && (
-        <p className={styles.legend}>
-          Live times are estimates from vehicle data. Vehicle distance is a
-          straight-line estimate from the latest reported position. Scheduled
-          means no current realtime feed is available for that trip.
-        </p>
+        <details className={styles.legend}>
+          <summary>About live estimates</summary>
+          <p>
+            Live times are estimates from vehicle data. Vehicle distance is a
+            straight-line estimate from the latest reported position. Scheduled
+            means no current realtime feed is available for that trip.
+          </p>
+        </details>
       )}
     </section>
   );

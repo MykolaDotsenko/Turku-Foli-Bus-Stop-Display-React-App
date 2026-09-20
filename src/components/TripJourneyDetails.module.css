@@ -3,14 +3,14 @@
 }
 
 .toggle {
-  min-height: 32px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
   color: #006b75;
   cursor: pointer;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 850;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -37,7 +37,7 @@
 .more {
   margin: 0;
   color: #536b72;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 
@@ -68,8 +68,8 @@
 
 .list li small {
   margin-top: 1px;
-  color: #687b81;
-  font-size: 0.72rem;
+  color: #60747d;
+  font-size: 0.8125rem;
 }
 
 .more {

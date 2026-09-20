@@ -26,6 +26,17 @@ function stopFromLocation() {
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : DEFAULT_STOP;
 }
 
+function stopUrl(stopId) {
+  const url = new globalThis.URL(window.location.href);
+  url.searchParams.set("stop", stopId);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function stopFromHistoryState(state) {
+  const stopId = state?.foliStopId;
+  return /^\d+$/.test(stopId || "") ? stopId : null;
+}
+
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
   const [sharedPlace, setSharedPlace] = useState(() =>
@@ -78,7 +89,20 @@ function App() {
   const displayStopName = selectedStop?.name || stopName;
 
   useEffect(() => {
-    const handlePopState = () => setStopId(stopFromLocation());
+    const currentStopId = stopFromLocation();
+    const existingState =
+      window.history.state && typeof window.history.state === "object"
+        ? window.history.state
+        : {};
+
+    window.history.replaceState(
+      { ...existingState, foliStopId: currentStopId },
+      "",
+      stopUrl(currentStopId)
+    );
+
+    const handlePopState = (event) =>
+      setStopId(stopFromHistoryState(event.state) || stopFromLocation());
     const handleHashChange = () =>
       setSharedPlace(parseSharedPlaceHash(window.location.hash));
 
@@ -105,8 +129,12 @@ function App() {
       return;
     }
 
+    window.history.pushState(
+      { foliStopId: nextStopId },
+      "",
+      stopUrl(nextStopId)
+    );
     setStopId(nextStopId);
-    window.history.pushState(null, "", `?stop=${nextStopId}`);
   };
 
   const currentStop = {

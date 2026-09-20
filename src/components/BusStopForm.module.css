@@ -124,12 +124,61 @@
   font-weight: 750;
 }
 
-@media (max-width: 560px) {
+.buttonShort {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .label,
+  .help,
+  .error {
+    font-size: 0.8125rem;
+  }
+
+  .controls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .input,
+  .button {
+    min-height: 46px;
+  }
+
+  .button {
+    min-width: 72px;
+    padding-inline: 14px;
+  }
+
+  .buttonLong {
+    display: none;
+  }
+
+  .buttonShort {
+    display: inline;
+  }
+}
+
+@media (max-width: 350px) {
   .controls {
     grid-template-columns: 1fr;
   }
 
   .button {
     width: 100%;
+  }
+
+  .buttonLong {
+    display: inline;
+  }
+
+  .buttonShort {
+    display: none;
+  }
+}
+
+
+@media (max-width: 620px) {
+  .help {
+    display: none;
   }
 }

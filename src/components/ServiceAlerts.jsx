@@ -31,13 +31,14 @@ function formatValidity(validity) {
 }
 
 function AlertItem({ alert }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(alert.type === "emergency");
   const isCancellation = alert.type === "cancellation";
   const isEmergency = alert.type === "emergency";
   const isGlobal = alert.type === "global";
+  const validity = formatValidity(alert.validity);
 
   return (
-    <article
+    <details
       className={[
         styles.alert,
         isCancellation ? styles.cancellation : "",
@@ -46,74 +47,70 @@ function AlertItem({ alert }) {
       ]
         .filter(Boolean)
         .join(" ")}
+      open={isEmergency ? true : undefined}
+      onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
     >
-      <div className={styles.alertHeader}>
+      <summary className={styles.alertSummary}>
         <strong>{alert.title}</strong>
         {!isCancellation && alert.effect && (
           <span className={styles.effectBadge}>{alert.effectLabel}</span>
         )}
-      </div>
+        <span className={styles.disclosureIcon} aria-hidden="true">
+          ›
+        </span>
+      </summary>
 
-      {isCancellation ? (
-        <p>
-          {alert.line ? `Line ${alert.line}` : "A departure"}
-          {alert.scheduledTime ? ` · ${formatClock(alert.scheduledTime)}` : ""}
-          {alert.cause ? ` · ${humanizeCode(alert.cause)}` : ""}
-        </p>
-      ) : (
-        <>
-          {alert.routeNames?.length > 0 && (
-            <p className={styles.scope}>
-              Affects line{alert.routeNames.length > 1 ? "s" : ""}{" "}
-              {alert.routeNames.join(", ")}
-            </p>
-          )}
-          {isGlobal && (
-            <p className={styles.scope}>Applies across Föli services</p>
-          )}
-          {alert.message && <p>{alert.message}</p>}
-          {formatValidity(alert.validity) && (
-            <p className={styles.validity}>{formatValidity(alert.validity)}</p>
-          )}
-          {(alert.information || alert.images?.length > 0) && (
-            <details
-              className={styles.details}
-              onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
-            >
-              <summary>
-                {alert.images?.length > 0
-                  ? "View disruption details"
-                  : "Show details"}
-              </summary>
-              {alert.information && <p>{alert.information}</p>}
-              {detailsOpen && alert.images?.length > 0 && (
-                <div className={styles.mediaGrid}>
-                  {alert.images.map((image, index) => (
-                    <a
-                      key={`${image.url}-${index}`}
-                      className={styles.mediaLink}
-                      href={image.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={image.title || `Open image for ${alert.title}`}
-                    >
-                      <img
-                        src={image.url}
-                        alt={image.title || `${alert.title} illustration`}
-                        loading="lazy"
-                        decoding="async"
-                        referrerPolicy="no-referrer"
-                      />
-                      <span>{image.title || "Open full image"}</span>
-                    </a>
-                  ))}
-                </div>
-              )}
-            </details>
-          )}
-        </>
-      )}
-    </article>
+      <div className={styles.alertBody}>
+        {isCancellation ? (
+          <p>
+            {alert.line ? `Line ${alert.line}` : "A departure"}
+            {alert.scheduledTime ? ` · ${formatClock(alert.scheduledTime)}` : ""}
+            {alert.cause ? ` · ${humanizeCode(alert.cause)}` : ""}
+          </p>
+        ) : (
+          <>
+            {(alert.routeNames?.length > 0 || isGlobal || validity) && (
+              <p className={styles.alertMeta}>
+                {alert.routeNames?.length > 0
+                  ? `Line${alert.routeNames.length > 1 ? "s" : ""} ${alert.routeNames.join(", ")}`
+                  : isGlobal
+                    ? "All Föli services"
+                    : ""}
+                {(alert.routeNames?.length > 0 || isGlobal) && validity
+                  ? " · "
+                  : ""}
+                {validity}
+              </p>
+            )}
+            {alert.message && <p className={styles.message}>{alert.message}</p>}
+            {alert.information && <p>{alert.information}</p>}
+            {detailsOpen && alert.images?.length > 0 && (
+              <div className={styles.mediaGrid}>
+                {alert.images.map((image, index) => (
+                  <a
+                    key={`${image.url}-${index}`}
+                    className={styles.mediaLink}
+                    href={image.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={image.title || `Open image for ${alert.title}`}
+                  >
+                    <img
+                      src={image.url}
+                      alt={image.title || `${alert.title} illustration`}
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span>{image.title || "Open full image"}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </details>
   );
 }
 

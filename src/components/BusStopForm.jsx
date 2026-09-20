@@ -151,8 +151,15 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
             }
             placeholder="Kauppatori or 164"
           />
-          <button className={styles.button} type="submit">
-            Show departures
+          <button
+            className={styles.button}
+            type="submit"
+            aria-label="Show departures"
+          >
+            <span className={styles.buttonLong}>Show departures</span>
+            <span className={styles.buttonShort} aria-hidden="true">
+              Show
+            </span>
           </button>
         </div>
 
@@ -182,7 +189,7 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
       </div>
 
       <p id="stop-search-help" className={styles.help}>
-        Search by stop name or number. Use ↑ and ↓ to move through suggestions.
+        Search by stop name or number.
       </p>
 
       {validationError && (

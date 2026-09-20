@@ -402,10 +402,13 @@ test.beforeEach(async ({ page }) => {
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
-  await expect(page.getByText("Line 1 city-centre detour")).toBeVisible();
+  const detourSummary = page.getByText("Line 1 city-centre detour");
+  await expect(detourSummary).toBeVisible();
   await expect(page.getByText("Detour", { exact: true })).toBeVisible();
-  await expect(page.getByText("Affects line 1")).toBeVisible();
   await expect(page.getByText("Line 99 service change")).toBeVisible();
   await expect(page.getByText("Harbour")).toBeVisible();
   await expect(page.getByText(/Bus at stop · board now/i)).toBeVisible();
@@ -423,7 +426,9 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   });
   expect(boardPrecedesPlaceManagement).toBe(true);
 
-  await page.getByText("View disruption details").click();
+  await detourSummary.click();
+  await expect(page.getByText(/Line 1 · Valid until/i)).toBeVisible();
+  await expect(page.getByText("Line 1 uses a temporary route.")).toBeVisible();
   await expect(
     page.getByText("Stop 14 is not in use during the works.")
   ).toBeVisible();
@@ -450,9 +455,15 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("4");
 
-  await page.evaluate(() => globalThis.history.back());
+  await page.goBack({ waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/stop=164/);
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });
 
@@ -580,7 +591,7 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   await page.getByRole("button", { name: "Add Home" }).click();
 
   await expect(
-    page.getByRole("link", { name: "Go Home by public transit" })
+    page.getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
   await expect(page).toHaveURL(/\?stop=164$/);
 
@@ -622,6 +633,10 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   expect(homeUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(homeUrl.searchParams.has("origin")).toBe(false);
 
+  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  if (await moreHomeOptions.isVisible()) {
+    await moreHomeOptions.click();
+  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
@@ -766,9 +781,25 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
+  const alertDetails = page.getByText("Line 1 city-centre detour").first();
+  if (await alertDetails.isVisible()) {
+    await alertDetails.click();
+    await expect(page.getByAltText("Temporary detour map")).toBeVisible();
+  }
+
+  const nextStops = page.getByRole("button", { name: "Next stops" }).first();
+  if (await nextStops.isVisible()) {
+    await nextStops.click();
+    await expect(page.getByText("Planned stop sequence")).toBeVisible();
+  }
+
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
+  const recoveryMore = recovery.getByRole("button", { name: "More" });
+  if (await recoveryMore.isVisible()) {
+    await recoveryMore.click();
+  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
@@ -782,7 +813,9 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
 test("mobile layout does not create horizontal page overflow", async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== "webkit-mobile");
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
 
   await page.goto("/?stop=164");
   await seedHome(page);
@@ -791,6 +824,10 @@ test("mobile layout does not create horizontal page overflow", async ({
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
+  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  if (await moreHomeOptions.isVisible()) {
+    await moreHomeOptions.click();
+  }
   await recovery.getByText("Other saved Home stop").click();
   await expect(
     recovery.getByRole("link", {
@@ -805,8 +842,69 @@ test("mobile layout does not create horizontal page overflow", async ({
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("mobile first screen shows a real departure without scrolling", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const firstDeparture = page.locator("tbody tr").first();
+  await expect(firstDeparture).toBeVisible();
+
+  const metrics = await firstDeparture.evaluate((row) => {
+    const rect = row.getBoundingClientRect();
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      scrollY: window.scrollY,
+    };
+  });
+
+  expect(metrics.scrollY).toBe(0);
+  expect(metrics.top).toBeGreaterThanOrEqual(0);
+  expect(metrics.top).toBeLessThan(metrics.viewportHeight);
+});
+
+test("narrow 320 and 360px layouts keep core controls on-screen", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 360, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/?stop=164");
+    await seedHome(page);
+    await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+
+    await expect(
+      page.getByRole("combobox", { name: "Find your stop" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Show departures" })
+    ).toBeVisible();
+  }
+});
+
 test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
-  if (!["chromium-desktop", "webkit-mobile"].includes(testInfo.project.name)) {
+  if (
+    !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
+      testInfo.project.name
+    )
+  ) {
     test.skip();
   }
 
@@ -814,14 +912,16 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Go Home by public transit" })
+    page.getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
   const fileName =
     testInfo.project.name === "webkit-mobile"
-      ? "foli-mobile.png"
-      : "foli-desktop.png";
+      ? "foli-mobile-ios.png"
+      : testInfo.project.name === "chromium-mobile"
+        ? "foli-mobile-android.png"
+        : "foli-desktop.png";
 
   await page.screenshot({
     path: `artifacts/screenshots/${fileName}`,
