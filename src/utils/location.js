@@ -48,12 +48,16 @@ export async function requestOneTimePosition(geolocation) {
     result = await readPosition(geolocation, FALLBACK_LOCATION_OPTIONS);
   }
 
+  const rawAccuracy = result?.coords?.accuracy;
+  const accuracy =
+    rawAccuracy === null || rawAccuracy === undefined || rawAccuracy === ""
+      ? null
+      : Number(rawAccuracy);
+
   const position = {
     lat: Number(result?.coords?.latitude),
     lon: Number(result?.coords?.longitude),
-    accuracy: Number.isFinite(Number(result?.coords?.accuracy))
-      ? Number(result.coords.accuracy)
-      : null,
+    accuracy: Number.isFinite(accuracy) ? accuracy : null,
   };
 
   if (!hasCoordinates(position)) {
