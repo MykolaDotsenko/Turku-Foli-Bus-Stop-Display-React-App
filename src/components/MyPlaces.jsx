@@ -287,7 +287,12 @@ function PlaceCard({
       <button
         type="button"
         className={styles.mobileSummary}
-        onClick={() => setMobileExpanded((current) => !current)}
+        onClick={() =>
+          setMobileExpanded((current) => {
+            if (current) setShowDriver(false);
+            return !current;
+          })
+        }
         aria-expanded={mobileExpanded}
       >
         <span className={styles.placeIcon} aria-hidden="true">
