@@ -80,6 +80,7 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
   const [error, setError] = useState("");
 
   const hasStopCoordinates = stops.some(hasCoordinates);
+  const catalogLoaded = stops.length > 0;
   const geolocationSupported =
     typeof navigator !== "undefined" && "geolocation" in navigator;
 
@@ -111,7 +112,11 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
 
     if (!hasStopCoordinates) {
       setStatus("error");
-      setError("Nearby-stop data is still loading. Try again in a moment.");
+      setError(
+        catalogLoaded
+          ? "Stop coordinates are temporarily unavailable. Search for a stop manually and try again later."
+          : "Nearby-stop data is still loading. Try again in a moment."
+      );
       return;
     }
 
@@ -185,7 +190,9 @@ function NearbyStops({ stops, activeStopId, onSelect }) {
 
       {!hasStopCoordinates && (
         <p className={styles.meta} role="status">
-          Preparing stop coordinates…
+          {catalogLoaded
+            ? "Location search is temporarily unavailable; stop search still works normally."
+            : "Preparing stop coordinates…"}
         </p>
       )}
 
