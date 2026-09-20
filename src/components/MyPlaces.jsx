@@ -27,7 +27,7 @@ function SetupPlace({
   onSave,
 }) {
   const [selectedIds, setSelectedIds] = useState(
-    () => new Set(candidates.map((stop) => stop.id))
+    () => new Set(candidates[0] ? [candidates[0].id] : [])
   );
   const [primaryStopId, setPrimaryStopId] = useState(
     candidates[0]?.id || ""
@@ -73,8 +73,9 @@ function SetupPlace({
       </div>
 
       <p className={styles.helper}>
-        Only public stop IDs and names will be saved. Your exact location is
-        discarded after this setup.
+        The closest stop is selected first. Add backup stops only if you know
+        they are safe and useful for arriving at {preset.label}. Only public
+        stop IDs and names are saved; your exact location is discarded.
       </p>
 
       {Number.isFinite(accuracy) && (
