@@ -1,4 +1,6 @@
 import styles from "./BusStopDisplay.module.css";
+import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
+import { accessibleRouteTextColor } from "../utils/routes";
 import {
   formatClock,
   formatDue,
@@ -8,10 +10,46 @@ import {
 
 const MAX_VISIBLE_DEPARTURES = 10;
 
+function vehicleProximity(arrival, stop, route) {
+  if (
+    !arrival.monitored ||
+    !hasCoordinates(stop) ||
+    !hasCoordinates({ lat: arrival.latitude, lon: arrival.longitude })
+  ) {
+    return "";
+  }
+
+  const distance = distanceInMeters(
+    { lat: arrival.latitude, lon: arrival.longitude },
+    stop
+  );
+  if (!Number.isFinite(distance)) return "";
+
+  const vehicle = route?.type === 4 ? "Waterbus" : "Bus";
+
+  if (distance <= 50) return `${vehicle} at or near stop`;
+  if (distance <= 250) {
+    return `${vehicle} approaching · ≈${formatDistance(distance)} away`;
+  }
+
+  return `${vehicle} ≈${formatDistance(distance)} from stop`;
+}
+
+function routeBadgeStyle(route) {
+  if (!route?.color) return undefined;
+
+  return {
+    backgroundColor: route.color,
+    color: accessibleRouteTextColor(route.color, route.textColor || "#ffffff"),
+  };
+}
+
 function BusStopDisplay({
   stopId,
   stopName,
+  stop,
   arrivals,
+  routesByShortName,
   serverTime,
   loading,
   refreshing,
@@ -125,12 +163,14 @@ function BusStopDisplay({
             <tbody>
               {visibleArrivals.map((arrival, index) => {
                 const departureTime = getDepartureTime(arrival);
+                const route = routesByShortName?.get(arrival.lineref);
                 const serviceStatus = formatServiceStatus(
                   arrival.monitored,
                   arrival.delay,
                   arrival.recordedattime,
                   serverTime
                 );
+                const proximity = vehicleProximity(arrival, stop, route);
 
                 return (
                   <tr
@@ -142,7 +182,11 @@ function BusStopDisplay({
                     ].join("-")}
                   >
                     <td>
-                      <span className={styles.lineBadge}>
+                      <span
+                        className={styles.lineBadge}
+                        style={routeBadgeStyle(route)}
+                        title={route?.longName || undefined}
+                      >
                         {arrival.lineref || "—"}
                       </span>
                     </td>
@@ -151,6 +195,9 @@ function BusStopDisplay({
                       <span className={styles.tripMeta}>
                         {serviceStatus} · {formatClock(departureTime)}
                       </span>
+                      {proximity && (
+                        <span className={styles.proximity}>{proximity}</span>
+                      )}
                     </td>
                     <td className={styles.due}>
                       {formatDue(departureTime)}
@@ -165,8 +212,9 @@ function BusStopDisplay({
 
       {visibleArrivals.length > 0 && (
         <p className={styles.legend}>
-          Live times are estimates from vehicle data. Scheduled means no current
-          realtime feed is available for that trip.
+          Live times are estimates from vehicle data. Vehicle distance is a
+          straight-line estimate from the latest reported position. Scheduled
+          means no current realtime feed is available for that trip.
         </p>
       )}
     </section>
