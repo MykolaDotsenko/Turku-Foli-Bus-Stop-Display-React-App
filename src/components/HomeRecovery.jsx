@@ -62,6 +62,13 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         </span>
       </div>
 
+      {home.needsReview && (
+        <p className={styles.status} role="status">
+          Home needs review because a saved stop changed or disappeared from
+          the current Föli catalogue.
+        </p>
+      )}
+
       <div className={styles.actions}>
         {transitUrl ? (
           <a
