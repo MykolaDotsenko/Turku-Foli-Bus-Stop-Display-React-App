@@ -12,6 +12,7 @@ import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
 import useSavedPlaces from "./hooks/useSavedPlaces";
 import useSavedStops from "./hooks/useSavedStops";
+import useServiceBoundary from "./hooks/useServiceBoundary";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
@@ -31,6 +32,7 @@ function App() {
     parseSharedPlaceHash(window.location.hash)
   );
   const online = useOnlineStatus();
+  const { geometry: serviceBoundary } = useServiceBoundary();
   const { stops, coordinatesStatus } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
@@ -153,6 +155,7 @@ function App() {
           activeStopId={stopId}
           placesById={placesById}
           sharedPlace={sharedPlace}
+          serviceBoundary={serviceBoundary}
           online={online}
           onSavePlace={savePlace}
           onImportSharedPlace={importSharedPlace}
@@ -211,6 +214,7 @@ function App() {
         stops={stops}
         coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
+        serviceBoundary={serviceBoundary}
         online={online}
         onSelect={selectStop}
       />
@@ -222,6 +226,7 @@ function App() {
           activeStopId={stopId}
           placesById={placesById}
           sharedPlace={sharedPlace}
+          serviceBoundary={serviceBoundary}
           online={online}
           onSavePlace={savePlace}
           onImportSharedPlace={importSharedPlace}
