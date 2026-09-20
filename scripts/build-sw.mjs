@@ -103,7 +103,7 @@ self.addEventListener("fetch", (event) => {
           return response;
         } catch {
           await markOfflineShell(true);
-          return caches.match(SHELL_URL);
+          return caches.match(SHELL_URL, { ignoreVary: true });
         }
       })()
     );
