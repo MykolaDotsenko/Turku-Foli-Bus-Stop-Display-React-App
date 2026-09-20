@@ -243,13 +243,14 @@ Every pull request to `master` must pass:
 | Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence/share privacy, explicit import semantics, Home recovery/fallbacks, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
 | Production build | Vite production compilation + content-versioned service-worker generation |
 | PWA precache | every generated production asset must be represented in the service-worker precache manifest |
-| Playwright · Chromium | production-build daily flow + geolocation + parent-share import + Get me Home recovery + real service-worker offline reload |
-| Playwright · Firefox | cross-browser behavior |
-| Playwright · mobile WebKit | iPhone-sized layout and interaction flow |
+| Playwright · Chromium | deterministic production-build daily flow + geolocation + parent-share import + Get me Home recovery, with service workers blocked so API mocks remain authoritative |
+| Playwright · Firefox | deterministic cross-browser behavior with service workers blocked |
+| Playwright · mobile WebKit | deterministic iPhone-sized layout and interaction flow with service workers blocked |
+| Playwright · Chromium PWA | dedicated real service-worker install/control + offline reload + saved Home/driver fallback |
 | axe | WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical violations |
 | Mobile overflow | guards against page-level horizontal overflow |
 
-Most browser scenarios mock the documented Föli contracts intentionally so provider incidents cannot make the release pipeline flaky. A dedicated Chromium PWA scenario removes those mocks, switches the browser context offline and proves that the production app shell, saved Home and driver-help fallback reopen through the real service worker.
+Most browser scenarios mock the documented Föli contracts intentionally so provider incidents cannot make the release pipeline flaky. Those deterministic projects explicitly block service workers so a controlled page cannot bypass Playwright route mocks. A separate Chromium PWA project allows the real service worker, removes Föli mocks, switches the browser context offline and proves that the production app shell, saved Home and driver-help fallback reopen from the generated precache.
 
 CI also retains Playwright reports, failure traces, and recruiter-ready desktop/mobile product screenshots as build artifacts.
 
