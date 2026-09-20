@@ -80,17 +80,7 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            event.waitUntil(
-              caches.open(CACHE_NAME).then((cache) => cache.put(SHELL_URL, copy))
-            );
-          }
-          return response;
-        })
-        .catch(() => caches.match(SHELL_URL))
+      fetch(request).catch(() => caches.match(SHELL_URL))
     );
     return;
   }
