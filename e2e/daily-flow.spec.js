@@ -564,7 +564,11 @@ test("mobile layout does not create horizontal page overflow", async ({
     'section[aria-labelledby="home-recovery-title"]'
   );
   await recovery.getByText("Other safe Home stop").click();
-  await expect(recovery.getByText("Puistokatu")).toBeVisible();
+  await expect(
+    recovery.getByRole("link", {
+      name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+    })
+  ).toBeVisible();
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth
