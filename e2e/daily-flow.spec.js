@@ -641,6 +641,10 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   expect(homeUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(homeUrl.searchParams.has("origin")).toBe(false);
 
+  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  if (await moreHomeOptions.isVisible()) {
+    await moreHomeOptions.click();
+  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
@@ -800,6 +804,10 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
+  const recoveryMore = recovery.getByRole("button", { name: "More" });
+  if (await recoveryMore.isVisible()) {
+    await recoveryMore.click();
+  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
