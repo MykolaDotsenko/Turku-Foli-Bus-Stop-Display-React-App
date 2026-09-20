@@ -27,7 +27,7 @@ function stopFromLocation() {
 }
 
 function stopUrl(stopId) {
-  const url = new URL(window.location.href);
+  const url = new globalThis.URL(window.location.href);
   url.searchParams.set("stop", stopId);
   return `${url.pathname}${url.search}${url.hash}`;
 }
