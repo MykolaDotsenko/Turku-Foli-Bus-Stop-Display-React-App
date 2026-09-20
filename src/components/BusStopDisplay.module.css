@@ -366,3 +366,43 @@
     font-size: 0.8125rem;
   }
 }
+
+
+@media (max-width: 620px) {
+  .header {
+    align-items: center;
+    padding: 10px 12px;
+  }
+
+  .stopName {
+    font-size: 1.15rem;
+  }
+
+  .stopMeta {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+  }
+
+  .summary {
+    display: none;
+  }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .table td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .due {
+    font-size: 1rem;
+  }
+}
