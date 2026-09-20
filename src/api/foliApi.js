@@ -1,6 +1,4 @@
 import axios from "axios";
-import { extractStopAlerts } from "../utils/alerts";
-
 const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 const ALERTS_URL =
@@ -191,6 +189,3 @@ export async function fetchAlerts(signal) {
   return payload;
 }
 
-export function selectStopAlerts(payload, context) {
-  return extractStopAlerts(payload, context);
-}
