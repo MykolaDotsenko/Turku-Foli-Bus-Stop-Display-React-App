@@ -14,7 +14,7 @@ function setOnline(value) {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  sessionStorage.clear();
+  globalThis.sessionStorage.clear();
 
   if (originalOnLine) {
     Object.defineProperty(navigator, "onLine", originalOnLine);
@@ -86,7 +86,7 @@ test("keeps explicit offline state across a PWA-style reload until reachability 
   });
 
   expect(first.result.current).toBe(false);
-  expect(sessionStorage.getItem("foli-offline-hint")).toBe("1");
+  expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
   first.unmount();
 
   // Chromium can briefly report navigator.onLine=true when reopening from
@@ -98,5 +98,5 @@ test("keeps explicit offline state across a PWA-style reload until reachability 
   expect(second.result.current).toBe(false);
 
   await waitFor(() => expect(second.result.current).toBe(false));
-  expect(sessionStorage.getItem("foli-offline-hint")).toBe("1");
+  expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
 });
