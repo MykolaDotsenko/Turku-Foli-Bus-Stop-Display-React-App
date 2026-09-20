@@ -13,7 +13,7 @@ This audit treats every optimistic product claim as something that should surviv
 | --- | ---: | --- |
 | Everyday user utility | **97/100** | Search, realtime board, disruptions, nearest stops, Safe Places, walking/transit handoffs and recovery cover the main daily flow without an account. |
 | Reliability / failure states | **98/100** | Realtime and alert freshness now age across outages, same-stop fallbacks remain explicit, offline PWA behavior is tested, and dead-phone preparation has a physical fallback. |
-| Privacy | **99/100** | Exact Home/School/Work coordinates are not persisted; Safe Places store public stop identity; shared places use public-stop-only URL fragments; no tracking backend exists. |
+| Privacy | **98/100** | Exact Home/School/Work coordinates are not persisted and there is no tracking backend. Safe Places use public stop identity only, but the audit now treats a named Home/School/Work stop as approximate-location information rather than “non-sensitive” data. |
 | Accessibility | **98/100** | Keyboard search, semantic controls, forced-colors/reduced-motion support, large touch targets and axe gates are present. |
 | Mobile UX | **97/100** | Core controls collapse well, recovery is prominent, management is deprioritized, and worst-case expanded states are overflow-tested. |
 | Realtime semantics | **98/100** | Live/scheduled/freshness distinctions are defensive, stale provider time advances across failed refreshes, old rows are removed, and vehicle direction is deliberately not inferred from coordinates alone. |
@@ -174,6 +174,12 @@ A stronger directional model would need trip/shape/progress context.
 navigator.onLine is useful for UI degradation, but it does not prove that Föli or Google Maps is reachable.
 
 Actual API request success/failure remains the authoritative signal for realtime data.
+
+### Safe Place stop identity still reveals an approximate area
+
+The app does not persist an exact private address or setup coordinates, but a Safe Place labelled Home/School/Work is not anonymous. A public stop ID can reveal the approximate area associated with that place.
+
+Share, import and print flows now say this explicitly. The product should not describe public-stop-only storage as if it eliminated all location sensitivity.
 
 ### No full localization yet
 
