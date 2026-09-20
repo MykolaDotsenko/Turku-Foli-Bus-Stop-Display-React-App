@@ -1,0 +1,196 @@
+.wrapper {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 14px;
+  padding: 14px;
+  border: 1px solid #d5e4e6;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, rgba(0, 121, 133, 0.09), transparent 44%),
+    #f9fcfc;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.heading {
+  margin: 0;
+  color: #334750;
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.description {
+  margin: 3px 0 0;
+  color: #4d626b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.locateButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #007985;
+  border-radius: 12px;
+  background: #fff;
+  color: #00656f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.locateButton:hover:not(:disabled) {
+  background: #edf8f8;
+}
+
+.locateButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  color: #4d626b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.error,
+.notice,
+.disclaimer {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.error {
+  color: #b42318;
+  font-weight: 750;
+}
+
+.notice {
+  padding: 9px 10px;
+  border: 1px solid #e4d6a8;
+  border-radius: 10px;
+  background: #fff9e8;
+  color: #5b4c20;
+  font-weight: 700;
+}
+
+.stopGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stopButton {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 58px;
+  padding: 10px 11px;
+  border: 1px solid #c5d9dc;
+  border-radius: 12px;
+  background: #fff;
+  color: #20343b;
+  cursor: pointer;
+  text-align: left;
+}
+
+.stopButton:hover {
+  border-color: #7fa3aa;
+  background: #f1f9f9;
+}
+
+.stopButton[data-active="true"] {
+  border-color: #007985;
+  box-shadow: inset 0 0 0 1px #007985;
+}
+
+.stopText {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.stopText strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stopText span {
+  color: #52666f;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.nearestBadge {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: #dff4f2;
+  color: #005e67;
+  font-size: 0.62rem;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.disclaimer {
+  color: #52666f;
+}
+
+@media (max-width: 720px) {
+  .stopGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .locateButton {
+    width: 100%;
+    min-height: 46px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .locateButton,
+  .stopButton {
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      box-shadow 140ms ease;
+  }
+}
+
+@media (forced-colors: active) {
+  .stopButton[data-active="true"],
+  .locateButton {
+    border: 2px solid ButtonText;
+  }
+}
