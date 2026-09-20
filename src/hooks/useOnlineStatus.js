@@ -1,9 +1,38 @@
 import { useEffect, useState } from "react";
 
 const CONNECTIVITY_TIMEOUT_MS = 3000;
+const OFFLINE_HINT_KEY = "foli-offline-hint";
 
 function browserSaysOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
+}
+
+function readOfflineHint() {
+  if (typeof sessionStorage === "undefined") return false;
+
+  try {
+    return sessionStorage.getItem(OFFLINE_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeOfflineHint(offline) {
+  if (typeof sessionStorage === "undefined") return;
+
+  try {
+    if (offline) {
+      sessionStorage.setItem(OFFLINE_HINT_KEY, "1");
+    } else {
+      sessionStorage.removeItem(OFFLINE_HINT_KEY);
+    }
+  } catch {
+    // Connectivity UI must not fail because storage is unavailable.
+  }
+}
+
+function initialOnlineState() {
+  return browserSaysOnline() && !readOfflineHint();
 }
 
 async function canReachAppOrigin() {
@@ -37,7 +66,7 @@ async function canReachAppOrigin() {
 }
 
 export default function useOnlineStatus() {
-  const [online, setOnline] = useState(browserSaysOnline);
+  const [online, setOnline] = useState(initialOnlineState);
 
   useEffect(() => {
     let active = true;
@@ -47,18 +76,21 @@ export default function useOnlineStatus() {
       const requestId = ++sequence;
 
       if (!browserSaysOnline()) {
+        writeOfflineHint(true);
         if (active && requestId === sequence) setOnline(false);
         return;
       }
 
       const reachable = await canReachAppOrigin();
       if (active && requestId === sequence) {
+        writeOfflineHint(!reachable);
         setOnline(reachable);
       }
     };
 
     const markOffline = () => {
       sequence += 1;
+      writeOfflineHint(true);
       setOnline(false);
     };
 
