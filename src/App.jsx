@@ -1,20 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import QuickStops from "./components/QuickStops";
+import useSavedStops from "./hooks/useSavedStops";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
 
 const DEFAULT_STOP = "164";
 
-function getInitialStop() {
+function stopFromLocation() {
   const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : DEFAULT_STOP;
 }
 
 function App() {
-  const [stopId, setStopId] = useState(getInitialStop);
+  const [stopId, setStopId] = useState(stopFromLocation);
   const stops = useStopCatalog();
+  const {
+    favorites,
+    recents,
+    favoriteIds,
+    rememberRecent,
+    toggleFavorite,
+  } = useSavedStops();
   const {
     stopName,
     arrivals,
@@ -25,16 +34,50 @@ function App() {
     refresh,
   } = useStopMonitor(stopId);
 
+  useEffect(() => {
+    const handlePopState = () => setStopId(stopFromLocation());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (stopName) {
+      rememberRecent({ id: stopId, name: stopName });
+    }
+  }, [rememberRecent, stopId, stopName]);
+
   const selectStop = (nextStopId) => {
+    if (!/^\d+$/.test(nextStopId || "")) return;
+
+    if (nextStopId === stopId) {
+      refresh();
+      return;
+    }
+
     setStopId(nextStopId);
-    window.history.replaceState(null, "", `?stop=${nextStopId}`);
+    window.history.pushState(null, "", \`?stop=\${nextStopId}\`);
+  };
+
+  const currentStop = {
+    id: stopId,
+    name: stopName || \`Stop \${stopId}\`,
   };
 
   return (
     <main className="app-shell">
       <header className="topbar">
-        <p className="brand">Föli departures</p>
-        <p className="context">Turku region · auto-refresh every 30 seconds</p>
+        <div>
+          <p className="eyebrow">Turku region · live public transport</p>
+          <p className="brand">Föli departures</p>
+          <p className="context">
+            Find a stop once, save it, and get back to live departures in one
+            tap.
+          </p>
+        </div>
+        <span className="live-pill">
+          <span className="live-dot" aria-hidden="true" />
+          Föli SIRI
+        </span>
       </header>
 
       <section className="search-panel" aria-label="Choose a bus stop">
@@ -45,6 +88,13 @@ function App() {
         />
       </section>
 
+      <QuickStops
+        favorites={favorites}
+        recents={recents}
+        activeStopId={stopId}
+        onSelect={selectStop}
+      />
+
       <BusStopDisplay
         stopId={stopId}
         stopName={stopName}
@@ -54,6 +104,8 @@ function App() {
         refreshing={refreshing}
         error={error}
         onRefresh={() => refresh()}
+        isFavorite={favoriteIds.has(stopId)}
+        onToggleFavorite={() => toggleFavorite(currentStop)}
       />
 
       <footer className="source-note">
