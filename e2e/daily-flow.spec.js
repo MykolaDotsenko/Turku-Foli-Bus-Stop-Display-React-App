@@ -402,6 +402,9 @@ test.beforeEach(async ({ page }) => {
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(page.getByText("Line 1 city-centre detour")).toBeVisible();
   await expect(page.getByText("Detour", { exact: true })).toBeVisible();
@@ -450,9 +453,15 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("4");
 
-  await page.evaluate(() => globalThis.history.back());
+  await page.goBack();
   await expect(page).toHaveURL(/stop=164/);
+  await expect
+    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
+    .toBe("164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });
 
@@ -766,9 +775,25 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
+  const alertDetails = page.getByText("View disruption details").first();
+  if (await alertDetails.isVisible()) {
+    await alertDetails.click();
+    await expect(page.getByAltText("Temporary detour map")).toBeVisible();
+  }
+
+  const nextStops = page.getByRole("button", { name: "Next stops" }).first();
+  if (await nextStops.isVisible()) {
+    await nextStops.click();
+    await expect(page.getByText("Planned stop sequence")).toBeVisible();
+  }
+
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
+  const moreHomeOptions = recovery.getByText("More Home options");
+  if (await moreHomeOptions.isVisible()) {
+    await moreHomeOptions.click();
+  }
   await recovery.getByRole("button", { name: "Show driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
@@ -782,7 +807,9 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
 test("mobile layout does not create horizontal page overflow", async ({
   page,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== "webkit-mobile");
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
 
   await page.goto("/?stop=164");
   await seedHome(page);
@@ -806,7 +833,11 @@ test("mobile layout does not create horizontal page overflow", async ({
 });
 
 test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
-  if (!["chromium-desktop", "webkit-mobile"].includes(testInfo.project.name)) {
+  if (
+    !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
+      testInfo.project.name
+    )
+  ) {
     test.skip();
   }
 
@@ -820,8 +851,10 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
   const fileName =
     testInfo.project.name === "webkit-mobile"
-      ? "foli-mobile.png"
-      : "foli-desktop.png";
+      ? "foli-mobile-ios.png"
+      : testInfo.project.name === "chromium-mobile"
+        ? "foli-mobile-android.png"
+        : "foli-desktop.png";
 
   await page.screenshot({
     path: `artifacts/screenshots/${fileName}`,
