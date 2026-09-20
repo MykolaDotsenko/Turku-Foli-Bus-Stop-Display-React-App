@@ -86,15 +86,17 @@ test("shows validity and mounts disruption media only after details are opened",
     />
   );
 
-  expect(screen.getByText(/Valid until/i)).toBeInTheDocument();
+  const summary = screen.getByText("Update 1").closest("summary");
+  const details = summary.closest("details");
+
+  expect(screen.getByText(/Valid until/i)).not.toBeVisible();
   expect(screen.queryByAltText("Temporary stop map")).not.toBeInTheDocument();
 
-  const summary = screen.getByText("View disruption details");
-  const details = summary.closest("details");
   fireEvent.click(summary);
   details.open = true;
   fireEvent(details, new globalThis.Event("toggle"));
 
+  expect(screen.getByText(/Valid until/i)).toBeVisible();
   const image = screen.getByAltText("Temporary stop map");
   expect(image).toHaveAttribute(
     "src",
