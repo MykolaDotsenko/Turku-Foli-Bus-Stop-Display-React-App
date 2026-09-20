@@ -111,6 +111,48 @@ jobs:
             throw new Error("Pinned GTFS routes payload is not an array.");
           }
 
+          const stopTimesAtStop = await getJson(
+            `${gtfsBase}/stop_times/stop/${encodeURIComponent(stopId)}`
+          );
+          if (!Array.isArray(stopTimesAtStop)) {
+            throw new Error("Pinned GTFS stop timetable is not an array.");
+          }
+
+          const routeId = routes.find((route) => route?.route_id)?.route_id;
+          if (!routeId) throw new Error("Pinned GTFS routes have no route_id.");
+
+          const routeTrips = await getJson(
+            `${gtfsBase}/trips/route/${encodeURIComponent(routeId)}`
+          );
+          if (!Array.isArray(routeTrips) || routeTrips.length === 0) {
+            throw new Error("Pinned GTFS route trip lookup is unusable.");
+          }
+
+          const tripId = routeTrips.find((trip) => trip?.trip_id)?.trip_id;
+          if (!tripId) throw new Error("Pinned GTFS route trips have no trip_id.");
+
+          const [tripDetails, tripStops, boundary] = await Promise.all([
+            getJson(`${gtfsBase}/trips/trip/${encodeURIComponent(tripId)}`),
+            getJson(`${gtfsBase}/stop_times/trip/${encodeURIComponent(tripId)}`),
+            getJson(`${base}/geojson/bounds/compact`),
+          ]);
+
+          if (!Array.isArray(tripDetails) || tripDetails.length === 0) {
+            throw new Error("Pinned GTFS trip lookup is unusable.");
+          }
+          if (!Array.isArray(tripStops) || tripStops.length === 0) {
+            throw new Error("Pinned GTFS trip stop sequence is unusable.");
+          }
+          if (
+            boundary?.type !== "FeatureCollection" ||
+            !Array.isArray(boundary.features) ||
+            !boundary.features.some(
+              (feature) => feature?.geometry?.type === "MultiPolygon"
+            )
+          ) {
+            throw new Error("Compact Föli service boundary is invalid.");
+          }
+
           const alerts = await getJson(`${base}/alerts`);
           if (!alerts || Array.isArray(alerts) || typeof alerts !== "object") {
             throw new Error("Alerts payload is not an object.");
@@ -124,6 +166,11 @@ jobs:
                 gtfsDataset: gtfs.latest,
                 gtfsStops: Object.keys(stops).length,
                 gtfsRoutes: routes.length,
+                checkedRoute: routeId,
+                checkedTrip: tripId,
+                stopTimetableRows: stopTimesAtStop.length,
+                tripStopRows: tripStops.length,
+                compactBoundaryFeatures: boundary.features.length,
                 alertKeys: Object.keys(alerts),
               },
               null,
