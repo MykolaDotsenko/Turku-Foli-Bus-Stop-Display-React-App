@@ -35,7 +35,7 @@ export function formatDue(unixSeconds, nowMs = Date.now()) {
   const minutes = minutesUntil(unixSeconds, nowMs);
   if (minutes === null) return "—";
   if (minutes <= 1) return "Due";
-  return \`\${minutes} min\`;
+  return `${minutes} min`;
 }
 
 export function formatDelay(delaySeconds) {
@@ -44,7 +44,7 @@ export function formatDelay(delaySeconds) {
   if (Math.abs(seconds) < 30) return "on time";
 
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
-  return seconds > 0 ? \`+\${minutes} min\` : \`\${minutes} min early\`;
+  return seconds > 0 ? `+${minutes} min` : `${minutes} min early`;
 }
 
 export function dataAgeSeconds(recordedAt, serverTime) {
@@ -76,10 +76,10 @@ export function formatServiceStatus(
 
   let freshness = "Live";
   if (ageSeconds !== null && ageSeconds > 120) {
-    freshness = \`Live data · \${Math.max(2, Math.round(ageSeconds / 60))} min old\`;
+    freshness = `Live data · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
   } else if (ageSeconds !== null && ageSeconds > 60) {
     freshness = "Live data · 1 min old";
   }
 
-  return delay ? \`\${freshness} · \${delay}\` : freshness;
+  return delay ? `${freshness} · ${delay}` : freshness;
 }
