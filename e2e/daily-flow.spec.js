@@ -110,7 +110,7 @@ async function mockFoli(page) {
     });
   });
 
-  await page.route("https://data.foli.fi/gtfs", async (route) => {
+  await page.route("https://data.foli.fi/gtfs/", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
