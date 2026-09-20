@@ -31,7 +31,7 @@ No account, backend, tracking, or setup is required. Favorites and recents stay 
 ## Product decisions
 
 - one-tap geolocation removes the need to know a nearby stop's name or number
-- the closest stop is selected automatically only when location quality is reasonable and the device is near the Föli network
+- the closest stop is selected automatically only when location quality is reasonable, the device is near the Föli network, and one candidate is meaningfully closer than the next
 - the three nearest alternatives remain visible because the physically closest stop may serve the wrong travel direction
 - location accuracy is exposed instead of pretending GPS/Wi-Fi positioning is exact
 - stop distances are labelled as approximate straight-line distances rather than walking-route distances
@@ -62,7 +62,7 @@ When the user taps **Find nearest stop**:
 5. the nearest stop is auto-selected only when:
    - reported location accuracy is at most 1 km, and
    - the nearest stop is within 10 km
-6. poor accuracy or an unexpectedly distant network result is surfaced as a warning instead of silently making a strong assumption
+6. poor accuracy, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
 
 No map SDK, geocoding service, analytics service, or location backend is required.
 
@@ -128,7 +128,7 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - GTFS coordinate loading/failure never blocks normal name/number stop search
 - geolocation is requested only from a direct user gesture
 - high-accuracy geolocation timeout retries once with a lower-power cached-position strategy
-- low-accuracy and far-from-network results do not silently auto-select a stop
+- low-accuracy, far-from-network, and ambiguous opposite-direction results do not silently auto-select a stop
 - service alerts refresh conservatively every five minutes while visible
 - background tabs do not create unnecessary Föli API load
 - service worker caches only same-origin application shell/assets, never `data.foli.fi` realtime responses
