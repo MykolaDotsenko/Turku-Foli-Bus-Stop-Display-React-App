@@ -55,14 +55,14 @@ function normalizeSharedPlace(place) {
 }
 
 function base64UrlEncode(value) {
-  const bytes = new TextEncoder().encode(value);
+  const bytes = new globalThis.TextEncoder().encode(value);
   let binary = "";
 
   bytes.forEach((byte) => {
     binary += String.fromCharCode(byte);
   });
 
-  return btoa(binary)
+  return globalThis.btoa(binary)
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replace(/=+$/g, "");
@@ -73,12 +73,12 @@ function base64UrlDecode(value) {
     .replaceAll("-", "+")
     .replaceAll("_", "/")
     .padEnd(Math.ceil(value.length / 4) * 4, "=");
-  const binary = atob(padded);
+  const binary = globalThis.atob(padded);
   const bytes = Uint8Array.from(binary, (character) =>
     character.charCodeAt(0)
   );
 
-  return new TextDecoder().decode(bytes);
+  return new globalThis.TextDecoder().decode(bytes);
 }
 
 export function encodeSharedPlace(place) {
@@ -124,7 +124,7 @@ export function buildSharedPlaceUrl(place, currentHref) {
     (typeof window !== "undefined" ? window.location.href : "");
   if (!href) return "";
 
-  const url = new URL(href);
+  const url = new globalThis.URL(href);
   url.search = "";
   url.hash = `place=${token}`;
   return url.toString();
@@ -133,7 +133,7 @@ export function buildSharedPlaceUrl(place, currentHref) {
 export function clearSharedPlaceHash() {
   if (typeof window === "undefined") return;
 
-  const url = new URL(window.location.href);
+  const url = new globalThis.URL(window.location.href);
   if (!url.hash) return;
 
   url.hash = "";
