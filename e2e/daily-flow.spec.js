@@ -473,7 +473,9 @@ test("renders a public-stop-only Home backup card in print mode", async ({
 
   const headerVisibility = await page
     .locator(".topbar")
-    .evaluate((element) => getComputedStyle(element).visibility);
+    .evaluate(
+      (element) => globalThis.getComputedStyle(element).visibility
+    );
   expect(headerVisibility).toBe("hidden");
 });
 
