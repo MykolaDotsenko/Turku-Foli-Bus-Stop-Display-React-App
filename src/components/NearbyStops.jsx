@@ -5,6 +5,7 @@ import {
   formatAccuracy,
   formatDistance,
   hasCoordinates,
+  isInsideMultiPolygon,
 } from "../utils/geo";
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildWalkingDirectionsUrl } from "../utils/maps";
@@ -76,6 +77,7 @@ function NearbyStops({
   stops,
   coordinatesStatus,
   activeStopId,
+  serviceBoundary = null,
   online = true,
   onSelect,
 }) {
@@ -136,6 +138,10 @@ function NearbyStops({
         nearest,
         nextPosition.accuracy
       );
+      const insideServiceArea = isInsideMultiPolygon(
+        nextPosition,
+        serviceBoundary
+      );
 
       setPosition(nextPosition);
       setStatus("success");
@@ -148,6 +154,7 @@ function NearbyStops({
       if (
         closest &&
         accurateEnough &&
+        insideServiceArea !== false &&
         !ambiguousChoice &&
         closest.distanceMeters <= AUTO_SELECT_MAX_DISTANCE_METERS &&
         closest.id !== activeStopId
@@ -160,6 +167,9 @@ function NearbyStops({
     }
   };
 
+  const insideServiceArea = position
+    ? isInsideMultiPolygon(position, serviceBoundary)
+    : null;
   const nearestDistance = nearbyStops[0]?.distanceMeters;
   const isFarFromNetwork =
     nearestDistance > OUTSIDE_NETWORK_WARNING_METERS;
@@ -179,7 +189,10 @@ function NearbyStops({
     coordinatesStatus === "loading" && !hasStopCoordinates;
 
   let locationNotice = "";
-  if (lowAccuracy) {
+  if (insideServiceArea === false) {
+    locationNotice =
+      "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically.";
+  } else if (lowAccuracy) {
     locationNotice =
       "Your location is approximate, so compare the nearby options before choosing.";
   } else if (isFarFromNetwork) {
