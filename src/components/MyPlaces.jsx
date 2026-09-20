@@ -62,6 +62,9 @@ function SetupPlace({
   };
 
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
+  const confirmationLabel = `I confirm the selected ${
+    selectedStops.length === 1 ? "stop is" : "stops are"
+  } safe and useful for arriving at ${preset.label}.`;
 
   return (
     <section
@@ -137,10 +140,7 @@ function SetupPlace({
           checked={confirmedSafe}
           onChange={(event) => setConfirmedSafe(event.target.checked)}
         />
-        <span>
-          I confirm the selected {selectedStops.length === 1 ? "stop is" : "stops are"}
-          safe and useful for arriving at {preset.label}.
-        </span>
+        <span>{confirmationLabel}</span>
       </label>
 
       <div className={styles.setupActions}>
