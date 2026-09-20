@@ -157,7 +157,8 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <p>
           A web app cannot help after the phone powers off. Print or save a
           small Home backup card in advance so the destination still exists
-          outside the phone.
+          outside the phone. The card reveals the saved public Home stop area,
+          so keep it only with the intended user.
         </p>
         {canPrint && (
           <button
