@@ -69,12 +69,21 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
       return;
     }
 
-    const exactName = stops.find(
+    const exactNames = stops.filter(
       (stop) => normalize(stop.name) === normalize(query)
     );
 
-    if (exactName) {
-      chooseStop(exactName);
+    if (exactNames.length === 1) {
+      chooseStop(exactNames[0]);
+      return;
+    }
+
+    if (exactNames.length > 1) {
+      setFocused(true);
+      setActiveIndex(-1);
+      setValidationError(
+        "More than one stop has this name. Choose the correct stop number from the suggestions."
+      );
       return;
     }
 
