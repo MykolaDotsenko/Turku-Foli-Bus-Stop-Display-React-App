@@ -542,3 +542,27 @@
     margin-top: 2px;
   }
 }
+
+
+.reviewNotice {
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid #e4d6a8;
+  border-radius: 10px;
+  background: #fff9e8;
+  color: #5b4c20;
+  font-size: 0.8125rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+@media (max-width: 620px) {
+  .placeCard > .reviewNotice {
+    display: none;
+  }
+
+  .placeCard[data-mobile-expanded="true"] > .reviewNotice {
+    display: block;
+    margin: 0 10px 10px;
+  }
+}
