@@ -58,6 +58,9 @@ test("offers one-tap transit recovery without embedding the current origin", () 
   expect(url.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(url.searchParams.get("travelmode")).toBe("transit");
   expect(url.searchParams.has("origin")).toBe(false);
+  expect(
+    screen.getByText(/Google Maps.*saved Home stop.*does not verify/i)
+  ).toBeInTheDocument();
 });
 
 test("keeps useful fallbacks when route coordinates are unavailable", () => {
