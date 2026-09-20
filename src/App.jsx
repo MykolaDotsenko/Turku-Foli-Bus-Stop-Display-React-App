@@ -198,6 +198,7 @@ function App() {
         stopId={stopId}
         stopName={displayStopName}
         stop={selectedStop}
+        stops={stops}
         arrivals={arrivals}
         routesByShortName={routesByShortName}
         serverTime={serverTime}
