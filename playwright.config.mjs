@@ -23,15 +23,32 @@ export default defineConfig({
   projects: [
     {
       name: "chromium-desktop",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        serviceWorkers: "block",
+      },
     },
     {
       name: "firefox-desktop",
-      use: { ...devices["Desktop Firefox"] },
+      use: {
+        ...devices["Desktop Firefox"],
+        serviceWorkers: "block",
+      },
     },
     {
       name: "webkit-mobile",
-      use: { ...devices["iPhone 15"] },
+      use: {
+        ...devices["iPhone 15"],
+        serviceWorkers: "block",
+      },
+    },
+    {
+      name: "chromium-pwa",
+      grep: /production PWA reopens offline/,
+      use: {
+        ...devices["Desktop Chrome"],
+        serviceWorkers: "allow",
+      },
     },
   ],
 });
