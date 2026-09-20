@@ -79,7 +79,7 @@ jobs:
             throw new Error("Usable Stop Monitoring payload has no result array.");
           }
 
-          const gtfs = await getJson(`${base}/gtfs`);
+          const gtfs = await getJson(`${base}/gtfs/`);
           if (
             !gtfs ||
             typeof gtfs !== "object" ||
