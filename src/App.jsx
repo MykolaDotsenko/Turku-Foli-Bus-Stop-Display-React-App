@@ -232,7 +232,18 @@ function App() {
       )}
 
       <footer className="source-note">
-        Source: Turku region public transport · data.foli.fi · CC BY 4.0
+        Data: Turku region public transport ·{" "}
+        <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
+          data.foli.fi
+        </a>{" "}
+        ·{" "}
+        <a
+          href="https://creativecommons.org/licenses/by/4.0/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          CC BY 4.0
+        </a>
       </footer>
     </main>
   );
