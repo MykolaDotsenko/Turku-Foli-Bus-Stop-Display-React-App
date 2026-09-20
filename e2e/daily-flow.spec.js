@@ -154,7 +154,7 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   await expect(walkLink).toHaveAttribute("target", "_blank");
 
   const href = await walkLink.getAttribute("href");
-  const mapsUrl = new URL(href);
+  const mapsUrl = new globalThis.URL(href);
   expect(mapsUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(mapsUrl.searchParams.get("travelmode")).toBe("walking");
   expect(mapsUrl.searchParams.has("origin")).toBe(false);
