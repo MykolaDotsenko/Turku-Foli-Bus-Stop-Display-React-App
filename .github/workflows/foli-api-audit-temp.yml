@@ -165,6 +165,7 @@ jobs:
               "stop_times",
               "shapes",
               "trip_notes",
+              "translations",
             ]) {
               const result = await request(`${datasetBase}/${resource}`);
               gtfsResources[resource] = result;
@@ -178,6 +179,58 @@ jobs:
               stops && !Array.isArray(stops) && typeof stops === "object"
                 ? Object.keys(stops)[0]
                 : null;
+
+            const calendarDates = gtfsResources.calendar_dates?.data;
+            const calendarDateEntry = firstObjectFromMap(calendarDates);
+            log("GTFS calendar_dates value sample", {
+              serviceId: calendarDateEntry?.key || null,
+              valueType: Array.isArray(calendarDateEntry?.value)
+                ? "array"
+                : typeof calendarDateEntry?.value,
+              valueLength: Array.isArray(calendarDateEntry?.value)
+                ? calendarDateEntry.value.length
+                : null,
+              firstValue: Array.isArray(calendarDateEntry?.value)
+                ? calendarDateEntry.value[0]
+                : calendarDateEntry?.value,
+              firstValueKeys: keys(
+                Array.isArray(calendarDateEntry?.value)
+                  ? calendarDateEntry.value[0]
+                  : calendarDateEntry?.value
+              ),
+            });
+
+            const tripNotes = gtfsResources.trip_notes?.data;
+            const tripNoteEntry = firstObjectFromMap(tripNotes);
+            log("GTFS trip_notes value sample", {
+              tripId: tripNoteEntry?.key || null,
+              valueType: Array.isArray(tripNoteEntry?.value)
+                ? "array"
+                : typeof tripNoteEntry?.value,
+              valueLength: Array.isArray(tripNoteEntry?.value)
+                ? tripNoteEntry.value.length
+                : null,
+              value: tripNoteEntry?.value,
+              valueKeys: keys(tripNoteEntry?.value),
+            });
+
+            const translations = gtfsResources.translations?.data;
+            log("GTFS translations detailed sample", {
+              shape: Array.isArray(translations) ? "array" : typeof translations,
+              count: Array.isArray(translations)
+                ? translations.length
+                : translations && typeof translations === "object"
+                  ? Object.keys(translations).length
+                  : null,
+              sample: Array.isArray(translations)
+                ? translations.slice(0, 3)
+                : translations && typeof translations === "object"
+                  ? Object.entries(translations).slice(0, 3)
+                  : translations,
+              sampleKeys: Array.isArray(translations)
+                ? keys(translations[0])
+                : [],
+            });
 
             const allTrips = await request(`${datasetBase}/trips/all`);
             log("GTFS /trips/all", summary(allTrips));
