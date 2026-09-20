@@ -334,3 +334,68 @@
     line-clamp: 1;
   }
 }
+
+
+.alert {
+  padding: 0;
+}
+
+.alertSummary {
+  display: grid;
+  min-height: 48px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.alertSummary::-webkit-details-marker {
+  display: none;
+}
+
+.alertSummary:focus-visible {
+  outline: 3px solid rgba(139, 100, 29, 0.28);
+  outline-offset: -3px;
+}
+
+.disclosureIcon {
+  color: #725a2b;
+  font-size: 1.15rem;
+  font-weight: 900;
+  transition: transform 120ms ease;
+}
+
+.alert[open] .disclosureIcon {
+  transform: rotate(90deg);
+}
+
+.alertBody {
+  padding: 0 15px 12px;
+}
+
+@media (max-width: 620px) {
+  .alert {
+    padding: 0;
+  }
+
+  .alertSummary {
+    min-height: 46px;
+    gap: 6px;
+    padding: 6px 10px;
+  }
+
+  .alertSummary strong,
+  .effectBadge {
+    font-size: 0.8125rem;
+  }
+
+  .alertBody {
+    padding: 0 10px 10px;
+  }
+
+  .disclosureIcon {
+    font-size: 1rem;
+  }
+}
