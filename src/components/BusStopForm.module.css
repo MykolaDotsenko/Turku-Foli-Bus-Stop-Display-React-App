@@ -175,3 +175,10 @@
     display: none;
   }
 }
+
+
+@media (max-width: 620px) {
+  .help {
+    display: none;
+  }
+}
