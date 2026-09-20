@@ -44,7 +44,12 @@ function App() {
   );
   const online = useOnlineStatus();
   const { geometry: serviceBoundary } = useServiceBoundary();
-  const { stops, coordinatesStatus, catalogStatus } = useStopCatalog();
+  const {
+    stops,
+    coordinatesStatus,
+    catalogStatus,
+    catalogSavedAt,
+  } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
     () => buildRouteIndexes(routes),
@@ -58,6 +63,7 @@ function App() {
     toggleFavorite,
   } = useSavedStops();
   const {
+    places,
     byId: placesById,
     savePlace,
     revalidatePlaces,
@@ -117,10 +123,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (catalogStatus === "ready") {
-      revalidatePlaces(stops);
+    if (catalogStatus === "ready" && catalogSavedAt > 0) {
+      revalidatePlaces(stops, catalogSavedAt);
     }
-  }, [catalogStatus, revalidatePlaces, stops]);
+  }, [
+    catalogSavedAt,
+    catalogStatus,
+    places,
+    revalidatePlaces,
+    stops,
+  ]);
 
   useEffect(() => {
     if (displayStopName) {
