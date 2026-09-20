@@ -62,19 +62,23 @@ function AlertItem({ alert }) {
         </p>
       ) : (
         <>
-          {alert.routeNames?.length > 0 && (
-            <p className={styles.scope}>
-              Affects line{alert.routeNames.length > 1 ? "s" : ""}{" "}
-              {alert.routeNames.join(", ")}
+          {(alert.routeNames?.length > 0 ||
+            isGlobal ||
+            formatValidity(alert.validity)) && (
+            <p className={styles.alertMeta}>
+              {alert.routeNames?.length > 0
+                ? `Line${alert.routeNames.length > 1 ? "s" : ""} ${alert.routeNames.join(", ")}`
+                : isGlobal
+                  ? "All Föli services"
+                  : ""}
+              {(alert.routeNames?.length > 0 || isGlobal) &&
+              formatValidity(alert.validity)
+                ? " · "
+                : ""}
+              {formatValidity(alert.validity)}
             </p>
           )}
-          {isGlobal && (
-            <p className={styles.scope}>Applies across Föli services</p>
-          )}
-          {alert.message && <p>{alert.message}</p>}
-          {formatValidity(alert.validity) && (
-            <p className={styles.validity}>{formatValidity(alert.validity)}</p>
-          )}
+          {alert.message && <p className={styles.message}>{alert.message}</p>}
           {(alert.information || alert.images?.length > 0) && (
             <details
               className={styles.details}
