@@ -73,7 +73,7 @@ test("requests location only after user action and selects a clear nearest stop"
   expect(walkLink).toHaveAttribute("target", "_blank");
   expect(walkLink).toHaveAttribute("rel", "noreferrer");
 
-  const url = new URL(walkLink.href);
+  const url = new globalThis.URL(walkLink.href);
   expect(url.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(url.searchParams.get("travelmode")).toBe("walking");
   expect(url.searchParams.has("origin")).toBe(false);
