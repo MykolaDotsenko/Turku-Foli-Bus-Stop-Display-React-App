@@ -237,7 +237,7 @@ test("requires explicit confirmation before importing a shared Home", () => {
     screen.getByRole("heading", { name: "Add Home?" })
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/only public Föli stop IDs and names/i)
+    screen.getByText(/can still reveal the general area/i)
   ).toBeInTheDocument();
   expect(onImportSharedPlace).not.toHaveBeenCalled();
 
@@ -383,4 +383,38 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
     { id: "164", name: "Kauppatori" },
     { id: "32", name: "Puistokatu" },
   ]);
+});
+
+
+test("warns that sharing a Safe Place can reveal its general area", () => {
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="164"
+      placesById={
+        new Map([
+          [
+            "home",
+            {
+              id: "home",
+              label: "Home",
+              icon: "⌂",
+              primaryStopId: "164",
+              stops: [{ id: "164", name: "Kauppatori" }],
+            },
+          ],
+        ])
+      }
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(screen.getByText("Manage Home"));
+  expect(
+    screen.getByText(/Sharing Home reveals its saved public stop names and IDs/i)
+  ).toBeInTheDocument();
 });
