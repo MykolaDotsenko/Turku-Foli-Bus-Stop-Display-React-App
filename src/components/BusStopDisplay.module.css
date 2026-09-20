@@ -205,6 +205,14 @@
   font-weight: 600;
 }
 
+.proximity {
+  display: block;
+  margin-top: 3px;
+  color: #3f626b;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
 .due {
   color: #007985;
   font-size: 1.04rem;
