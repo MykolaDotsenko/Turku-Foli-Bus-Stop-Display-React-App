@@ -129,9 +129,13 @@ function App() {
             address, and get back to the right journey in one tap.
           </p>
         </div>
-        <span className="live-pill">
+        <span
+          className="live-pill"
+          data-online={online ? "true" : "false"}
+          aria-live="polite"
+        >
           <span className="live-dot" aria-hidden="true" />
-          Föli SIRI
+          {online ? "Föli SIRI" : "Offline mode"}
         </span>
       </header>
 
