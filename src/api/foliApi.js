@@ -44,7 +44,7 @@ function normalizeArrival(arrival) {
 
 export async function fetchStopMonitor(stopId, signal) {
   const response = await client.get(
-    \`\${API_BASE_URL}/\${encodeURIComponent(stopId)}\`,
+    `${API_BASE_URL}/${encodeURIComponent(stopId)}`,
     { signal }
   );
   const payload = response.data;
@@ -65,7 +65,7 @@ export async function fetchStopMonitor(stopId, signal) {
     stopName:
       typeof payload.stopname === "string" && payload.stopname.trim()
         ? payload.stopname.trim()
-        : \`Stop \${stopId}\`,
+        : `Stop ${stopId}`,
     arrivals: payload.result.map(normalizeArrival).filter(Boolean),
     serverTime: positiveNumber(payload.servertime),
   };
@@ -85,7 +85,7 @@ export async function fetchStopCatalog(signal) {
       name:
         typeof stop?.stop_name === "string" && stop.stop_name.trim()
           ? stop.stop_name.trim()
-          : \`Stop \${id}\`,
+          : `Stop ${id}`,
     }))
     .filter((stop) => /^\d+$/.test(stop.id))
     .sort((a, b) => Number(a.id) - Number(b.id));
