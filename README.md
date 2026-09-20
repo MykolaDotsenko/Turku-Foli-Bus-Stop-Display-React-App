@@ -51,7 +51,7 @@ No account, backend, tracking, or setup is required. Favorites and recents stay 
 
 ## Location semantics
 
-Föli GTFS provides WGS84 stop coordinates through `stop_lat` and `stop_lon`. The app joins those coordinates onto the active SIRI stop catalogue once per cached catalogue refresh.
+Föli GTFS provides WGS84 stop coordinates through `stop_lat` and `stop_lon`. SIRI stop search and GTFS coordinates are fetched independently: stop-name/number search can become usable as soon as SIRI responds, while coordinates enrich the cached catalogue asynchronously.
 
 When the user taps **Find nearest stop**:
 
@@ -94,7 +94,7 @@ api/foliApi.js
         ↓
 hooks/
   useStopMonitor.js   30s visible-tab polling + cancellation + stale-data safety
-  useStopCatalog.js   24h cached coordinate-aware stop catalogue
+  useStopCatalog.js   non-blocking SIRI catalogue + async GTFS enrichment
   useSavedStops.js    local-first favorites + recents
   useStopAlerts.js    conservative active-disruption polling
         ↓
@@ -125,7 +125,7 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - provider payloads are normalized at the API boundary
 - malformed arrivals are ignored defensively
 - an expired stop catalogue remains usable while refresh is retried
-- GTFS coordinate failure degrades to normal name/number search instead of breaking the catalogue
+- GTFS coordinate loading/failure never blocks normal name/number stop search
 - geolocation is requested only from a direct user gesture
 - high-accuracy geolocation timeout retries once with a lower-power cached-position strategy
 - low-accuracy and far-from-network results do not silently auto-select a stop
