@@ -14,6 +14,7 @@ function setOnline(value) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  sessionStorage.clear();
 
   if (originalOnLine) {
     Object.defineProperty(navigator, "onLine", originalOnLine);
@@ -71,4 +72,31 @@ test("resynchronizes when a restored page becomes reachable again", async () => 
   });
 
   await waitFor(() => expect(result.current).toBe(true));
+});
+
+
+test("keeps explicit offline state across a PWA-style reload until reachability returns", async () => {
+  setOnline(false);
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error("offline"));
+
+  const first = renderHook(() => useOnlineStatus());
+
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("offline"));
+  });
+
+  expect(first.result.current).toBe(false);
+  expect(sessionStorage.getItem("foli-offline-hint")).toBe("1");
+  first.unmount();
+
+  // Chromium can briefly report navigator.onLine=true when reopening from
+  // the service-worker shell. The persisted hint keeps the degraded UI honest
+  // until the uncached origin probe succeeds.
+  setOnline(true);
+
+  const second = renderHook(() => useOnlineStatus());
+  expect(second.result.current).toBe(false);
+
+  await waitFor(() => expect(second.result.current).toBe(false));
+  expect(sessionStorage.getItem("foli-offline-hint")).toBe("1");
 });
