@@ -27,11 +27,13 @@ function normalizeSharedPlace(place) {
         )
       : [];
 
+  const seenStopIds = new Set();
   const stops = sourceStops
     .map((stop) => {
       const stopId = String(stop?.id || "").trim();
-      if (!/^\d+$/.test(stopId)) return null;
+      if (!/^\d+$/.test(stopId) || seenStopIds.has(stopId)) return null;
 
+      seenStopIds.add(stopId);
       return {
         id: stopId,
         name: cleanStopName(stop?.name, stopId),
