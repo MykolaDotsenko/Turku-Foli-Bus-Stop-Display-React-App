@@ -34,6 +34,13 @@ function readCache() {
   return { stops: [], savedAt: 0 };
 }
 
+function cacheIsFresh(cache) {
+  return (
+    Number(cache?.savedAt) > 0 &&
+    Date.now() - Number(cache.savedAt) < CACHE_TTL_MS
+  );
+}
+
 function coordinatesFromStops(stops) {
   return new Map(
     stops
@@ -63,12 +70,14 @@ export default function useStopCatalog() {
   const [coordinatesStatus, setCoordinatesStatus] = useState(() =>
     initialCache.stops.some(stopHasCoordinates) ? "ready" : "loading"
   );
+  const [catalogStatus, setCatalogStatus] = useState(() => {
+    if (initialCache.stops.length === 0) return "loading";
+    return cacheIsFresh(initialCache) ? "ready" : "stale";
+  });
 
   useEffect(() => {
     const controller = new AbortController();
-    const isFresh =
-      initialCache.savedAt > 0 &&
-      Date.now() - initialCache.savedAt < CACHE_TTL_MS;
+    const isFresh = cacheIsFresh(initialCache);
     const cachedCoordinates = coordinatesFromStops(initialCache.stops);
     const hasCachedCoordinates = cachedCoordinates.size > 0;
     let latestCoordinates = hasCachedCoordinates ? cachedCoordinates : null;
@@ -112,9 +121,12 @@ export default function useStopCatalog() {
             savedAt: Date.now(),
             stops: mergeCoordinates(freshStops, coordinates),
           };
+          setCatalogStatus("ready");
           save(next);
         })
         .catch(() => {
+          if (!active || controller.signal.aborted) return;
+          setCatalogStatus(initialCache.stops.length > 0 ? "stale" : "unavailable");
           // Keep an expired cached catalogue as a stale-while-revalidate fallback.
         });
     } else if (hasCachedCoordinates) {
@@ -130,5 +142,6 @@ export default function useStopCatalog() {
   return {
     stops: cache.stops,
     coordinatesStatus,
+    catalogStatus,
   };
 }
