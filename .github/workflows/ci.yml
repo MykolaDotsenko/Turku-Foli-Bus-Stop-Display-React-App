@@ -39,6 +39,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Install browser QA tools
+        run: npm install --no-save @playwright/test@1.55.0 @axe-core/playwright@4.10.2
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser, mobile and accessibility tests
