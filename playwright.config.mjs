@@ -43,6 +43,13 @@ export default defineConfig({
       },
     },
     {
+      name: "chromium-mobile",
+      use: {
+        ...devices["Pixel 7"],
+        serviceWorkers: "block",
+      },
+    },
+    {
       name: "chromium-pwa",
       grep: /production PWA reopens offline/,
       use: {
