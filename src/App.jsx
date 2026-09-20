@@ -37,6 +37,20 @@ function stopFromHistoryState(state) {
   return /^\d+$/.test(stopId || "") ? stopId : null;
 }
 
+function currentHistoryState() {
+  return window.history.state && typeof window.history.state === "object"
+    ? window.history.state
+    : {};
+}
+
+function syncCurrentHistoryEntry(stopId, state = currentHistoryState()) {
+  window.history.replaceState(
+    { ...state, foliStopId: stopId },
+    "",
+    stopUrl(stopId)
+  );
+}
+
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
   const [sharedPlace, setSharedPlace] = useState(() =>
@@ -97,19 +111,18 @@ function App() {
 
   useEffect(() => {
     const currentStopId = stopFromLocation();
-    const existingState =
-      window.history.state && typeof window.history.state === "object"
-        ? window.history.state
-        : {};
+    syncCurrentHistoryEntry(currentStopId);
 
-    window.history.replaceState(
-      { ...existingState, foliStopId: currentStopId },
-      "",
-      stopUrl(currentStopId)
-    );
+    const handlePopState = (event) => {
+      const nextStopId =
+        stopFromHistoryState(event.state) || stopFromLocation();
 
-    const handlePopState = (event) =>
-      setStopId(stopFromHistoryState(event.state) || stopFromLocation());
+      // Keep our app-owned history state and the shareable stop URL in lockstep.
+      // Some browser/history sequences can restore state before the URL snapshot
+      // observed by the app is canonical.
+      syncCurrentHistoryEntry(nextStopId, event.state);
+      setStopId(nextStopId);
+    };
     const handleHashChange = () =>
       setSharedPlace(parseSharedPlaceHash(window.location.hash));
 
@@ -148,8 +161,11 @@ function App() {
       return;
     }
 
+    // Repair the current entry before adding the next one so browser Back
+    // always returns to a canonical stop URL as well as the matching state.
+    syncCurrentHistoryEntry(stopId);
     window.history.pushState(
-      { foliStopId: nextStopId },
+      { ...currentHistoryState(), foliStopId: nextStopId },
       "",
       stopUrl(nextStopId)
     );
