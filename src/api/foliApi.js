@@ -17,6 +17,10 @@ const client = axios.create({
 });
 
 let gtfsDatasetBasePromise = null;
+const tripDetailsCache = new Map();
+const tripStopTimesCache = new Map();
+const stopBoardingTripsCache = new Map();
+const routeTripsCache = new Map();
 
 function gtfsDatasetBase() {
   if (!gtfsDatasetBasePromise) {
@@ -50,6 +54,10 @@ async function gtfsResourceUrl(resource, overrideUrl) {
 
 export function resetGtfsDatasetForTests() {
   gtfsDatasetBasePromise = null;
+  tripDetailsCache.clear();
+  tripStopTimesCache.clear();
+  stopBoardingTripsCache.clear();
+  routeTripsCache.clear();
 }
 
 function positiveNumber(value) {
@@ -286,6 +294,7 @@ function gtfsTime(value) {
 
 export async function fetchTripDetails(tripId, signal) {
   const id = requiredId(tripId, "trip ID");
+  if (tripDetailsCache.has(id)) return tripDetailsCache.get(id);
   const response = await client.get(
     await gtfsResourceUrl(`trips/trip/${encodeURIComponent(id)}`),
     { signal }
@@ -298,7 +307,7 @@ export async function fetchTripDetails(tripId, signal) {
 
   const trip = payload[0];
 
-  return {
+  const normalized = {
     tripId: id,
     routeId:
       trip?.route_id === null || trip?.route_id === undefined
@@ -321,10 +330,14 @@ export async function fetchTripDetails(tripId, signal) {
     wheelchairAccessible: optionalNumber(trip?.wheelchair_accessible),
     bikesAllowed: optionalNumber(trip?.bikes_allowed),
   };
+
+  tripDetailsCache.set(id, normalized);
+  return normalized;
 }
 
 export async function fetchTripStopTimes(tripId, signal) {
   const id = requiredId(tripId, "trip ID");
+  if (tripStopTimesCache.has(id)) return tripStopTimesCache.get(id);
   const response = await client.get(
     await gtfsResourceUrl(`stop_times/trip/${encodeURIComponent(id)}`),
     { signal }
@@ -335,7 +348,7 @@ export async function fetchTripStopTimes(tripId, signal) {
     throw new Error("Invalid Föli GTFS trip stop sequence.");
   }
 
-  return payload
+  const normalized = payload
     .map((item) => ({
       stopId:
         item?.stop_id === null || item?.stop_id === undefined
@@ -350,10 +363,16 @@ export async function fetchTripStopTimes(tripId, signal) {
     }))
     .filter((item) => item.stopId && item.stopSequence !== null)
     .sort((a, b) => a.stopSequence - b.stopSequence);
+
+  tripStopTimesCache.set(id, normalized);
+  return normalized;
 }
 
 export async function fetchStopBoardingTripIds(stopId, signal) {
   const id = requiredId(stopId, "stop ID");
+  if (stopBoardingTripsCache.has(id)) {
+    return new Set(stopBoardingTripsCache.get(id));
+  }
   const response = await client.get(
     await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
     { signal }
@@ -364,20 +383,22 @@ export async function fetchStopBoardingTripIds(stopId, signal) {
     throw new Error("Invalid Föli GTFS stop timetable.");
   }
 
-  return new Set(
-    payload
+  const tripIds = payload
       .filter((item) => optionalNumber(item?.pickup_type) !== 1)
       .map((item) =>
         item?.trip_id === null || item?.trip_id === undefined
           ? ""
           : String(item.trip_id)
       )
-      .filter(Boolean)
-  );
+      .filter(Boolean);
+
+  stopBoardingTripsCache.set(id, tripIds);
+  return new Set(tripIds);
 }
 
 export async function fetchRouteTripIds(routeId, signal) {
   const id = requiredId(routeId, "route ID");
+  if (routeTripsCache.has(id)) return new Set(routeTripsCache.get(id));
   const response = await client.get(
     await gtfsResourceUrl(`trips/route/${encodeURIComponent(id)}`),
     { signal }
@@ -388,15 +409,16 @@ export async function fetchRouteTripIds(routeId, signal) {
     throw new Error("Invalid Föli GTFS route trips.");
   }
 
-  return new Set(
-    payload
+  const tripIds = payload
       .map((trip) =>
         trip?.trip_id === null || trip?.trip_id === undefined
           ? ""
           : String(trip.trip_id)
       )
-      .filter(Boolean)
-  );
+      .filter(Boolean);
+
+  routeTripsCache.set(id, tripIds);
+  return new Set(tripIds);
 }
 
 export async function fetchStopServedRouteIds(stopId, routeIds, signal) {
