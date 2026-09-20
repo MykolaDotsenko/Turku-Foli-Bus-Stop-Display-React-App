@@ -475,7 +475,11 @@ function MyPlaces({
         serviceBoundary
       );
 
-      if (insideServiceArea === false) {
+      const boundaryDecisionReliable =
+        Number.isFinite(position.accuracy) &&
+        position.accuracy <= LOW_ACCURACY_METERS;
+
+      if (insideServiceArea === false && boundaryDecisionReliable) {
         setStatus("idle");
         setError(
           "This location appears outside Föli’s published service area. Choose a public stop manually instead."
