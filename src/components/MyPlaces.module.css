@@ -383,3 +383,164 @@
   flex: 0 0 auto;
   margin-top: 2px;
 }
+
+
+.mobileSummary {
+  display: none;
+}
+
+.emptyBody {
+  display: contents;
+}
+
+@media (max-width: 620px) {
+  .wrapper {
+    gap: 8px;
+    margin-block: 10px;
+    padding: 11px;
+    border-radius: 15px;
+  }
+
+  .kicker,
+  .description {
+    display: none;
+  }
+
+  .header h2 {
+    font-size: 1rem;
+  }
+
+  .grid {
+    gap: 6px;
+  }
+
+  .placeCard,
+  .emptyCard {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .mobileSummary {
+    display: grid;
+    width: 100%;
+    min-height: 54px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    border: 0;
+    background: #fbfdfd;
+    color: #20343b;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .mobileSummary:hover {
+    background: #f3f9f9;
+  }
+
+  .mobileSummary:focus-visible {
+    outline: 3px solid rgba(0, 121, 133, 0.28);
+    outline-offset: -3px;
+  }
+
+  .mobileSummaryText {
+    display: grid;
+    min-width: 0;
+  }
+
+  .mobileSummaryText strong {
+    font-size: 0.875rem;
+  }
+
+  .mobileSummaryText small {
+    overflow: hidden;
+    margin-top: 2px;
+    color: #60747d;
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobileSummaryAction {
+    color: #00656f;
+    font-size: 1.25rem;
+    font-weight: 900;
+  }
+
+  .placeCard > .placeHeading,
+  .placeCard > .placeActions,
+  .placeCard > .backups,
+  .placeCard > .manage,
+  .placeCard > [role="dialog"],
+  .emptyCard > .emptyBody {
+    display: none;
+  }
+
+  .placeCard[data-mobile-expanded="true"] > .placeHeading,
+  .placeCard[data-mobile-expanded="true"] > .placeActions,
+  .placeCard[data-mobile-expanded="true"] > .backups,
+  .placeCard[data-mobile-expanded="true"] > .manage,
+  .placeCard[data-mobile-expanded="true"] > [role="dialog"] {
+    display: flex;
+  }
+
+  .placeCard[data-mobile-expanded="true"] > .placeHeading {
+    margin: 10px 10px 0;
+  }
+
+  .placeCard[data-mobile-expanded="true"] > .placeActions {
+    display: grid;
+    margin: 10px;
+    grid-template-columns: 1fr;
+  }
+
+  .placeCard[data-mobile-expanded="true"] > .backups,
+  .placeCard[data-mobile-expanded="true"] > .manage {
+    display: block;
+    margin: 0 10px 10px;
+  }
+
+  .emptyCard[data-mobile-expanded="true"] > .emptyBody {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .goButton,
+  .primaryButton,
+  .secondaryButton,
+  .textButton,
+  .dangerButton {
+    min-height: 44px;
+    font-size: 0.8125rem;
+  }
+
+  .textButton,
+  .dangerButton {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 8px;
+  }
+
+  .primaryBadge,
+  .importStops,
+  .sharePrivacyHint,
+  .shareFeedback,
+  .shareInput,
+  .primaryChoice,
+  .privacy,
+  .meta,
+  .error,
+  .helper,
+  .emptyCard p,
+  .placeHeading p {
+    font-size: 0.8125rem;
+  }
+
+  .privacy {
+    margin-top: 2px;
+  }
+}
