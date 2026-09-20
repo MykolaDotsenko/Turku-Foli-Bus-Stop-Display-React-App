@@ -16,6 +16,8 @@ A fast, local-first departure companion for Turku-region public transport. It is
 
 These screenshots are generated from the same deterministic Playwright flow that runs in CI.
 
+For the adversarial product review, scores, fixed risks and deliberately unresolved limitations, see **[docs/PRODUCT_AUDIT.md](docs/PRODUCT_AUDIT.md)**.
+
 ## Daily workflow
 
 1. Save **Home, School or Work** once as a **Safe Arrival Zone** made from 1–3 public Föli stops — no private address required.
@@ -39,12 +41,14 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - recovery is explicitly labelled as travel help, not an emergency service; the UI avoids red/SOS styling that could imply capabilities it does not provide
 - if GTFS stop coordinates are temporarily unavailable, transit routing is disabled rather than pretending it can route; the saved public stop and driver card still work
 - parent-approved backup Home stops remain hidden until requested, reducing cognitive load while preserving resilience when the usual stop is unavailable
+- Safe Arrival setup selects only the closest candidate initially; extra backup stops require explicit opt-in because physical proximity alone does not make a stop safe
 - **My Places** replaces memorized private addresses with intent-based destinations such as Home, School and Work
 - each place is a **Safe Arrival Zone** of up to three public Föli stops; one is primary and the others are backups
 - setup by **where I am now** uses one-time geolocation only to discover nearby public stops, then discards the exact position
 - a no-geolocation fallback lets the user search/select a stop and save that public stop directly
-- **Go Home / School / Work** launches keyless transit directions to the primary public stop with no origin embedded in the URL
+- **Go Home / Go to School / Go to Work** launches keyless transit directions to the primary public stop with no origin embedded in the URL
 - **Show driver** provides a large stop-focused destination card plus a simple Finnish help sentence
+- when browser speech synthesis is available, **Read aloud in Finnish** speaks the driver-help sentence locally without an AI service or backend
 - a parent/teacher can **Share Home / School / Work** without an account; the link contains only the Safe Arrival stop identity
 - shared Safe Places use a URL fragment rather than a query parameter, so the share payload is not sent to the web server as part of the HTTP request
 - opening a shared place never overwrites local data automatically: the recipient must explicitly Add or Replace it
@@ -65,15 +69,20 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - global Föli notices are included and emergency messages replace lower-priority disruption content
 - semantic alert effects such as Detour, Stop moved, Significant delays and No service are surfaced directly
 - detailed alert information stays collapsed until the user asks for it
+- the first four alerts preserve a low-noise default, while additional relevant updates are explicitly discoverable through **Show N more updates**
 - official GTFS route colors and names improve line recognition without hard-coded branding
 - route text colors are contrast-checked at runtime and corrected when the provider color pair would fail WCAG AA
 - monitored SIRI vehicle coordinates are converted into an approximate vehicle-to-stop distance
+- proximity is labelled **nearby**, not “approaching”, because distance alone cannot prove the vehicle's travel direction
+- already-departed rows and rows without a usable departure timestamp are filtered instead of being presented as current departures
 - line, destination, and due time remain the strongest visual hierarchy
+- the live departure board appears before My Places management in the normal flow; shared-place import is the context-aware exception because confirmation is then the user's immediate task
 - mobile controls use large touch targets and collapse into a simple one-column action flow
 - loading, empty, stale, scheduled, realtime, and failed states are explicit
 - a temporary refresh failure keeps the last successful same-stop data
 - data from one stop can never render under another stop number
-- the app shell can be installed as a PWA, while live Föli API responses are never cached by the service worker
+- the app shell can be installed as a PWA; the production build generates a content-versioned precache for same-origin assets while live Föli API responses are never cached
+- offline mode is explicit: saved Safe Places and driver help remain available, while live departures and external route planning are labelled as network-dependent
 
 ## Location semantics
 
@@ -106,9 +115,11 @@ expecteddeparturetime
 
 A vehicle is labelled **Live** only when `monitored === true`. Otherwise the trip is shown as **Scheduled**.
 
+Rows without a usable departure timestamp are ignored. Departures older than a short grace window relative to Föli server time are also removed so an already-departed vehicle cannot linger indefinitely as **Due**.
+
 `recordedattime` is compared with Föli `servertime`. Older vehicle updates are exposed as aged live data rather than presenting every realtime estimate as equally fresh.
 
-The UI intentionally treats realtime values as estimates rather than promises.
+The UI intentionally treats realtime values as estimates rather than promises. Vehicle coordinates are presented as **nearby / distance from stop** rather than “approaching”, because the stop-monitoring position alone does not prove direction of travel.
 
 ## Architecture
 
@@ -127,9 +138,11 @@ hooks/
   useSavedStops.js    local-first favorites + recents
   useSavedPlaces.js   privacy-first Home / School / Work safe-stop zones
   useStopAlerts.js    conservative active-disruption polling
+  useOnlineStatus.js  explicit browser online/offline state
         ↓
 App.jsx
         ↓
+ConnectivityStatus.jsx explicit degraded/offline capability messaging
 HomeRecovery.jsx     top-level one-tap Home recovery + backup safe-stop fallbacks
 SafePlaceDriverCard.jsx shared child/newcomer driver-assistance card
 BusStopForm.jsx       search / accessible autocomplete
@@ -147,6 +160,10 @@ utils/
   sharedPlaces.js     validated public-stop-only share fragment codec
   time.js             timing + freshness semantics
   alerts.js           pure alert filtering
+
+build-time/
+  scripts/build-sw.mjs  content-versioned production app-shell precache
+  scripts/verify-pwa.mjs CI verification of built PWA assets
 ~~~
 
 The project deliberately avoids a router, global state library, backend, map SDK, and heavy design system. Its scope is small enough that focused React hooks and browser APIs keep the architecture easier to inspect, test, and maintain.
@@ -182,8 +199,13 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - empty global/emergency envelopes are ignored; a real emergency notice suppresses ordinary alert noise
 - route metadata is progressive enhancement and cannot block departures
 - vehicle proximity is shown only for monitored arrivals with valid WGS84 coordinates
+- vehicle proximity never claims movement direction from distance alone
+- old/untimed departure rows are removed before the board is rendered
 - background tabs do not create unnecessary Föli API load
-- service worker caches only same-origin application shell/assets, never `data.foli.fi` realtime responses
+- production service worker precaches the complete hashed same-origin application shell and removes obsolete versioned shell caches
+- service worker never caches `data.foli.fi` realtime responses
+- external walking/transit handoffs are withheld while the browser reports offline; local Safe Places and driver help remain available
+- `navigator.onLine` is treated as a UI hint, not proof that a provider is reachable; request success/failure remains authoritative
 
 ## Accessibility
 
@@ -196,6 +218,7 @@ Accessibility is a release gate, not a checklist claim.
 - nearest-stop buttons expose stop name, number, and distance to assistive technology
 - Safe Arrival setup uses native checkbox/radio semantics to distinguish allowed stops from the primary stop
 - Show driver uses a reusable labelled dialog region and does not rely on color or map interpretation
+- supported browsers expose a touch-friendly **Read aloud in Finnish** control; unsupported browsers omit it rather than showing a broken action
 - recovery controls use large touch targets, a single dominant action and plain-language fallback labels
 - the recovery panel communicates its non-emergency scope in text rather than relying on color
 - official line colors are paired with runtime contrast correction before rendering text
@@ -218,14 +241,15 @@ Every pull request to `master` must pass:
 | --- | --- |
 | ESLint | JavaScript/JSX correctness + React Hooks rules |
 | Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence/share privacy, explicit import semantics, Home recovery/fallbacks, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
-| Production build | Vite production compilation |
-| Playwright · Chromium | real DOM daily-flow + geolocation + parent-share import + Get me Home recovery |
+| Production build | Vite production compilation + content-versioned service-worker generation |
+| PWA precache | every generated production asset must be represented in the service-worker precache manifest |
+| Playwright · Chromium | production-build daily flow + geolocation + parent-share import + Get me Home recovery + real service-worker offline reload |
 | Playwright · Firefox | cross-browser behavior |
 | Playwright · mobile WebKit | iPhone-sized layout and interaction flow |
 | axe | WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical violations |
 | Mobile overflow | guards against page-level horizontal overflow |
 
-Browser tests mock the documented Föli contracts intentionally. Provider/network incidents therefore cannot make the release pipeline flaky.
+Most browser scenarios mock the documented Föli contracts intentionally so provider incidents cannot make the release pipeline flaky. A dedicated Chromium PWA scenario removes those mocks, switches the browser context offline and proves that the production app shell, saved Home and driver-help fallback reopen through the real service worker.
 
 CI also retains Playwright reports, failure traces, and recruiter-ready desktop/mobile product screenshots as build artifacts.
 
@@ -269,9 +293,11 @@ Core local checks:
 npm run lint
 npm test
 npm run build
+npm run verify:pwa
+npm run test:e2e
 ~~~
 
-Browser QA uses Playwright and axe. CI installs their pinned release tooling before running `npm run test:e2e`.
+Browser QA uses Playwright and axe against the **production build served by Vite preview**, not the development server. CI installs pinned browser tooling before running `npm run test:e2e`.
 
 Browser geolocation requires a secure context in production. HTTPS deployment satisfies that requirement; localhost remains valid for local development.
 
