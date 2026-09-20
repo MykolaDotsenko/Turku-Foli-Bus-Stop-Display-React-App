@@ -44,7 +44,7 @@ function App() {
   );
   const online = useOnlineStatus();
   const { geometry: serviceBoundary } = useServiceBoundary();
-  const { stops, coordinatesStatus } = useStopCatalog();
+  const { stops, coordinatesStatus, catalogStatus } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
     () => buildRouteIndexes(routes),
@@ -60,6 +60,7 @@ function App() {
   const {
     byId: placesById,
     savePlace,
+    revalidatePlaces,
     removePlace,
     setPrimaryStop,
   } = useSavedPlaces();
@@ -114,6 +115,12 @@ function App() {
       window.removeEventListener("hashchange", handleHashChange);
     };
   }, []);
+
+  useEffect(() => {
+    if (catalogStatus === "ready") {
+      revalidatePlaces(stops);
+    }
+  }, [catalogStatus, revalidatePlaces, stops]);
 
   useEffect(() => {
     if (displayStopName) {
