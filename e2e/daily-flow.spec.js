@@ -451,7 +451,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
 
-  await page.goBack();
+  await page.evaluate(() => globalThis.history.back());
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });
