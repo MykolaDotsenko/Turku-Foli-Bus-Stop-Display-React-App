@@ -58,7 +58,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   expect(getCurrentPosition).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getAllByRole("button", { name: "Set up here" })[0]);
+  fireEvent.click(screen.getByRole("button", { name: "Set up Home where I am now" }));
 
   expect(
     await screen.findByRole("heading", {
@@ -114,7 +114,7 @@ test("Go Home creates a transit handoff with no stored or shared origin", () => 
   );
 
   const goHome = screen.getByRole("link", {
-    name: "Go to Home by public transit",
+    name: "Go Home by public transit",
   });
   const url = new globalThis.URL(goHome.href);
 
@@ -182,7 +182,7 @@ test("can save the already-selected public stop when location is unavailable", (
   );
 
   fireEvent.click(
-    screen.getAllByRole("button", { name: "Save selected stop" })[0]
+    screen.getByRole("button", { name: "Save selected stop as Home" })
   );
 
   expect(onSavePlace).toHaveBeenCalledWith({
