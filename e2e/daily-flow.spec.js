@@ -439,6 +439,44 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
 });
 
 
+
+test("keeps the live departure board above place management in the normal flow", async ({
+  page,
+}) => {
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  const board = page.locator('section[aria-labelledby="departures-title"]');
+  const places = page.locator('section[aria-labelledby="my-places-title"]');
+
+  const boardBox = await board.boundingBox();
+  const placesBox = await places.boundingBox();
+
+  expect(boardBox).not.toBeNull();
+  expect(placesBox).not.toBeNull();
+  expect(boardBox.y).toBeLessThan(placesBox.y);
+});
+
+test("renders a public-stop-only Home backup card in print mode", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await page.emulateMedia({ media: "print" });
+
+  const printCard = page.getByText("Föli Home backup card");
+  await expect(printCard).toBeVisible();
+  await expect(page.getByText("Stop 164 · primary")).toBeVisible();
+  await expect(page.getByText("Puistokatu · Stop 32")).toBeVisible();
+
+  const headerVisibility = await page
+    .locator(".topbar")
+    .evaluate((element) => getComputedStyle(element).visibility);
+  expect(headerVisibility).toBe("hidden");
+});
+
 test("production PWA reopens offline with Safe Places and driver help", async ({
   page,
   context,
@@ -463,6 +501,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect(page.getByText("Offline mode", { exact: true })).toBeVisible();
   await expect(
     page.getByText(/Saved Safe Places and driver help still work/i)
   ).toBeVisible();
