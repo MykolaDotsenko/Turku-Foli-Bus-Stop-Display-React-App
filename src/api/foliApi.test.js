@@ -14,9 +14,13 @@ vi.mock("axios", () => ({
 
 import {
   fetchRouteCatalog,
+  fetchServiceBoundary,
   fetchStopCatalog,
   fetchStopCoordinates,
   fetchStopMonitor,
+  fetchStopServedRouteIds,
+  fetchTripDetails,
+  fetchTripStopTimes,
   resetGtfsDatasetForTests,
 } from "./foliApi";
 
@@ -193,7 +197,13 @@ test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () =
         {
           lineref: "1",
           destinationdisplay: "Satama",
+          destinationdisplay_en: "Harbour",
+          destinationdisplay_sv: "Hamnen",
           monitored: true,
+          vehicleatstop: true,
+          vehicleref: "bus-1",
+          incongestion: true,
+          __tripref: "trip-1",
           latitude: 60.453,
           longitude: 22.2666,
           recordedattime: 1899999990,
@@ -215,6 +225,12 @@ test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () =
       longitude: 22.2666,
       originaimeddeparturetime: 1899999000,
       destinationaimedarrivaltime: 1900002000,
+      destinationdisplay_en: "Harbour",
+      destinationdisplay_sv: "Hamnen",
+      vehicleatstop: true,
+      vehicleref: "bus-1",
+      incongestion: true,
+      tripref: "trip-1",
     })
   );
 });
@@ -272,4 +288,125 @@ test("pins GTFS stops and routes to the same dataset metadata lookup", async () 
     `${datasetBase}/routes`,
     expect.any(Object)
   );
+});
+
+test("loads trip metadata and planned stop sequence from the pinned dataset", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/trips/trip/trip-1`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "1",
+            service_id: "weekday",
+            trip_headsign: "Runosmäki",
+            direction_id: 1,
+            block_id: "block-1",
+            shape_id: "shape-1",
+            wheelchair_accessible: 1,
+            bikes_allowed: 0,
+          },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/stop_times/trip/trip-1`) {
+      return Promise.resolve({
+        data: [
+          {
+            stop_id: "164",
+            arrival_time: "17:40:00",
+            departure_time: "17:41:00",
+            stop_sequence: 1,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 1,
+          },
+          {
+            stop_id: "32",
+            arrival_time: "17:46:00",
+            departure_time: "17:46:00",
+            stop_sequence: 2,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 0,
+          },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const details = await fetchTripDetails("trip-1");
+  const stops = await fetchTripStopTimes("trip-1");
+
+  expect(details).toEqual(
+    expect.objectContaining({
+      tripId: "trip-1",
+      headsign: "Runosmäki",
+      wheelchairAccessible: 1,
+    })
+  );
+  expect(stops).toEqual([
+    expect.objectContaining({ stopId: "164", timepoint: 1 }),
+    expect.objectContaining({ stopId: "32", timepoint: 0 }),
+  ]);
+});
+
+test("derives route membership from boardable stop-times only", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/164`) {
+      return Promise.resolve({
+        data: [
+          { trip_id: "trip-board", pickup_type: 0 },
+          { trip_id: "trip-dropoff-only", pickup_type: 1 },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/trips/route/route-a`) {
+      return Promise.resolve({ data: [{ trip_id: "trip-board" }] });
+    }
+    if (url === `${datasetBase}/trips/route/route-b`) {
+      return Promise.resolve({ data: [{ trip_id: "trip-dropoff-only" }] });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const served = await fetchStopServedRouteIds(
+    "164",
+    ["route-a", "route-b"]
+  );
+
+  expect([...served]).toEqual(["route-a"]);
+});
+
+test("normalizes the compact Föli service boundary", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/geojson/bounds/compact") {
+      return Promise.resolve({
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "MultiPolygon",
+                coordinates: [[[[22, 60], [23, 60], [23, 61], [22, 60]]]],
+              },
+            },
+          ],
+        },
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  await expect(fetchServiceBoundary()).resolves.toEqual({
+    type: "MultiPolygon",
+    coordinates: [[[[22, 60], [23, 60], [23, 61], [22, 60]]]],
+  });
 });
