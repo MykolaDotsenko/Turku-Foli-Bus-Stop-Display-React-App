@@ -45,6 +45,7 @@ const precacheUrls = [
 const serviceWorker = `const CACHE_NAME = ${JSON.stringify(cacheName)};
 const CACHE_PREFIX = "foli-shell-";
 const SHELL_URL = "/";
+const OFFLINE_MARKER_URL = "/__foli_offline_shell__";
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 
 self.addEventListener("install", (event) => {
@@ -71,6 +72,21 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+async function markOfflineShell(offline) {
+  const cache = await caches.open(CACHE_NAME);
+
+  if (offline) {
+    await cache.put(
+      OFFLINE_MARKER_URL,
+      new Response("offline", {
+        headers: { "Content-Type": "text/plain" },
+      })
+    );
+  } else {
+    await cache.delete(OFFLINE_MARKER_URL);
+  }
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -80,7 +96,16 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match(SHELL_URL))
+      (async () => {
+        try {
+          const response = await fetch(request);
+          await markOfflineShell(false);
+          return response;
+        } catch {
+          await markOfflineShell(true);
+          return caches.match(SHELL_URL);
+        }
+      })()
     );
     return;
   }
