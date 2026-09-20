@@ -110,7 +110,20 @@ async function mockFoli(page) {
     });
   });
 
-  await page.route("https://data.foli.fi/gtfs/stops", async (route) => {
+  await page.route("https://data.foli.fi/gtfs", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        host: "data.foli.fi",
+        gtfspath: "/gtfs/v0",
+        latest: "20260920-120000",
+      }),
+    });
+  });
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/stops",
+    async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
@@ -131,9 +144,12 @@ async function mockFoli(page) {
         },
       }),
     });
-  });
+    }
+  );
 
-  await page.route("https://data.foli.fi/gtfs/routes", async (route) => {
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/routes",
+    async (route) => {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify([
@@ -171,7 +187,8 @@ async function mockFoli(page) {
         },
       ]),
     });
-  });
+    }
+  );
 
   await page.route(/https:\/\/data\.foli\.fi\/siri\/sm\/(164|4|32)/, async (route) => {
     const stopId = route.request().url().split("/").pop();
