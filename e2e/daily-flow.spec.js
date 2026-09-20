@@ -832,6 +832,63 @@ test("mobile layout does not create horizontal page overflow", async ({
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("mobile first screen shows a real departure without scrolling", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const firstDeparture = page.locator("tbody tr").first();
+  await expect(firstDeparture).toBeVisible();
+
+  const metrics = await firstDeparture.evaluate((row) => {
+    const rect = row.getBoundingClientRect();
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      scrollY: window.scrollY,
+    };
+  });
+
+  expect(metrics.scrollY).toBe(0);
+  expect(metrics.top).toBeGreaterThanOrEqual(0);
+  expect(metrics.top).toBeLessThan(metrics.viewportHeight);
+});
+
+test("narrow 320 and 360px layouts keep core controls on-screen", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 360, height: 800 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/?stop=164");
+    await seedHome(page);
+    await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+
+    await expect(
+      page.getByRole("combobox", { name: "Find your stop" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Show departures" })
+    ).toBeVisible();
+  }
+});
+
 test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
   if (
     !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
