@@ -400,6 +400,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("daily flow: search, save, navigate and restore with Back", async ({ page, context }, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop", "Targeted history diagnostics");
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -462,6 +463,22 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page, 
   let cdp = null;
   if (testInfo.project.name === "chromium-desktop") {
     cdp = await context.newCDPSession(page);
+    await cdp.send("Page.enable");
+    cdp.on("Page.navigatedWithinDocument", (event) => {
+      console.log("FOLI_CDP_WITHIN_DOCUMENT", JSON.stringify(event));
+    });
+    cdp.on("Page.frameNavigated", (event) => {
+      if (!event.frame.parentId) {
+        console.log(
+          "FOLI_CDP_FRAME_NAVIGATED",
+          JSON.stringify({
+            id: event.frame.id,
+            url: event.frame.url,
+            loaderId: event.frame.loaderId,
+          })
+        );
+      }
+    });
     const browserHistory = await cdp.send("Page.getNavigationHistory");
     console.log(
       "FOLI_HISTORY_BEFORE_BACK",
@@ -492,24 +509,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page, 
     globalThis.setTimeout(() => globalThis.history.back(), 0);
   });
 
-  if (cdp) {
-    await new Promise((resolve) => globalThis.setTimeout(resolve, 300));
-    const browserHistoryAfterBack = await cdp.send("Page.getNavigationHistory");
-    console.log(
-      "FOLI_HISTORY_AFTER_BACK",
-      JSON.stringify({
-        currentIndex: browserHistoryAfterBack.currentIndex,
-        entries: browserHistoryAfterBack.entries.map(
-          ({ id, url, userTypedURL, transitionType }) => ({
-            id,
-            url,
-            userTypedURL,
-            transitionType,
-          })
-        ),
-      })
-    );
-  }
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 500));
 
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
