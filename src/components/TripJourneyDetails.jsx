@@ -35,7 +35,7 @@ export default function TripJourneyDetails({
   const [stopTimes, setStopTimes] = useState([]);
 
   useEffect(() => {
-    if (!expanded || !tripId || status !== "idle") return undefined;
+    if (!expanded || !tripId) return undefined;
 
     const controller = new AbortController();
     setStatus("loading");
@@ -51,7 +51,7 @@ export default function TripJourneyDetails({
       });
 
     return () => controller.abort();
-  }, [expanded, status, tripId]);
+  }, [expanded, tripId]);
 
   const journey = useMemo(() => {
     const currentIndex = stopTimes.findIndex(
