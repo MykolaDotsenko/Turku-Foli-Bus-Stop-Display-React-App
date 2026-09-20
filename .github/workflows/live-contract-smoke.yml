@@ -79,14 +79,36 @@ jobs:
             throw new Error("Usable Stop Monitoring payload has no result array.");
           }
 
-          const stops = await getJson(`${base}/gtfs/stops`);
-          if (!stops || Array.isArray(stops) || typeof stops !== "object") {
-            throw new Error("GTFS stops payload is not an object.");
+          const gtfs = await getJson(`${base}/gtfs`);
+          if (
+            !gtfs ||
+            typeof gtfs !== "object" ||
+            Array.isArray(gtfs) ||
+            typeof gtfs.host !== "string" ||
+            typeof gtfs.gtfspath !== "string" ||
+            typeof gtfs.latest !== "string"
+          ) {
+            throw new Error("GTFS dataset metadata is invalid.");
           }
 
-          const routes = await getJson(`${base}/gtfs/routes`);
+          const gtfsPath = gtfs.gtfspath.startsWith("/")
+            ? gtfs.gtfspath
+            : `/${gtfs.gtfspath}`;
+          const gtfsBase = `https://${gtfs.host}${gtfsPath}/${encodeURIComponent(
+            gtfs.latest
+          )}`;
+
+          const [stops, routes] = await Promise.all([
+            getJson(`${gtfsBase}/stops`),
+            getJson(`${gtfsBase}/routes`),
+          ]);
+
+          if (!stops || Array.isArray(stops) || typeof stops !== "object") {
+            throw new Error("Pinned GTFS stops payload is not an object.");
+          }
+
           if (!Array.isArray(routes)) {
-            throw new Error("GTFS routes payload is not an array.");
+            throw new Error("Pinned GTFS routes payload is not an array.");
           }
 
           const alerts = await getJson(`${base}/alerts`);
@@ -99,6 +121,7 @@ jobs:
               {
                 checkedStop: stopId,
                 stopMonitoringStatus: monitor.status,
+                gtfsDataset: gtfs.latest,
                 gtfsStops: Object.keys(stops).length,
                 gtfsRoutes: routes.length,
                 alertKeys: Object.keys(alerts),
