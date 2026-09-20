@@ -443,33 +443,22 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   page,
   context,
 }, testInfo) => {
-  test.skip(testInfo.project.name !== "chromium-desktop");
+  test.skip(testInfo.project.name !== "chromium-pwa");
 
   await page.goto("/?stop=164");
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.ready;
-
-    if (!navigator.serviceWorker.controller) {
-      await new Promise((resolve) => {
-        const timeoutId = globalThis.setTimeout(resolve, 3_000);
-        navigator.serviceWorker.addEventListener(
-          "controllerchange",
-          () => {
-            globalThis.clearTimeout(timeoutId);
-            resolve();
-          },
-          { once: true }
-        );
-        registration.active?.postMessage?.({ type: "claim" });
-      });
-    }
-  });
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
 
   await page.unrouteAll({ behavior: "wait" });
   await context.setOffline(true);
+  await expect
+    .poll(() => page.evaluate(() => navigator.onLine))
+    .toBe(false);
 
   await page.reload({ waitUntil: "domcontentloaded" });
 
