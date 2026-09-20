@@ -81,7 +81,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
 
         <button
           type="button"
-          className={styles.secondaryAction}
+          className={`${styles.secondaryAction} ${styles.desktopSecondary}`}
           onClick={() => onOpenStop(primaryStop.id)}
         >
           Open Home stop
@@ -89,12 +89,38 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
 
         <button
           type="button"
-          className={styles.secondaryAction}
+          className={`${styles.secondaryAction} ${styles.desktopSecondary}`}
           onClick={() => setShowDriver(true)}
         >
           Show driver
         </button>
       </div>
+
+      <details className={styles.mobileOptions}>
+        <summary>More Home options</summary>
+        <div className={styles.mobileOptionActions}>
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            onClick={() => onOpenStop(primaryStop.id)}
+          >
+            Open Home stop
+          </button>
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            onClick={() => setShowDriver(true)}
+          >
+            Show driver
+          </button>
+        </div>
+        {transitUrl && (
+          <p className={styles.mobileRouteNote}>
+            Opens Google Maps to the saved Home stop. Check the suggested
+            itinerary before travelling.
+          </p>
+        )}
+      </details>
 
       {transitUrl && (
         <p className={styles.routeNote}>
