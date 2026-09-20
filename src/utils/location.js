@@ -1,0 +1,64 @@
+import { hasCoordinates } from "./geo";
+
+export const HIGH_ACCURACY_LOCATION_OPTIONS = {
+  enableHighAccuracy: true,
+  timeout: 8_000,
+  maximumAge: 30_000,
+};
+
+export const FALLBACK_LOCATION_OPTIONS = {
+  enableHighAccuracy: false,
+  timeout: 5_000,
+  maximumAge: 120_000,
+};
+
+function readPosition(geolocation, options) {
+  return new Promise((resolve, reject) => {
+    geolocation.getCurrentPosition(resolve, reject, options);
+  });
+}
+
+export function locationErrorMessage(error) {
+  if (error?.code === 1) {
+    return "Location access is blocked. Allow location for this site in your browser settings and try again.";
+  }
+
+  if (error?.code === 2) {
+    return "Your device could not determine its location. Check location services and try again.";
+  }
+
+  if (error?.code === 3) {
+    return "Location took too long to respond. Move near a window or try again.";
+  }
+
+  return "Your location could not be read. Try again or choose a stop manually.";
+}
+
+export async function requestOneTimePosition(geolocation) {
+  if (!geolocation?.getCurrentPosition) {
+    throw new Error("Geolocation unsupported.");
+  }
+
+  let result;
+
+  try {
+    result = await readPosition(geolocation, HIGH_ACCURACY_LOCATION_OPTIONS);
+  } catch (error) {
+    if (error?.code !== 3) throw error;
+    result = await readPosition(geolocation, FALLBACK_LOCATION_OPTIONS);
+  }
+
+  const position = {
+    lat: Number(result?.coords?.latitude),
+    lon: Number(result?.coords?.longitude),
+    accuracy: Number.isFinite(Number(result?.coords?.accuracy))
+      ? Number(result.coords.accuracy)
+      : null,
+  };
+
+  if (!hasCoordinates(position)) {
+    throw new Error("Invalid browser location.");
+  }
+
+  return position;
+}
