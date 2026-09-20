@@ -51,7 +51,15 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     const candidateRouteIds = [
       ...new Set(
         (Array.isArray(payload?.messages) ? payload.messages : [])
-          .filter((message) => message?.isactive === true)
+          .filter(
+            (message) =>
+              message?.isactive === true &&
+              !(Array.isArray(message?.affected_stops) &&
+                message.affected_stops.some(
+                  (affectedStop) =>
+                    String(affectedStop) === String(stopId)
+                ))
+          )
           .flatMap((message) =>
             Array.isArray(message?.affected_routes)
               ? message.affected_routes
