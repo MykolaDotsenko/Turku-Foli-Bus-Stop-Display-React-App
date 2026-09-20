@@ -23,7 +23,7 @@ For the adversarial product review, scores, fixed risks and deliberately unresol
 1. Save **Home, School or Work** once as a **Safe Arrival Zone** made from 1–3 public Föli stops — no private address required.
 2. When Home exists, the top of the app exposes **Get me Home** as a dedicated travel-recovery action for a child, newcomer or anyone who is lost or unsure.
 3. **Get me Home** opens public-transit directions to the primary safe Home stop. The app does not embed the user's current origin.
-4. Recovery keeps two independent fallbacks: **Open Home stop** for live Föli departures and **Show driver** for a simple destination card. Saved backup Home stops stay available behind an explicit disclosure.
+4. Recovery keeps independent fallbacks: **Open Home stop** for the departure board, **Show driver** for a simple destination card, and **Prepare for no battery** for a printable public-stop-only Home backup card. Saved backup Home stops stay available behind an explicit disclosure.
 5. Tap **Go Home / Go to School / Go to Work** in My Places for the normal daily destination flow.
 6. If location access is unavailable, search/select a stop normally and save that public stop to My Places.
 7. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
@@ -41,6 +41,7 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - recovery is explicitly labelled as travel help, not an emergency service; the UI avoids red/SOS styling that could imply capabilities it does not provide
 - if GTFS stop coordinates are temporarily unavailable, transit routing is disabled rather than pretending it can route; the saved public stop and driver card still work
 - parent-approved backup Home stops remain hidden until requested, reducing cognitive load while preserving resilience when the usual stop is unavailable
+- **Prepare for no battery** produces a printable/save-as-PDF Home card containing only public stop identity and the Finnish help sentence; this is the only fallback that remains usable after the phone itself powers off
 - Safe Arrival setup selects only the closest candidate initially; extra backup stops require explicit opt-in because physical proximity alone does not make a stop safe
 - **My Places** replaces memorized private addresses with intent-based destinations such as Home, School and Work
 - each place is a **Safe Arrival Zone** of up to three public Föli stops; one is primary and the others are backups
@@ -79,10 +80,14 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - the live departure board appears before My Places management in the normal flow; shared-place import is the context-aware exception because confirmation is then the user's immediate task
 - mobile controls use large touch targets and collapse into a simple one-column action flow
 - loading, empty, stale, scheduled, realtime, and failed states are explicit
+- the receipt time of the last successful realtime payload is tracked separately from Föli server time, so a failed refresh cannot freeze an old payload in a misleadingly fresh **Live** state
+- Due-time filtering, vehicle-position freshness and realtime status all age forward across an outage using the last successful provider clock plus elapsed client time
+- service-alert feed failures are also explicit: retained alerts remain visible, but an old/failed disruption check is labelled with when it was last confirmed
 - a temporary refresh failure keeps the last successful same-stop data
 - data from one stop can never render under another stop number
 - the app shell can be installed as a PWA; the production build generates a content-versioned precache for same-origin assets while live Föli API responses are never cached
 - offline mode is explicit: saved Safe Places and driver help remain available, while live departures and external route planning are labelled as network-dependent
+- the header changes from the normal Föli status indicator to **Offline mode**, avoiding contradictory “live-looking” UI while the browser reports no network
 
 ## Location semantics
 
@@ -115,9 +120,11 @@ expecteddeparturetime
 
 A vehicle is labelled **Live** only when `monitored === true`. Otherwise the trip is shown as **Scheduled**.
 
-Rows without a usable departure timestamp are ignored. Departures older than a short grace window relative to Föli server time are also removed so an already-departed vehicle cannot linger indefinitely as **Due**.
+Rows without a usable departure timestamp are ignored. Departures older than a short grace window are also removed so an already-departed vehicle cannot linger indefinitely as **Due**.
 
-`recordedattime` is compared with Föli `servertime`. Older vehicle updates are exposed as aged live data rather than presenting every realtime estimate as equally fresh.
+The hook records when each successful Stop Monitoring payload actually reaches the browser. Föli `servertime` is then advanced by the elapsed time since that receipt. This means a retained payload continues to age during an outage instead of freezing at the age it had when the last response arrived.
+
+`recordedattime` is compared with that advancing provider-time reference. Due labels, vehicle-position age and **Live data · N min old** semantics therefore remain conservative even while retries fail.
 
 The UI intentionally treats realtime values as estimates rather than promises. Vehicle coordinates are presented as **nearby / distance from stop** rather than “approaching”, because the stop-monitoring position alone does not prove direction of travel.
 
