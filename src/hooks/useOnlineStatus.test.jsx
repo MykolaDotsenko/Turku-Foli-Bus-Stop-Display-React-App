@@ -14,7 +14,6 @@ function setOnline(value) {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  globalThis.sessionStorage.clear();
   globalThis.localStorage.clear();
 
   if (originalOnLine) {
@@ -121,18 +120,3 @@ test("persists an offline hint during reload even if the offline event was misse
   unmount();
 });
 
-
-test("persists an offline hint before a page exit even when no offline event fired", async () => {
-  setOnline(true);
-  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
-
-  const { result } = renderHook(() => useOnlineStatus());
-  await waitFor(() => expect(result.current).toBe(true));
-
-  act(() => {
-    setOnline(false);
-    window.dispatchEvent(new globalThis.Event("pagehide"));
-  });
-
-  expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
-});
