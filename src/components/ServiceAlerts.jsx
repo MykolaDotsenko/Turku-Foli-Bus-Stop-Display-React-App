@@ -1,8 +1,9 @@
 import { useState } from "react";
 import styles from "./ServiceAlerts.module.css";
-import { formatClock } from "../utils/time";
+import { elapsedSince, formatClock, formatElapsedAge } from "../utils/time";
 
 const DEFAULT_VISIBLE_ALERTS = 4;
+const STALE_ALERT_CHECK_SECONDS = 10 * 60;
 
 function humanizeCode(value) {
   if (!value) return "";
@@ -66,10 +67,39 @@ function AlertItem({ alert }) {
   );
 }
 
-function ServiceAlerts({ alerts }) {
+function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
   const [expanded, setExpanded] = useState(false);
+  const receiptAgeSeconds = elapsedSince(receivedAtMs);
+  const stale =
+    receiptAgeSeconds !== null &&
+    receiptAgeSeconds > STALE_ALERT_CHECK_SECONDS;
 
-  if (alerts.length === 0) return null;
+  if (alerts.length === 0 && !error && !stale) return null;
+
+  if (alerts.length === 0) {
+    return (
+      <section
+        className={`${styles.panel} ${styles.unavailablePanel}`}
+        aria-labelledby="service-alerts-title"
+      >
+        <div className={styles.headingRow}>
+          <div>
+            <p className={styles.kicker}>Before you go</p>
+            <h2 id="service-alerts-title" className={styles.heading}>
+              Service update check unavailable
+            </h2>
+          </div>
+        </div>
+        <p className={styles.feedStatus} role="status">
+          Föli disruption data could not be confirmed
+          {receiptAgeSeconds !== null
+            ? ` · last checked ${formatElapsedAge(receiptAgeSeconds)}`
+            : ""}.
+          Live departure data may still work separately.
+        </p>
+      </section>
+    );
+  }
 
   const emergency = alerts.some((alert) => alert.type === "emergency");
   const hasMore = alerts.length > DEFAULT_VISIBLE_ALERTS;
@@ -95,6 +125,15 @@ function ServiceAlerts({ alerts }) {
           {alerts.length}
         </span>
       </div>
+
+      {(error || stale) && (
+        <p className={styles.feedStatus} role="status">
+          {error ? "Update check failed" : "Service update check is getting old"}
+          {receiptAgeSeconds !== null
+            ? ` · last checked ${formatElapsedAge(receiptAgeSeconds)}`
+            : ""}
+        </p>
+      )}
 
       <div className={styles.list}>
         {visibleAlerts.map((alert) => (
