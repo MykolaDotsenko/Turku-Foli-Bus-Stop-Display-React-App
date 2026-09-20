@@ -165,6 +165,10 @@ function DriverCard({ place, primaryStop, onClose }) {
   );
 }
 
+function journeyAction(place) {
+  return place.id === "home" ? "Go Home" : `Go to ${place.label}`;
+}
+
 function PlaceCard({
   place,
   stops,
@@ -203,13 +207,13 @@ function PlaceCard({
             href={transitUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label={`Go to ${place.label} by public transit`}
+            aria-label={`${journeyAction(place)} by public transit`}
           >
-            Go {place.label}
+            {journeyAction(place)}
           </a>
         ) : (
           <button type="button" className={styles.goButton} disabled>
-            Go {place.label}
+            {journeyAction(place)}
           </button>
         )}
 
@@ -421,6 +425,7 @@ function MyPlaces({
                   onClick={() => startSetup(preset.id)}
                   disabled={status === "locating"}
                   aria-busy={status === "locating" && setupId === preset.id}
+                  aria-label={`Set up ${preset.label} where I am now`}
                 >
                   Set up here
                 </button>
@@ -435,6 +440,7 @@ function MyPlaces({
                         primaryStopId: activeStop.id,
                       })
                     }
+                    aria-label={`Save selected stop as ${preset.label}`}
                   >
                     Save selected stop
                   </button>
