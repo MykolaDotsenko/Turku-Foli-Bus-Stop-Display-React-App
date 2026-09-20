@@ -238,7 +238,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Set up here" }).first().click();
+  await page.getByRole("button", { name: "Set up Home where I am now" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Choose safe stops for Home" })
@@ -248,7 +248,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.getByRole("button", { name: "Save Home" }).click();
 
   const goHome = page.getByRole("link", {
-    name: "Go to Home by public transit",
+    name: "Go Home by public transit",
   });
   await expect(goHome).toBeVisible();
 
@@ -324,7 +324,7 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Go to Home by public transit" })
+    page.getByRole("link", { name: "Go Home by public transit" })
   ).toBeVisible();
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
