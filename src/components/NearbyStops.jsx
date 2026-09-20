@@ -189,12 +189,12 @@ function NearbyStops({
     coordinatesStatus === "loading" && !hasStopCoordinates;
 
   let locationNotice = "";
-  if (insideServiceArea === false) {
-    locationNotice =
-      "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically.";
-  } else if (lowAccuracy) {
+  if (lowAccuracy) {
     locationNotice =
       "Your location is approximate, so compare the nearby options before choosing.";
+  } else if (insideServiceArea === false) {
+    locationNotice =
+      "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically.";
   } else if (isFarFromNetwork) {
     locationNotice = `The nearest Föli stop is ${formatDistance(
       nearbyStops[0].distanceMeters
