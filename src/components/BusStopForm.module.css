@@ -103,7 +103,7 @@
 
 .suggestionId {
   flex: 0 0 auto;
-  color: #6e8088;
+  color: #566b74;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -116,7 +116,7 @@
 }
 
 .help {
-  color: #60747d;
+  color: #4d626b;
 }
 
 .error {
