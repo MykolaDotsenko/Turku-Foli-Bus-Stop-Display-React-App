@@ -101,6 +101,28 @@ jobs:
                   statuses["ERROR"] += 1
               time.sleep(0.05)
 
+          # Candidate cross-system joins for trip-level static metadata.
+          trip_ids = {r["trip_id"] for r in trips}
+          candidate_fields = ["__tripref", "datedvehiclejourneyref", "blockref"]
+          join_stats = {f: {"present": 0, "matches_trip_id": 0, "examples": []} for f in candidate_fields}
+
+          for stop_id in sample_ids[:12]:
+              try:
+                  body, _, _ = get(f"https://data.foli.fi/siri/sm/{stop_id}", timeout=15)
+                  p = json.loads(body)
+                  for a in p.get("result") or []:
+                      for field in candidate_fields:
+                          v = a.get(field)
+                          if v not in (None, ""):
+                              v = str(v)
+                              join_stats[field]["present"] += 1
+                              if v in trip_ids:
+                                  join_stats[field]["matches_trip_id"] += 1
+                              if len(join_stats[field]["examples"]) < 5:
+                                  join_stats[field]["examples"].append(v)
+              except Exception:
+                  pass
+
           print("=== SIRI_SAMPLE ===")
           print(json.dumps({
               "sample_stop_count": len(sample_ids),
@@ -108,5 +130,32 @@ jobs:
               "statuses": dict(statuses),
               "field_presence": dict(field_counts),
               "true_counts": dict(true_counts),
+              "trip_join_stats": join_stats,
+          }, ensure_ascii=False, indent=2))
+
+          alerts_raw, _, _ = get("https://data.foli.fi/alerts")
+          alerts = json.loads(alerts_raw)
+          messages = alerts.get("messages") or []
+          active = [m for m in messages if m.get("isactive") is True]
+          locales = collections.Counter()
+          cats = collections.Counter()
+          effects = collections.Counter()
+          for m in active:
+              for k in (m.get("translations") or {}): locales[k] += 1
+              for k in (m.get("categories") or []): cats[k] += 1
+              effects[str(m.get("effect") or "")] += 1
+
+          print("=== ALERTS_VALUE ===")
+          print(json.dumps({
+              "messages_total": len(messages),
+              "messages_active": len(active),
+              "active_with_images": sum(1 for m in active if m.get("images")),
+              "active_with_information": sum(1 for m in active if (m.get("information") or "").strip()),
+              "active_with_translations": sum(1 for m in active if m.get("translations")),
+              "active_priority_le_100": sum(1 for m in active if isinstance(m.get("priority"), (int,float)) and m["priority"] <= 100),
+              "locales": dict(locales),
+              "categories": dict(cats),
+              "effects": dict(effects),
+              "cancellations": len(alerts.get("cancellations") or []),
           }, ensure_ascii=False, indent=2))
           PY
