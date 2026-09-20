@@ -19,7 +19,7 @@ function stopFromLocation() {
 
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
-  const stops = useStopCatalog();
+  const { stops, coordinatesStatus } = useStopCatalog();
   const serviceAlerts = useStopAlerts(stopId);
   const {
     favorites,
@@ -94,6 +94,7 @@ function App() {
 
       <NearbyStops
         stops={stops}
+        coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
         onSelect={selectStop}
       />
