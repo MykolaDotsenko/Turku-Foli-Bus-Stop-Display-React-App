@@ -97,14 +97,6 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
       </div>
 
       {transitUrl && (
-          <p className={styles.mobileRouteNote}>
-            Opens Google Maps to the saved Home stop. Check the suggested
-            itinerary before travelling.
-          </p>
-        )}
-      </details>
-
-      {transitUrl && (
         <p className={styles.routeNote}>
           Opens Google Maps to this saved Home stop. Check the suggested
           itinerary before travelling.
