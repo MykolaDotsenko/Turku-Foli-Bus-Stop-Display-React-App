@@ -193,7 +193,19 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByText("Detour", { exact: true })).toBeVisible();
   await expect(page.getByText("Affects line 1")).toBeVisible();
   await expect(page.getByText("Satama")).toBeVisible();
-  await expect(page.getByText(/Bus approaching/i)).toBeVisible();
+  await expect(page.getByText(/Bus nearby/i)).toBeVisible();
+
+  const boardPrecedesPlaceManagement = await page.evaluate(() => {
+    const board = document.querySelector('[aria-labelledby="departures-title"]');
+    const places = document.querySelector('[aria-labelledby="my-places-title"]');
+    return Boolean(
+      board &&
+        places &&
+        (board.compareDocumentPosition(places) &
+          Node.DOCUMENT_POSITION_FOLLOWING)
+    );
+  });
+  expect(boardPrecedesPlaceManagement).toBe(true);
 
   await page.getByText("Show details").click();
   await expect(
@@ -301,6 +313,8 @@ test("saves Home as a privacy-first safe arrival zone", async ({
     localStorage.getItem("foli-my-places-v1")
   );
   expect(placeStorage).toContain('"id":"164"');
+  expect(placeStorage).not.toContain('"id":"32"');
+  expect(placeStorage).not.toContain('"id":"4"');
   expect(placeStorage).not.toContain("60.45182");
   expect(placeStorage).not.toContain("22.26662");
   expect(placeStorage).not.toContain("distanceMeters");
