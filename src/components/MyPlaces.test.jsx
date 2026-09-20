@@ -74,7 +74,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
   ).toBeInTheDocument();
   expect(screen.getByText(/Location accuracy ±20 m/)).toBeInTheDocument();
   expect(
-    screen.getByText(/Add backup stops only if you know they are safe/i)
+    screen.getByText(/Add backup stops only if you know they are suitable and familiar/i)
   ).toBeInTheDocument();
 
   const safeStopChoices = screen.getAllByRole("checkbox");
