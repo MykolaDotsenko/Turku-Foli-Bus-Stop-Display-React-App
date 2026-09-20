@@ -19,3 +19,16 @@ for (const asset of assets) {
     throw new Error(`Generated service worker does not precache ${asset}.`);
   }
 }
+
+
+if (!sw.includes('caches.match(request, { ignoreVary: true })')) {
+  throw new Error(
+    "Generated service worker does not ignore Vary for same-origin precached assets."
+  );
+}
+
+if (!sw.includes('caches.match(SHELL_URL, { ignoreVary: true })')) {
+  throw new Error(
+    "Generated service worker does not ignore Vary for the offline navigation shell."
+  );
+}
