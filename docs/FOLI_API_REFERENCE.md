@@ -131,7 +131,7 @@ GET /gtfs/gtfs.zip
 
 Complete GTFS package. Useful for offline/server-side preprocessing. Not suitable as the normal browser path for this product.
 
-**Application use:** ✅ Yes. Provider alert images are normalized to HTTPS and mounted only after explicit user expansion; raw provider information is still rendered as text rather than injected HTML.
+**Application use:** ❌ No.
 
 ---
 
@@ -919,7 +919,7 @@ descr_en
 
 Messages can include `images[]` with protocol-relative provider URLs. Treat them as provider media assets, normalize to HTTPS before rendering, validate content type, and never inject provider `information` as raw HTML.
 
-**Application use:** ❌ No.
+**Application use:** ✅ Yes. Provider image URLs are normalized to HTTPS and media is mounted only after the user explicitly expands disruption details. Raw provider `information` remains text rather than injected HTML.
 
 ---
 
