@@ -191,6 +191,7 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
 function PlaceCard({
   place,
   stops,
+  online,
   onOpenStop,
   onSetPrimaryStop,
   onReplace,
@@ -203,9 +204,10 @@ function PlaceCard({
   const primaryStop =
     resolvedStops.find((stop) => stop.id === place.primaryStopId) ||
     resolvedStops[0];
-  const transitUrl = hasCoordinates(primaryStop)
-    ? buildTransitDirectionsUrl(primaryStop)
-    : "";
+  const transitUrl =
+    online && hasCoordinates(primaryStop)
+      ? buildTransitDirectionsUrl(primaryStop)
+      : "";
 
   const sharePlace = async () => {
     const url = buildSharedPlaceUrl(place);
@@ -378,6 +380,7 @@ function MyPlaces({
   activeStopId,
   placesById,
   sharedPlace,
+  online = true,
   onSavePlace,
   onImportSharedPlace,
   onDismissSharedPlace,
@@ -487,6 +490,7 @@ function MyPlaces({
                 key={preset.id}
                 place={place}
                 stops={stops}
+                online={online}
                 onOpenStop={onOpenStop}
                 onSetPrimaryStop={onSetPrimaryStop}
                 onReplace={startSetup}
