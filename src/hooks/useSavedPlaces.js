@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 const STORAGE_KEY = "foli-my-places-v1";
+const VALIDATION_WRITE_DEDUP_MS = 60_000;
 
 export const PLACE_PRESETS = [
   { id: "home", label: "Home", icon: "⌂" },
@@ -147,9 +148,9 @@ export default function useSavedPlaces() {
           });
 
           if (
-            place.validatedAt === validatedAt &&
             place.needsReview === needsReview &&
-            !renamed
+            !renamed &&
+            validatedAt - place.validatedAt < VALIDATION_WRITE_DEDUP_MS
           ) {
             return place;
           }
