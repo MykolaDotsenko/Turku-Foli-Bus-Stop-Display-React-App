@@ -45,6 +45,8 @@ function normalizePlace(place) {
     stops,
     primaryStopId,
     updatedAt: Number(place.updatedAt) || 0,
+    validatedAt: Number(place.validatedAt) || 0,
+    needsReview: place.needsReview === true,
   };
 }
 
@@ -100,12 +102,66 @@ export default function useSavedPlaces() {
         stops: normalizedStops,
         primaryStopId: resolvedPrimary,
         updatedAt: Date.now(),
+        validatedAt: Date.now(),
+        needsReview: false,
       };
 
       commit((current) => [
         ...current.filter((place) => place.id !== id),
         nextPlace,
       ]);
+    },
+    [commit]
+  );
+
+  const revalidatePlaces = useCallback(
+    (catalogStops) => {
+      if (!Array.isArray(catalogStops) || catalogStops.length === 0) return;
+
+      const catalogById = new Map(
+        catalogStops
+          .filter((stop) => stop?.id)
+          .map((stop) => [String(stop.id), stop])
+      );
+      const validatedAt = Date.now();
+
+      commit((current) =>
+        current.map((place) => {
+          let needsReview = false;
+          let renamed = false;
+
+          const stops = place.stops.map((savedStop) => {
+            const currentStop = catalogById.get(savedStop.id);
+            if (!currentStop) {
+              needsReview = true;
+              return savedStop;
+            }
+
+            const currentName = String(currentStop.name || "").trim();
+            if (currentName && currentName !== savedStop.name) {
+              renamed = true;
+              return { id: savedStop.id, name: currentName };
+            }
+
+            return savedStop;
+          });
+
+          if (
+            place.validatedAt === validatedAt &&
+            place.needsReview === needsReview &&
+            !renamed
+          ) {
+            return place;
+          }
+
+          return {
+            ...place,
+            stops,
+            validatedAt,
+            needsReview,
+          };
+        })
+      );
     },
     [commit]
   );
@@ -140,6 +196,7 @@ export default function useSavedPlaces() {
     places,
     byId,
     savePlace,
+    revalidatePlaces,
     removePlace,
     setPrimaryStop,
   };
