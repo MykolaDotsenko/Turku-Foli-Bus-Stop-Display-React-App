@@ -126,6 +126,19 @@ jobs:
             console.log(JSON.stringify(value, null, 2));
           }
 
+          // GTFS entrypoint compatibility audit: docs vs current HTTPS runtime.
+          for (const url of [
+            `${ORIGIN}/gtfs`,
+            `${ORIGIN}/gtfs/`,
+            `${ORIGIN}/gtfs/v0`,
+            `${ORIGIN}/gtfs/v0/`,
+            `${ORIGIN}/gtfs/stops`,
+            `${ORIGIN}/gtfs/routes`,
+            `${ORIGIN}/gtfs/calendar`,
+          ]) {
+            log(`GTFS compatibility ${url}`, summary(await request(url)));
+          }
+
           // GTFS metadata + coherent pinned dataset
           const gtfsMeta = await request(`${ORIGIN}/gtfs`);
           log("GTFS /gtfs", summary(gtfsMeta));
