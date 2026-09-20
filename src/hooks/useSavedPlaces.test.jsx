@@ -76,3 +76,58 @@ test("can change the primary safe stop and remove a place", () => {
 
   expect(result.current.byId.has("school")).toBe(false);
 });
+
+
+test("revalidates saved stops against a fresh public catalogue without storing coordinates", () => {
+  const { result } = renderHook(() => useSavedPlaces());
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      primaryStopId: "164",
+      stops: [
+        { id: "164", name: "Old market name" },
+        { id: "999", name: "Removed stop" },
+      ],
+    });
+  });
+
+  act(() => {
+    result.current.revalidatePlaces([
+      { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+      { id: "32", name: "Puistokatu", lat: 60.4488, lon: 22.255 },
+    ]);
+  });
+
+  const home = result.current.byId.get("home");
+  expect(home.stops[0]).toEqual({ id: "164", name: "Kauppatori" });
+  expect(home.stops[1]).toEqual({ id: "999", name: "Removed stop" });
+  expect(home.needsReview).toBe(true);
+  expect(home.validatedAt).toBeGreaterThan(0);
+
+  const stored = localStorage.getItem("foli-my-places-v1");
+  expect(stored).not.toContain("60.4518");
+  expect(stored).not.toContain("22.2666");
+});
+
+test("clears Safe Place review state once every saved stop exists again", () => {
+  const { result } = renderHook(() => useSavedPlaces());
+
+  act(() => {
+    result.current.savePlace({
+      id: "work",
+      primaryStopId: "100",
+      stops: [{ id: "100", name: "Work stop" }],
+    });
+    result.current.revalidatePlaces([{ id: "101", name: "Other stop" }]);
+  });
+
+  expect(result.current.byId.get("work").needsReview).toBe(true);
+
+  act(() => {
+    result.current.revalidatePlaces([{ id: "100", name: "Work stop renamed" }]);
+  });
+
+  expect(result.current.byId.get("work").needsReview).toBe(false);
+  expect(result.current.byId.get("work").stops[0].name).toBe("Work stop renamed");
+});
