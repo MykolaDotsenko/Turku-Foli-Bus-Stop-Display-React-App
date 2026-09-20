@@ -125,7 +125,7 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
             aria-expanded={Boolean(showSuggestions)}
             aria-controls="foli-stop-suggestions"
             aria-activedescendant={
-              activeIndex >= 0 ? \`foli-stop-option-\${activeIndex}\` : undefined
+              activeIndex >= 0 ? `foli-stop-option-${activeIndex}` : undefined
             }
             aria-invalid={Boolean(validationError)}
             aria-describedby={
@@ -148,7 +148,7 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
             {matches.map((stop, index) => (
               <div
                 key={stop.id}
-                id={\`foli-stop-option-\${index}\`}
+                id={`foli-stop-option-${index}`}
                 className={styles.suggestion}
                 role="option"
                 aria-selected={index === activeIndex}
