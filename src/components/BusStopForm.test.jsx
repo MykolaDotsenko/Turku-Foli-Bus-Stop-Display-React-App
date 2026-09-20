@@ -53,3 +53,33 @@ test("accepts a numeric stop directly", () => {
 
   expect(onSubmit).toHaveBeenCalledWith("32");
 });
+
+
+test("accepts a unique partial name without forcing an extra tap", () => {
+  const onSubmit = vi.fn();
+
+  render(
+    <BusStopForm activeStopId="164" stops={stops} onSubmit={onSubmit} />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "Puisto" } });
+  fireEvent.click(screen.getByRole("button", { name: "Show departures" }));
+
+  expect(onSubmit).toHaveBeenCalledWith("32");
+});
+
+test("matches stop names without requiring Finnish diacritics", () => {
+  const onSubmit = vi.fn();
+  const localStops = [{ id: "9", name: "Mäntymäki" }];
+
+  render(
+    <BusStopForm activeStopId="164" stops={localStops} onSubmit={onSubmit} />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "Mantymaki" } });
+  fireEvent.click(screen.getByRole("button", { name: "Show departures" }));
+
+  expect(onSubmit).toHaveBeenCalledWith("9");
+});
