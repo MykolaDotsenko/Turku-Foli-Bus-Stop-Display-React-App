@@ -67,7 +67,7 @@ input:focus-visible,
 .context {
   max-width: 620px;
   margin: 6px 0 0;
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.86rem;
   line-height: 1.5;
 }
@@ -110,7 +110,7 @@ input:focus-visible,
 
 .source-note {
   margin-top: 12px;
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.72rem;
   line-height: 1.45;
 }
