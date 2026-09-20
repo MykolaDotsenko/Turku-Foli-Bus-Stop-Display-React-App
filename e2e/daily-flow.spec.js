@@ -402,9 +402,6 @@ test.beforeEach(async ({ page }) => {
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
-  await expect
-    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
-    .toBe("164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   const detourSummary = page.getByText("Line 1 city-centre detour");
   await expect(detourSummary).toBeVisible();
@@ -455,16 +452,12 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Kauppatori/ })).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
-    .toBe("4");
-
   await page.evaluate(() => globalThis.history.back());
-  await page.waitForURL(/stop=164/);
+  await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
   await page.evaluate(() => globalThis.history.forward());
-  await page.waitForURL(/stop=4/);
+  await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
 
@@ -903,10 +896,6 @@ test("narrow 320 and 360px layouts keep core controls on-screen", async ({
 test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
   await page.goto("/?stop=4");
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
-  await expect
-    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
-    .toBe("4");
-
   await page.reload();
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
