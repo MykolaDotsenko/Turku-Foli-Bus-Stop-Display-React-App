@@ -9,6 +9,7 @@ function emptyData(stopId) {
     stopName: "",
     arrivals: [],
     serverTime: null,
+    receivedAtMs: null,
   };
 }
 
@@ -32,7 +33,7 @@ export default function useStopMonitor(stopId) {
 
       try {
         const next = await fetchStopMonitor(stopId, controller.signal);
-        setData({ stopId, ...next });
+        setData({ stopId, ...next, receivedAtMs: Date.now() });
       } catch (err) {
         if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
           setError(true);
