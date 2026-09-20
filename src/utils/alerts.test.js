@@ -279,3 +279,72 @@ test("falls back field-by-field when a provider translation is incomplete", () =
     })
   );
 });
+
+test("includes route-only disruptions discovered from static stop membership", () => {
+  const result = extractStopAlerts(
+    {
+      messages: [
+        {
+          message_id: 88,
+          isactive: true,
+          priority: 500,
+          affected_routes: ["2"],
+          affected_stops: [],
+          header: "Line 1A cancelled",
+        },
+      ],
+    },
+    {
+      stopId: "164",
+      lineRefs: [],
+      routesById,
+      servedRouteIds: new Set(["2"]),
+    }
+  );
+
+  expect(result).toEqual([
+    expect.objectContaining({
+      title: "Line 1A cancelled",
+      routeNames: ["1A"],
+    }),
+  ]);
+});
+
+test("normalizes HTTPS alert images and the active validity window", () => {
+  const result = extractStopAlerts(
+    {
+      servertime: 1_900_000_000,
+      messages: [
+        {
+          message_id: 90,
+          isactive: true,
+          affected_stops: ["164"],
+          header: "Stop moved",
+          repeat: [[1_899_999_000, 1_900_003_600]],
+          images: [
+            {
+              url: "//data.foli.fi/media/detour.png",
+              title: "Temporary stop map",
+              type: "image/png",
+            },
+            { url: "javascript:alert(1)", title: "Unsafe" },
+          ],
+        },
+      ],
+    },
+    { stopId: "164", lineRefs: [], routesById }
+  );
+
+  expect(result[0]).toEqual(
+    expect.objectContaining({
+      validity: { start: 1_899_999_000, end: 1_900_003_600 },
+      images: [
+        {
+          url: "https://data.foli.fi/media/detour.png",
+          title: "Temporary stop map",
+          type: "image/png",
+        },
+      ],
+    })
+  );
+});
