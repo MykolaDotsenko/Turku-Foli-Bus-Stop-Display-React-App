@@ -109,6 +109,7 @@ export default function useOnlineStatus() {
     window.addEventListener("online", sync);
     window.addEventListener("offline", markOffline);
     window.addEventListener("beforeunload", persistOfflineBeforeReload);
+    window.addEventListener("pagehide", persistOfflineBeforeReload);
     window.addEventListener("pageshow", sync);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);
@@ -119,6 +120,7 @@ export default function useOnlineStatus() {
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", markOffline);
       window.removeEventListener("beforeunload", persistOfflineBeforeReload);
+      window.removeEventListener("pagehide", persistOfflineBeforeReload);
       window.removeEventListener("pageshow", sync);
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
