@@ -7,7 +7,7 @@ test("builds keyless walking directions without leaking the user's origin", () =
     lat: 60.4518,
     lon: 22.2666,
   });
-  const parsed = new URL(url);
+  const parsed = new globalThis.URL(url);
 
   expect(parsed.origin).toBe("https://www.google.com");
   expect(parsed.pathname).toBe("/maps/dir/");
