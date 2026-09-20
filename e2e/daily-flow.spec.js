@@ -493,7 +493,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page, 
   });
 
   if (cdp) {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 300));
     const browserHistoryAfterBack = await cdp.send("Page.getNavigationHistory");
     console.log(
       "FOLI_HISTORY_AFTER_BACK",
