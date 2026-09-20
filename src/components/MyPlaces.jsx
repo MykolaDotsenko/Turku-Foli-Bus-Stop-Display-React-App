@@ -126,7 +126,10 @@ function SetupPlace({
           onClick={() =>
             onSave({
               id: preset.id,
-              stops: selectedStops,
+              stops: selectedStops.map((stop) => ({
+                id: stop.id,
+                name: stop.name,
+              })),
               primaryStopId,
             })
           }
