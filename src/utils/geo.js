@@ -4,28 +4,33 @@ function toRadians(value) {
   return (value * Math.PI) / 180;
 }
 
-export function hasCoordinates(stop) {
+function coordinate(value, min, max) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max
+    ? number
+    : null;
+}
+
+export function hasCoordinates(value) {
   return (
-    Number.isFinite(Number(stop?.lat)) &&
-    Number.isFinite(Number(stop?.lon)) &&
-    Number(stop.lat) >= -90 &&
-    Number(stop.lat) <= 90 &&
-    Number(stop.lon) >= -180 &&
-    Number(stop.lon) <= 180
+    coordinate(value?.lat, -90, 90) !== null &&
+    coordinate(value?.lon, -180, 180) !== null
   );
 }
 
 export function distanceInMeters(from, to) {
-  const fromLat = Number(from?.lat);
-  const fromLon = Number(from?.lon);
-  const toLat = Number(to?.lat);
-  const toLon = Number(to?.lon);
+  const fromLat = coordinate(from?.lat, -90, 90);
+  const fromLon = coordinate(from?.lon, -180, 180);
+  const toLat = coordinate(to?.lat, -90, 90);
+  const toLon = coordinate(to?.lon, -180, 180);
 
   if (
-    !Number.isFinite(fromLat) ||
-    !Number.isFinite(fromLon) ||
-    !Number.isFinite(toLat) ||
-    !Number.isFinite(toLon)
+    fromLat === null ||
+    fromLon === null ||
+    toLat === null ||
+    toLon === null
   ) {
     return null;
   }
@@ -38,13 +43,15 @@ export function distanceInMeters(from, to) {
   const a =
     Math.sin(deltaLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
-  const centralAngle = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const clamped = Math.min(1, Math.max(0, a));
+  const centralAngle =
+    2 * Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped));
 
   return EARTH_RADIUS_METERS * centralAngle;
 }
 
 export function findNearestStops(stops, position, limit = 3) {
-  if (!position || limit <= 0) return [];
+  if (!hasCoordinates(position) || limit <= 0) return [];
 
   return stops
     .filter(hasCoordinates)
@@ -67,9 +74,10 @@ export function findNearestStops(stops, position, limit = 3) {
 export function formatDistance(distanceMeters) {
   if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return "";
 
+  if (distanceMeters < 10) return "<10 m";
+
   if (distanceMeters < 1_000) {
-    const rounded = Math.max(10, Math.round(distanceMeters / 10) * 10);
-    return `${rounded} m`;
+    return `${Math.round(distanceMeters / 10) * 10} m`;
   }
 
   const kilometers = distanceMeters / 1_000;
