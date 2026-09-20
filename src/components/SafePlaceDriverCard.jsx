@@ -18,15 +18,37 @@ function SafePlaceDriverCard({
   idPrefix = "safe-place",
 }) {
   const usedSpeech = useRef(false);
+  const cardRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    previousFocusRef.current = globalThis.document?.activeElement || null;
+    cardRef.current?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current?.();
+      }
+    };
+
+    globalThis.document?.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      globalThis.document?.removeEventListener("keydown", handleKeyDown);
+
       if (usedSpeech.current) {
         globalThis.speechSynthesis?.cancel?.();
       }
-    },
-    []
-  );
+
+      const previousFocus = previousFocusRef.current;
+      if (previousFocus?.isConnected && typeof previousFocus.focus === "function") {
+        previousFocus.focus();
+      }
+    };
+  }, []);
 
   if (!place || !primaryStop) return null;
 
@@ -49,8 +71,10 @@ function SafePlaceDriverCard({
 
   return (
     <section
+      ref={cardRef}
       className={styles.card}
       role="dialog"
+      tabIndex={-1}
       aria-modal="false"
       aria-labelledby={titleId}
     >

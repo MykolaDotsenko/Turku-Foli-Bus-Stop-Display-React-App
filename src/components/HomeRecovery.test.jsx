@@ -43,7 +43,7 @@ test("offers one-tap transit recovery without embedding the current origin", () 
 
   expect(
     screen.getByRole("heading", {
-      name: "Lost or unsure? Get home from here.",
+      name: "Need help getting home?",
     })
   ).toBeInTheDocument();
   expect(
@@ -58,6 +58,9 @@ test("offers one-tap transit recovery without embedding the current origin", () 
   expect(url.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(url.searchParams.get("travelmode")).toBe("transit");
   expect(url.searchParams.has("origin")).toBe(false);
+  expect(
+    screen.getByText(/Google Maps.*saved Home stop.*Check the suggested itinerary/i)
+  ).toBeInTheDocument();
 });
 
 test("keeps useful fallbacks when route coordinates are unavailable", () => {
@@ -99,7 +102,7 @@ test("exposes saved backup stops only on demand", () => {
   render(<HomeRecovery home={home} stops={stops} onOpenStop={onOpenStop} />);
 
   fireEvent.click(
-    screen.getByText("Other safe Home stop")
+    screen.getByText("Other saved Home stop")
   );
 
   const backupRoute = screen.getByRole("link", {

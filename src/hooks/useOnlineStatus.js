@@ -80,7 +80,7 @@ async function canReachAppOrigin() {
         window.location.href
       ).toString(),
       {
-        method: "GET",
+        method: "HEAD",
         cache: "no-store",
         signal: controller.signal,
       }

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { fetchStopMonitor } from "../api/foliApi";
-import useStopMonitor from "./useStopMonitor";
+import useStopMonitor, { pollDelayMs } from "./useStopMonitor";
 
 vi.mock("../api/foliApi", () => ({
   fetchStopMonitor: vi.fn(),
@@ -96,4 +96,15 @@ test("records when the last successful realtime payload was received", async () 
   expect(screen.getByTestId("received-at")).toHaveTextContent(
     "1700000000000"
   );
+});
+
+
+test("backs off repeated automatic retries without exceeding five minutes", () => {
+  expect(pollDelayMs(0)).toBe(30_000);
+  expect(pollDelayMs(1)).toBe(30_000);
+  expect(pollDelayMs(2)).toBe(60_000);
+  expect(pollDelayMs(3)).toBe(120_000);
+  expect(pollDelayMs(4)).toBe(240_000);
+  expect(pollDelayMs(5)).toBe(300_000);
+  expect(pollDelayMs(20)).toBe(300_000);
 });

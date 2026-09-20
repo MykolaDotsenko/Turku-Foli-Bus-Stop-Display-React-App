@@ -233,3 +233,73 @@ test("retries a timed-out high-accuracy request with fallback options", async ()
     timeout: 5_000,
   });
 });
+
+
+test("does not auto-select when the browser omits location accuracy", async () => {
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.45182,
+        longitude: 22.26662,
+      },
+    })
+  );
+  const onSelect = vi.fn();
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find nearest stop" })
+  );
+
+  expect(
+    await screen.findByText(/Your location is approximate/i)
+  ).toBeInTheDocument();
+  expect(onSelect).not.toHaveBeenCalled();
+});
+
+test("does not auto-select a clearly nearest stop when it is still too far away", async () => {
+  const remoteStops = [
+    { id: "100", name: "Remote one", lat: 60.47, lon: 22.2666 },
+    { id: "101", name: "Remote two", lat: 60.50, lon: 22.2666 },
+  ];
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.4518,
+        longitude: 22.2666,
+        accuracy: 15,
+      },
+    })
+  );
+  const onSelect = vi.fn();
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <NearbyStops
+      stops={remoteStops}
+      coordinatesStatus="ready"
+      activeStopId="999"
+      onSelect={onSelect}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find nearest stop" })
+  );
+
+  expect(
+    await screen.findByText(/was not selected automatically/i)
+  ).toBeInTheDocument();
+  expect(onSelect).not.toHaveBeenCalled();
+});

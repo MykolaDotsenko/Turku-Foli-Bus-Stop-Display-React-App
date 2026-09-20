@@ -18,7 +18,7 @@
 .kicker {
   margin: 0 0 3px;
   color: #006f79;
-  font-size: 0.66rem;
+  font-size: 0.8125rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -33,6 +33,7 @@
 
 .description,
 .status,
+.routeNote,
 .backupHint {
   margin: 5px 0 0;
   color: #4d666d;
@@ -65,7 +66,7 @@
   margin-top: 2px;
   overflow: hidden;
   color: #536970;
-  font-size: 0.69rem;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -96,7 +97,7 @@
   border-radius: 11px;
   cursor: pointer;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.875rem;
   font-weight: 900;
 }
 
@@ -137,9 +138,14 @@
   outline-offset: 2px;
 }
 
-.status {
+.status,
+.routeNote {
   grid-column: 1 / -1;
   margin: -3px 0 0;
+}
+
+.routeNote {
+  color: #3f5960;
 }
 
 .backups {
@@ -147,7 +153,7 @@
   border-top: 1px solid #cfe1e3;
   padding-top: 9px;
   color: #3f5960;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
 }
 
 .backups summary {
@@ -262,7 +268,11 @@
   }
 
   .actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .primaryAction {
+    grid-column: 1 / -1;
   }
 
   .primaryAction,
@@ -355,5 +365,16 @@
   .backupRow,
   .printButton {
     border-color: CanvasText;
+  }
+}
+
+
+@media (max-width: 360px) {
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .primaryAction {
+    grid-column: auto;
   }
 }

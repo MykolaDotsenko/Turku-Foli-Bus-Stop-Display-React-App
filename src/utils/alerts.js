@@ -10,6 +10,52 @@ function messageId(message, index, prefix) {
   return `${prefix}-${message?.message_id ?? message?.id ?? index}`;
 }
 
+function normalizeLanguage(value) {
+  return String(value || "").trim().toLowerCase().replaceAll("_", "-");
+}
+
+function translationFor(message, preferredLanguages = []) {
+  const translations =
+    message?.translations && typeof message.translations === "object"
+      ? message.translations
+      : null;
+  if (!translations) return null;
+
+  const entries = Object.entries(translations).filter(
+    ([, value]) => value && typeof value === "object"
+  );
+
+  for (const requested of preferredLanguages) {
+    const normalized = normalizeLanguage(requested);
+    if (!normalized) continue;
+
+    const exact = entries.find(
+      ([key]) => normalizeLanguage(key) === normalized
+    );
+    if (exact) return exact[1];
+
+    const base = normalized.split("-")[0];
+    const sameLanguage = entries.find(([key]) => {
+      const candidate = normalizeLanguage(key);
+      return candidate === base || candidate.startsWith(`${base}-`);
+    });
+    if (sameLanguage) return sameLanguage[1];
+  }
+
+  return null;
+}
+
+function localizedFields(message, preferredLanguages) {
+  const translation = translationFor(message, preferredLanguages);
+
+  return {
+    header: text(translation?.header) || text(message?.header),
+    message: text(translation?.message) || text(message?.message),
+    information:
+      text(translation?.information) || text(message?.information),
+  };
+}
+
 function routeNamesFor(message, routesById) {
   return asArray(message?.affected_routes)
     .map((routeId) => routesById.get(String(routeId))?.shortName)
@@ -41,9 +87,16 @@ function effectLabel(effect) {
   return labels[effect] || "Service update";
 }
 
-function normalizeMessage(message, index, type, routesById) {
+function normalizeMessage(
+  message,
+  index,
+  type,
+  routesById,
+  preferredLanguages = []
+) {
   const routeNames = routeNamesFor(message, routesById);
   const effect = text(message?.effect);
+  const localized = localizedFields(message, preferredLanguages);
 
   return {
     id: messageId(message, index, type),
@@ -54,10 +107,10 @@ function normalizeMessage(message, index, type, routesById) {
         ? 0
         : 9999,
     title:
-      text(message?.header) ||
+      localized.header ||
       (type === "global" ? "Föli service notice" : effectLabel(effect)),
-    message: text(message?.message),
-    information: text(message?.information),
+    message: localized.message,
+    information: localized.information,
     effect,
     effectLabel: effectLabel(effect),
     cause: text(message?.cause),
@@ -66,7 +119,12 @@ function normalizeMessage(message, index, type, routesById) {
   };
 }
 
-function normalizeSpecial(value, type, fallbackTitle) {
+function normalizeSpecial(
+  value,
+  type,
+  fallbackTitle,
+  preferredLanguages = []
+) {
   if (!value) return null;
 
   if (typeof value === "string") {
@@ -100,19 +158,31 @@ function normalizeSpecial(value, type, fallbackTitle) {
 
   if (!hasContent) return null;
 
-  const normalized = normalizeMessage(value, 0, type, new Map());
+  const normalized = normalizeMessage(
+    value,
+    0,
+    type,
+    new Map(),
+    preferredLanguages
+  );
 
   return {
     ...normalized,
     id: type,
     priority: type === "emergency" ? -1000 : -100,
-    title: text(value?.header) || fallbackTitle,
+    title:
+      localizedFields(value, preferredLanguages).header || fallbackTitle,
   };
 }
 
 export function extractStopAlerts(
   payload,
-  { stopId, lineRefs = [], routesById = new Map() } = {}
+  {
+    stopId,
+    lineRefs = [],
+    routesById = new Map(),
+    preferredLanguages = [],
+  } = {}
 ) {
   if (!payload || Array.isArray(payload) || typeof payload !== "object") {
     return [];
@@ -121,7 +191,8 @@ export function extractStopAlerts(
   const emergency = normalizeSpecial(
     payload.emergency_message,
     "emergency",
-    "Emergency service notice"
+    "Emergency service notice",
+    preferredLanguages
   );
 
   if (emergency) return [emergency];
@@ -131,7 +202,8 @@ export function extractStopAlerts(
   const globalMessage = normalizeSpecial(
     payload.global_message,
     "global",
-    "Föli service notice"
+    "Föli service notice",
+    preferredLanguages
   );
 
   const messages = asArray(payload.messages)
@@ -141,7 +213,13 @@ export function extractStopAlerts(
         messageMatchesContext(message, stopId, activeLines, routesById)
     )
     .map((message, index) =>
-      normalizeMessage(message, index, "message", routesById)
+      normalizeMessage(
+        message,
+        index,
+        "message",
+        routesById,
+        preferredLanguages
+      )
     );
 
   const cancellations = asArray(payload.cancellations).flatMap(

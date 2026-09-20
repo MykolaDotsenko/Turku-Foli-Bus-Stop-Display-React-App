@@ -83,3 +83,30 @@ test("matches stop names without requiring Finnish diacritics", () => {
 
   expect(onSubmit).toHaveBeenCalledWith("9");
 });
+
+
+test("does not silently choose between stops with the same name", () => {
+  const onSubmit = vi.fn();
+  const duplicateStops = [
+    { id: "100", name: "Market" },
+    { id: "101", name: "Market" },
+  ];
+
+  render(
+    <BusStopForm
+      activeStopId="164"
+      stops={duplicateStops}
+      onSubmit={onSubmit}
+    />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "Market" } });
+  fireEvent.click(screen.getByRole("button", { name: "Show departures" }));
+
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(
+    screen.getByText(/More than one stop has this name/i)
+  ).toBeInTheDocument();
+  expect(screen.getAllByRole("option")).toHaveLength(2);
+});

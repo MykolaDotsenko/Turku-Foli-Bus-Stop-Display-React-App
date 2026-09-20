@@ -198,3 +198,84 @@ test("an emergency message replaces all other alert content", () => {
     }),
   ]);
 });
+
+
+test("uses the user's preferred provider translation when available", () => {
+  const result = extractStopAlerts(
+    {
+      messages: [
+        {
+          message_id: 50,
+          isactive: true,
+          affected_stops: ["164"],
+          header: "Poikkeusreitti",
+          message: "Suomenkielinen viesti.",
+          information: "Suomenkielinen lisätieto.",
+          translations: {
+            en_GB: {
+              header: "Detour",
+              message: "English service message.",
+              information: "English additional information.",
+            },
+            sv_FI: {
+              header: "Avvikande rutt",
+              message: "Svenskt trafikmeddelande.",
+              information: "Svensk tilläggsinformation.",
+            },
+          },
+        },
+      ],
+    },
+    {
+      stopId: "164",
+      lineRefs: [],
+      routesById,
+      preferredLanguages: ["en-US"],
+    }
+  );
+
+  expect(result[0]).toEqual(
+    expect.objectContaining({
+      title: "Detour",
+      message: "English service message.",
+      information: "English additional information.",
+    })
+  );
+});
+
+test("falls back field-by-field when a provider translation is incomplete", () => {
+  const result = extractStopAlerts(
+    {
+      messages: [
+        {
+          message_id: 51,
+          isactive: true,
+          affected_stops: ["164"],
+          header: "Pääotsikko",
+          message: "Pääviesti",
+          information: "Päälisätieto",
+          translations: {
+            en_GB: {
+              header: "Translated title",
+              message: "",
+            },
+          },
+        },
+      ],
+    },
+    {
+      stopId: "164",
+      lineRefs: [],
+      routesById,
+      preferredLanguages: ["en"],
+    }
+  );
+
+  expect(result[0]).toEqual(
+    expect.objectContaining({
+      title: "Translated title",
+      message: "Pääviesti",
+      information: "Päälisätieto",
+    })
+  );
+});

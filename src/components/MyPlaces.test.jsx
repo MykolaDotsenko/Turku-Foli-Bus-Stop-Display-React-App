@@ -74,7 +74,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
   ).toBeInTheDocument();
   expect(screen.getByText(/Location accuracy ±20 m/)).toBeInTheDocument();
   expect(
-    screen.getByText(/Add backup stops only if you know they are safe/i)
+    screen.getByText(/Add backup stops only if you know they are suitable and familiar/i)
   ).toBeInTheDocument();
 
   const safeStopChoices = screen.getAllByRole("checkbox");
@@ -82,7 +82,16 @@ test("sets up Home from one-time location and saves only public safe stops", asy
   expect(safeStopChoices[1]).not.toBeChecked();
   expect(safeStopChoices[2]).not.toBeChecked();
 
-  fireEvent.click(screen.getByRole("button", { name: "Save Home" }));
+  const saveHome = screen.getByRole("button", { name: "Save Home" });
+  expect(saveHome).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+    })
+  );
+  expect(saveHome).toBeEnabled();
+  fireEvent.click(saveHome);
 
   await waitFor(() => expect(onSavePlace).toHaveBeenCalledTimes(1));
 
@@ -178,7 +187,7 @@ test("shows a simple driver card without exposing a private address", () => {
 });
 
 
-test("can save the already-selected public stop when location is unavailable", () => {
+test("reviews and confirms the selected public stop when location is unavailable", () => {
   const onSavePlace = vi.fn();
 
   render(
@@ -195,8 +204,23 @@ test("can save the already-selected public stop when location is unavailable", (
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Save selected stop as Home" })
+    screen.getByRole("button", { name: "Review selected stop for Home" })
   );
+
+  expect(
+    screen.getByRole("heading", { name: "Choose safe stops for Home" })
+  ).toBeInTheDocument();
+  expect(screen.getByText("Using the stop you selected manually")).toBeInTheDocument();
+
+  const saveHome = screen.getByRole("button", { name: "Save Home" });
+  expect(saveHome).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+    })
+  );
+  fireEvent.click(saveHome);
 
   expect(onSavePlace).toHaveBeenCalledWith({
     id: "home",
@@ -375,8 +399,24 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   });
 
   const choices = screen.getAllByRole("checkbox");
+  const saveHome = screen.getByRole("button", { name: "Save Home" });
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+    })
+  );
+  expect(saveHome).toBeEnabled();
+
   fireEvent.click(choices[1]);
-  fireEvent.click(screen.getByRole("button", { name: "Save Home" }));
+  expect(saveHome).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stops are suitable and intended for arriving at Home/i,
+    })
+  );
+  fireEvent.click(saveHome);
 
   await waitFor(() => expect(onSavePlace).toHaveBeenCalledTimes(1));
   expect(onSavePlace.mock.calls[0][0].stops).toEqual([
@@ -417,4 +457,54 @@ test("warns that sharing a Safe Place can reveal its general area", () => {
   expect(
     screen.getByText(/Sharing Home reveals its saved public stop names and IDs/i)
   ).toBeInTheDocument();
+});
+
+
+test("does not preselect a Safe Place when location accuracy is poor", async () => {
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.45182,
+        longitude: 22.26662,
+        accuracy: 2_500,
+      },
+    })
+  );
+  const onSavePlace = vi.fn();
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up Home where I am now" })
+  );
+
+  await screen.findByRole("heading", {
+    name: "Choose safe stops for Home",
+  });
+
+  expect(
+    screen.getByText(/no stop was preselected/i)
+  ).toBeInTheDocument();
+
+  const stopChoices = screen
+    .getAllByRole("checkbox")
+    .filter((element) => !/I confirm/.test(element.getAttribute("aria-label") || ""));
+
+  expect(stopChoices[0]).not.toBeChecked();
+  expect(stopChoices[1]).not.toBeChecked();
+  expect(stopChoices[2]).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "Save Home" })).toBeDisabled();
+  expect(onSavePlace).not.toHaveBeenCalled();
 });

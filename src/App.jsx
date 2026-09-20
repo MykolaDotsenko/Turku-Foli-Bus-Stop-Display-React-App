@@ -126,7 +126,7 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Turku region · live public transport</p>
+          <p className="eyebrow">Independent companion · Föli open data</p>
           <p className="brand">Föli departures</p>
           <p className="context">
             Find a stop, save Home, School or Work without remembering an
@@ -177,14 +177,6 @@ function App() {
         />
       </section>
 
-      <NearbyStops
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        online={online}
-        onSelect={selectStop}
-      />
-
       <QuickStops
         favorites={favorites}
         recents={recents}
@@ -214,6 +206,14 @@ function App() {
         onToggleFavorite={() => toggleFavorite(currentStop)}
       />
 
+      <NearbyStops
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId}
+        online={online}
+        onSelect={selectStop}
+      />
+
       {!sharedPlace && (
         <MyPlaces
           stops={stops}
@@ -232,7 +232,18 @@ function App() {
       )}
 
       <footer className="source-note">
-        Source: Turku region public transport · data.foli.fi · CC BY 4.0
+        Independent app · Data: Turku region public transport ·{" "}
+        <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
+          data.foli.fi
+        </a>{" "}
+        ·{" "}
+        <a
+          href="https://creativecommons.org/licenses/by/4.0/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          CC BY 4.0
+        </a>
       </footer>
     </main>
   );

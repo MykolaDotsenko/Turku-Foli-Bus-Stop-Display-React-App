@@ -62,7 +62,7 @@ test("does not trust an online hint when the app origin is unreachable", async (
       window.location.href
     ).toString(),
     expect.objectContaining({
-      method: "GET",
+      method: "HEAD",
       cache: "no-store",
     })
   );

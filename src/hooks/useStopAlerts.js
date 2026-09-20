@@ -9,6 +9,13 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
   const [receivedAtMs, setReceivedAtMs] = useState(null);
   const [error, setError] = useState(false);
   const abortRef = useRef(null);
+  const preferredLanguages = useMemo(() => {
+    if (typeof navigator === "undefined") return ["en"];
+    const languages = Array.isArray(navigator.languages)
+      ? navigator.languages
+      : [navigator.language];
+    return languages.filter(Boolean);
+  }, []);
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();
@@ -59,8 +66,9 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
         stopId,
         lineRefs,
         routesById,
+        preferredLanguages,
       }),
-    [lineRefs, payload, routesById, stopId]
+    [lineRefs, payload, preferredLanguages, routesById, stopId]
   );
 
   return {

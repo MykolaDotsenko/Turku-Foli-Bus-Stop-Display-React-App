@@ -94,3 +94,30 @@ test("does not show a broken read-aloud control when speech is unavailable", () 
     screen.queryByRole("button", { name: "Read aloud in Finnish" })
   ).not.toBeInTheDocument();
 });
+
+
+test("moves focus into the driver card, closes with Escape, and restores focus", () => {
+  const onClose = vi.fn();
+  const opener = document.createElement("button");
+  opener.textContent = "Show driver";
+  document.body.appendChild(opener);
+  opener.focus();
+
+  const { unmount } = render(
+    <SafePlaceDriverCard
+      place={{ id: "home", label: "Home" }}
+      primaryStop={{ id: "164", name: "Kauppatori" }}
+      onClose={onClose}
+    />
+  );
+
+  const dialog = screen.getByRole("dialog");
+  expect(dialog).toHaveFocus();
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(onClose).toHaveBeenCalledTimes(1);
+
+  unmount();
+  expect(opener).toHaveFocus();
+  opener.remove();
+});

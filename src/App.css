@@ -120,10 +120,21 @@ input:focus-visible,
 }
 
 .source-note {
-  margin-top: 12px;
-  color: #60747d;
-  font-size: 0.72rem;
-  line-height: 1.45;
+  margin-top: 14px;
+  color: #52666f;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.source-note a {
+  color: #00656f;
+  font-weight: 750;
+  text-underline-offset: 2px;
+}
+
+.source-note a:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
 }
 
 @media (max-width: 620px) {
