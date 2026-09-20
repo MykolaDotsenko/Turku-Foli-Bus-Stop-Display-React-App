@@ -1,38 +1,34 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchStopAlerts } from "../api/foliApi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { fetchAlerts } from "../api/foliApi";
+import { extractStopAlerts } from "../utils/alerts";
 
 const ALERT_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
-export default function useStopAlerts(stopId) {
-  const [state, setState] = useState(() => ({ stopId, alerts: [] }));
+export default function useStopAlerts(stopId, lineRefs, routesById) {
+  const [payload, setPayload] = useState(null);
   const abortRef = useRef(null);
 
   const refresh = useCallback(async () => {
-    if (!stopId) return;
-
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const alerts = await fetchStopAlerts(stopId, controller.signal);
+      const nextPayload = await fetchAlerts(controller.signal);
       if (!controller.signal.aborted) {
-        setState({ stopId, alerts });
+        setPayload(nextPayload);
       }
     } catch (error) {
       if (
         error?.name !== "CanceledError" &&
         error?.name !== "AbortError"
       ) {
-        // Alerts are supplemental. Keep any same-stop alert data on failure.
+        // Alerts are supplemental. Keep the last successful payload.
       }
     }
-  }, [stopId]);
+  }, []);
 
   useEffect(() => {
-    setState((current) =>
-      current.stopId === stopId ? current : { stopId, alerts: [] }
-    );
     refresh();
 
     const intervalId = window.setInterval(() => {
@@ -50,7 +46,15 @@ export default function useStopAlerts(stopId) {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortRef.current?.abort();
     };
-  }, [refresh, stopId]);
+  }, [refresh]);
 
-  return state.stopId === stopId ? state.alerts : [];
+  return useMemo(
+    () =>
+      extractStopAlerts(payload, {
+        stopId,
+        lineRefs,
+        routesById,
+      }),
+    [lineRefs, payload, routesById, stopId]
+  );
 }

@@ -17,11 +17,13 @@ function monitorPayload(stopId) {
         monitored: true,
         delay: 35,
         recordedattime: now - 20,
+        latitude: isMarket ? 60.4538 : 60.437,
+        longitude: isMarket ? 22.2666 : 22.2345,
         expecteddeparturetime: now + 240,
         aimeddeparturetime: now + 205,
       },
       {
-        lineref: isMarket ? "7" : "1",
+        lineref: isMarket ? "7" : "2",
         destinationdisplay: isMarket ? "Runosmäki" : "Satama",
         monitored: false,
         delay: null,
@@ -66,6 +68,46 @@ async function mockFoli(page) {
     });
   });
 
+  await page.route("https://data.foli.fi/gtfs/routes", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          route_id: "1",
+          route_short_name: "1",
+          route_long_name: "Satama-Kauppatori-Lentoasema",
+          route_type: 3,
+          route_color: "ffff00",
+          route_text_color: "ffffff",
+        },
+        {
+          route_id: "7",
+          route_short_name: "7",
+          route_long_name: "Keskusta-Runosmaki",
+          route_type: 3,
+          route_color: "007985",
+          route_text_color: "ffffff",
+        },
+        {
+          route_id: "8",
+          route_short_name: "8",
+          route_long_name: "Turun linna-Kauppatori",
+          route_type: 3,
+          route_color: "d20824",
+          route_text_color: "ffffff",
+        },
+        {
+          route_id: "2",
+          route_short_name: "2",
+          route_long_name: "Test route",
+          route_type: 3,
+          route_color: "007985",
+          route_text_color: "ffffff",
+        },
+      ]),
+    });
+  });
+
   await page.route(/https:\/\/data\.foli\.fi\/siri\/sm\/(164|4|32)/, async (route) => {
     const stopId = route.request().url().split("/").pop();
     await route.fulfill({
@@ -78,14 +120,20 @@ async function mockFoli(page) {
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify({
+        global_message: {},
+        emergency_message: {},
         messages: [
           {
-            id: 21,
+            message_id: 21,
             isactive: true,
-            priority: 10,
-            affected_stops: ["164"],
-            header: "Temporary stop arrangement",
-            message: "Board from the signed temporary stop.",
+            priority: 900,
+            effect: "DETOUR",
+            cause: "CONSTRUCTION",
+            affected_stops: [],
+            affected_routes: ["1"],
+            header: "Line 1 city-centre detour",
+            message: "Line 1 uses a temporary route.",
+            information: "Stop 14 is not in use during the works.",
           },
         ],
         cancellations: [],
@@ -102,8 +150,20 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
-  await expect(page.getByText("Temporary stop arrangement")).toBeVisible();
+  await expect(page.getByText("Line 1 city-centre detour")).toBeVisible();
+  await expect(page.getByText("Detour", { exact: true })).toBeVisible();
+  await expect(page.getByText("Affects line 1")).toBeVisible();
   await expect(page.getByText("Satama")).toBeVisible();
+  await expect(page.getByText(/Bus approaching/i)).toBeVisible();
+
+  await page.getByText("Show details").click();
+  await expect(
+    page.getByText("Stop 14 is not in use during the works.")
+  ).toBeVisible();
+
+  const lineOneBadge = page.getByTitle("Satama-Kauppatori-Lentoasema");
+  await expect(lineOneBadge).toHaveCSS("background-color", "rgb(255, 255, 0)");
+  await expect(lineOneBadge).toHaveCSS("color", "rgb(0, 0, 0)");
 
   await page.getByRole("button", { name: "Save Kauppatori to favorites" }).click();
   await expect(
