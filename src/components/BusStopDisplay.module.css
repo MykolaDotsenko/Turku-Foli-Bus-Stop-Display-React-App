@@ -38,7 +38,7 @@
 
 .stopMeta {
   margin: 4px 0 0;
-  color: #71818a;
+  color: #60747d;
   font-size: 0.76rem;
 }
 
@@ -93,7 +93,7 @@
   padding: 9px 18px;
   border-bottom: 1px solid #edf1f2;
   background: #f8fbfb;
-  color: #647880;
+  color: #60747d;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -157,7 +157,7 @@
 }
 
 .table th {
-  color: #72818a;
+  color: #60747d;
   background: #fbfcfc;
   font-size: 0.68rem;
   font-weight: 850;
@@ -200,7 +200,7 @@
 .tripMeta {
   display: block;
   margin-top: 3px;
-  color: #71818a;
+  color: #60747d;
   font-size: 0.72rem;
   font-weight: 600;
 }
@@ -217,7 +217,7 @@
   padding: 10px 18px 12px;
   border-top: 1px solid #edf1f2;
   background: #fbfcfc;
-  color: #72818a;
+  color: #60747d;
   font-size: 0.68rem;
   line-height: 1.45;
 }
