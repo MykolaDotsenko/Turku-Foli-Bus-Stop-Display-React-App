@@ -32,23 +32,14 @@ function stopUrl(stopId) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function stopFromHistoryState(state) {
-  const stopId = state?.foliStopId;
-  return /^\d+$/.test(stopId || "") ? stopId : null;
-}
-
 function currentHistoryState() {
   return window.history.state && typeof window.history.state === "object"
     ? window.history.state
     : {};
 }
 
-function syncCurrentHistoryEntry(stopId, state = currentHistoryState()) {
-  window.history.replaceState(
-    { ...state, foliStopId: stopId },
-    "",
-    stopUrl(stopId)
-  );
+function canonicalizeCurrentStop(stopId) {
+  window.history.replaceState(currentHistoryState(), "", stopUrl(stopId));
 }
 
 function App() {
@@ -111,17 +102,13 @@ function App() {
 
   useEffect(() => {
     const currentStopId = stopFromLocation();
-    syncCurrentHistoryEntry(currentStopId);
+    canonicalizeCurrentStop(currentStopId);
 
-    const handlePopState = (event) => {
-      const nextStopId =
-        stopFromHistoryState(event.state) || stopFromLocation();
-
-      // Keep our app-owned history state and the shareable stop URL in lockstep.
-      // Some browser/history sequences can restore state before the URL snapshot
-      // observed by the app is canonical.
-      syncCurrentHistoryEntry(nextStopId, event.state);
-      setStopId(nextStopId);
+    const handlePopState = () => {
+      // The shareable URL is the single source of truth for browser history.
+      // Avoid duplicating stop identity in history.state, which can diverge
+      // across same-document navigation implementations.
+      setStopId(stopFromLocation());
     };
     const handleHashChange = () =>
       setSharedPlace(parseSharedPlaceHash(window.location.hash));
@@ -161,14 +148,10 @@ function App() {
       return;
     }
 
-    // Repair the current entry before adding the next one so browser Back
-    // always returns to a canonical stop URL as well as the matching state.
-    syncCurrentHistoryEntry(stopId);
-    window.history.pushState(
-      { ...currentHistoryState(), foliStopId: nextStopId },
-      "",
-      stopUrl(nextStopId)
-    );
+    // Preserve unrelated browser/router state, but keep the stop identity only
+    // in the shareable URL so Back/Forward has one canonical source of truth.
+    canonicalizeCurrentStop(stopId);
+    window.history.pushState(currentHistoryState(), "", stopUrl(nextStopId));
     setStopId(nextStopId);
   };
 
