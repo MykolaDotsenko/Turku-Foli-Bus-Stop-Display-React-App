@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
+import useRouteCatalog from "./hooks/useRouteCatalog";
 import useSavedStops from "./hooks/useSavedStops";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
+import { buildRouteIndexes } from "./utils/routes";
 
 const DEFAULT_STOP = "164";
 
@@ -20,7 +22,11 @@ function stopFromLocation() {
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
   const { stops, coordinatesStatus } = useStopCatalog();
-  const serviceAlerts = useStopAlerts(stopId);
+  const routes = useRouteCatalog();
+  const { byId: routesById, byShortName: routesByShortName } = useMemo(
+    () => buildRouteIndexes(routes),
+    [routes]
+  );
   const {
     favorites,
     recents,
@@ -37,6 +43,15 @@ function App() {
     error,
     refresh,
   } = useStopMonitor(stopId);
+  const activeLines = useMemo(
+    () => [...new Set(arrivals.map((arrival) => arrival.lineref).filter(Boolean))],
+    [arrivals]
+  );
+  const serviceAlerts = useStopAlerts(stopId, activeLines, routesById);
+  const selectedStop = useMemo(
+    () => stops.find((stop) => stop.id === stopId) || null,
+    [stopId, stops]
+  );
 
   useEffect(() => {
     const handlePopState = () => setStopId(stopFromLocation());
@@ -111,7 +126,9 @@ function App() {
       <BusStopDisplay
         stopId={stopId}
         stopName={stopName}
+        stop={selectedStop}
         arrivals={arrivals}
+        routesByShortName={routesByShortName}
         serverTime={serverTime}
         loading={loading}
         refreshing={refreshing}
