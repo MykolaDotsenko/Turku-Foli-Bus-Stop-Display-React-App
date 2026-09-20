@@ -326,6 +326,73 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   expect(imported).not.toContain("lon");
 });
 
+
+test("recovers to Home with one clear action and resilient fallbacks", async ({
+  page,
+}) => {
+  await page.goto("/?stop=164");
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "foli-my-places-v1",
+      JSON.stringify([
+        {
+          id: "home",
+          label: "Home",
+          icon: "⌂",
+          primaryStopId: "164",
+          stops: [
+            { id: "164", name: "Kauppatori" },
+            { id: "32", name: "Puistokatu" },
+          ],
+          updatedAt: 1,
+        },
+      ])
+    );
+  });
+  await page.reload();
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  await expect(
+    recovery.getByRole("heading", {
+      name: "Lost or unsure? Get home from here.",
+    })
+  ).toBeVisible();
+  await expect(
+    recovery.getByText(/travel help, not an emergency service/i)
+  ).toBeVisible();
+
+  const getHome = recovery.getByRole("link", {
+    name: "Get me Home by public transit",
+  });
+  const href = await getHome.getAttribute("href");
+  const homeUrl = new globalThis.URL(href);
+
+  expect(homeUrl.searchParams.get("travelmode")).toBe("transit");
+  expect(homeUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
+  expect(homeUrl.searchParams.has("origin")).toBe(false);
+
+  await recovery.getByRole("button", { name: "Show driver" }).click();
+  const driver = recovery.getByRole("dialog");
+  await expect(
+    driver.getByRole("heading", { name: "I need to get to Home" })
+  ).toBeVisible();
+  await expect(driver.getByText("Kauppatori")).toBeVisible();
+
+  await driver.getByRole("button", { name: "Close" }).click();
+  await recovery.getByText("Other safe Home stop").click();
+
+  const backupRoute = recovery.getByRole("link", {
+    name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+  });
+  const backupHref = await backupRoute.getAttribute("href");
+  const backupUrl = new globalThis.URL(backupHref);
+
+  expect(backupUrl.searchParams.get("destination")).toBe("60.4488,22.255");
+  expect(backupUrl.searchParams.has("origin")).toBe(false);
+});
+
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
