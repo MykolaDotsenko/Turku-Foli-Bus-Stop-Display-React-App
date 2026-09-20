@@ -4,7 +4,11 @@ import styles from "./BusStopForm.module.css";
 const MAX_SUGGESTIONS = 6;
 
 function normalize(value) {
-  return String(value || "").trim().toLocaleLowerCase();
+  return String(value || "")
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function scoreStop(stop, query) {
@@ -71,6 +75,11 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
 
     if (exactName) {
       chooseStop(exactName);
+      return;
+    }
+
+    if (matches.length === 1) {
+      chooseStop(matches[0]);
       return;
     }
 
@@ -152,7 +161,7 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
                 className={styles.suggestion}
                 role="option"
                 aria-selected={index === activeIndex}
-                onMouseDown={(event) => event.preventDefault()}
+                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => chooseStop(stop)}
               >
                 <span className={styles.suggestionName}>{stop.name}</span>
