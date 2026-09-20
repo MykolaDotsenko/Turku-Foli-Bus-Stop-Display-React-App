@@ -14,6 +14,22 @@ function humanizeCode(value) {
     .join(" ");
 }
 
+function formatValidity(validity) {
+  if (!validity?.end) return "";
+
+  try {
+    const formatter = new Intl.DateTimeFormat(undefined, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `Valid until ${formatter.format(new Date(validity.end * 1000))}`;
+  } catch {
+    return "";
+  }
+}
+
 function AlertItem({ alert }) {
   const isCancellation = alert.type === "cancellation";
   const isEmergency = alert.type === "emergency";
@@ -55,10 +71,40 @@ function AlertItem({ alert }) {
             <p className={styles.scope}>Applies across Föli services</p>
           )}
           {alert.message && <p>{alert.message}</p>}
-          {alert.information && (
+          {formatValidity(alert.validity) && (
+            <p className={styles.validity}>{formatValidity(alert.validity)}</p>
+          )}
+          {(alert.information || alert.images?.length > 0) && (
             <details className={styles.details}>
-              <summary>Show details</summary>
-              <p>{alert.information}</p>
+              <summary>
+                {alert.images?.length > 0
+                  ? "View disruption details"
+                  : "Show details"}
+              </summary>
+              {alert.information && <p>{alert.information}</p>}
+              {alert.images?.length > 0 && (
+                <div className={styles.mediaGrid}>
+                  {alert.images.map((image, index) => (
+                    <a
+                      key={`${image.url}-${index}`}
+                      className={styles.mediaLink}
+                      href={image.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={image.title || `Open image for ${alert.title}`}
+                    >
+                      <img
+                        src={image.url}
+                        alt={image.title || `${alert.title} illustration`}
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                      />
+                      <span>{image.title || "Open full image"}</span>
+                    </a>
+                  ))}
+                </div>
+              )}
             </details>
           )}
         </>
