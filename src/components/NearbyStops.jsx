@@ -221,7 +221,8 @@ function NearbyStops({
             Near you
           </h2>
           <p className={styles.description}>
-            Find the closest Föli stop with a one-time location check. Your\n            coordinates are not stored.
+            Find the closest Föli stop with a one-time location check. Your
+            coordinates are not stored.
           </p>
         </div>
 
@@ -274,7 +275,11 @@ function NearbyStops({
           )}
 
           {nearbyStops.length > 0 && (
-            <div\n              className={styles.stopGrid}\n              role="group"\n              aria-label="Nearest Föli stops"\n            >
+            <div
+              className={styles.stopGrid}
+              role="group"
+              aria-label="Nearest Föli stops"
+            >
               {nearbyStops.map((stop, index) => (
                 <NearbyStopButton
                   key={stop.id}
