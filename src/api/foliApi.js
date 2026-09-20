@@ -5,6 +5,8 @@ const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 const ALERTS_URL =
   import.meta.env.VITE_FOLI_ALERTS_URL || "https://data.foli.fi/alerts";
+const STOPS_URL =
+  import.meta.env.VITE_FOLI_STOPS_URL || "https://data.foli.fi/gtfs/stops";
 
 const client = axios.create({
   timeout: 8000,
@@ -21,6 +23,15 @@ function optionalNumber(value) {
 
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function coordinateNumber(value, min, max) {
+  if (value === null || value === undefined || value === "") return null;
+
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max
+    ? number
+    : null;
 }
 
 function normalizeArrival(arrival) {
@@ -94,6 +105,32 @@ export async function fetchStopCatalog(signal) {
     }))
     .filter((stop) => /^\d+$/.test(stop.id))
     .sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+export async function fetchStopCoordinates(signal) {
+  const response = await client.get(STOPS_URL, { signal });
+  const payload = response.data;
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    throw new Error("Invalid Föli GTFS stop list.");
+  }
+
+  const coordinates = new Map();
+
+  Object.entries(payload).forEach(([id, stop]) => {
+    const lat = coordinateNumber(stop?.stop_lat, -90, 90);
+    const lon = coordinateNumber(stop?.stop_lon, -180, 180);
+
+    if (lat !== null && lon !== null) {
+      coordinates.set(String(id), { lat, lon });
+    }
+  });
+
+  if (coordinates.size === 0) {
+    throw new Error("Föli GTFS stop coordinates are unavailable.");
+  }
+
+  return coordinates;
 }
 
 export async function fetchStopAlerts(stopId, signal) {

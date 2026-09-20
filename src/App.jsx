@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
 import useSavedStops from "./hooks/useSavedStops";
@@ -18,7 +19,7 @@ function stopFromLocation() {
 
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
-  const stops = useStopCatalog();
+  const { stops, coordinatesStatus } = useStopCatalog();
   const serviceAlerts = useStopAlerts(stopId);
   const {
     favorites,
@@ -90,6 +91,13 @@ function App() {
           onSubmit={selectStop}
         />
       </section>
+
+      <NearbyStops
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId}
+        onSelect={selectStop}
+      />
 
       <QuickStops
         favorites={favorites}
