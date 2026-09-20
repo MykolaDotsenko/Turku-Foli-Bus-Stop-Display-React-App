@@ -487,13 +487,15 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     document.body.append(controls);
   });
 
+  const backNavigation = page.waitForURL(/stop=164/);
   await page.locator('[data-history-test="back"]').click();
-  await page.waitForURL(/stop=164/);
+  await backNavigation;
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
+  const forwardNavigation = page.waitForURL(/stop=4/);
   await page.locator('[data-history-test="forward"]').click();
-  await page.waitForURL(/stop=4/);
+  await forwardNavigation;
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
