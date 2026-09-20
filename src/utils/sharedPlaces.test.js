@@ -46,7 +46,7 @@ test("uses the URL fragment and removes unrelated query state from a share link"
     },
     "https://example.test/?stop=164"
   );
-  const parsed = new URL(url);
+  const parsed = new globalThis.URL(url);
 
   expect(parsed.search).toBe("");
   expect(parsed.hash).toMatch(/^#place=/);
