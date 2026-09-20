@@ -43,6 +43,29 @@ async function mockFoli(page) {
     });
   });
 
+  await page.route("https://data.foli.fi/gtfs/stops", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        "164": {
+          stop_name: "Kauppatori",
+          stop_lat: 60.4518,
+          stop_lon: 22.2666,
+        },
+        "4": {
+          stop_name: "Turun linna",
+          stop_lat: 60.4355,
+          stop_lon: 22.2345,
+        },
+        "32": {
+          stop_name: "Puistokatu",
+          stop_lat: 60.4488,
+          stop_lon: 22.255,
+        },
+      }),
+    });
+  });
+
   await page.route(/https:\/\/data\.foli\.fi\/siri\/sm\/(164|4|32)/, async (route) => {
     const stopId = route.request().url().split("/").pop();
     await route.fulfill({
@@ -98,6 +121,31 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await page.goBack();
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+});
+
+test("finds the nearest stop from one-time browser geolocation", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+  });
+
+  await page.goto("/?stop=4");
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page.getByText("Nearest")).toBeVisible();
+  await expect(page.getByText(/Selected stop ≈/)).toBeVisible();
 });
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {
