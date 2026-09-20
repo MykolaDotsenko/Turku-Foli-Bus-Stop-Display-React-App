@@ -9,7 +9,9 @@ import {
 import styles from "./NearbyStops.module.css";
 
 const AUTO_SELECT_MAX_DISTANCE_METERS = 10_000;
-const AUTO_SELECT_MAX_ACCURACY_METERS = 1_000;
+const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
+const MIN_AMBIGUITY_GAP_METERS = 25;
+const MAX_AMBIGUITY_GAP_METERS = 150;
 const LOCATION_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 8_000,
@@ -50,6 +52,22 @@ async function getBestAvailablePosition(geolocation) {
     if (error?.code !== 3) throw error;
     return readPosition(geolocation, FALLBACK_LOCATION_OPTIONS);
   }
+}
+
+function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
+  if (nearbyStops.length < 2) return false;
+
+  const uncertainty = Number.isFinite(accuracy)
+    ? Math.min(
+        MAX_AMBIGUITY_GAP_METERS,
+        Math.max(MIN_AMBIGUITY_GAP_METERS, accuracy)
+      )
+    : MIN_AMBIGUITY_GAP_METERS;
+
+  return (
+    nearbyStops[1].distanceMeters - nearbyStops[0].distanceMeters <
+    uncertainty
+  );
 }
 
 function NearbyStopButton({ stop, isActive, isNearest, onSelect }) {
@@ -142,6 +160,10 @@ function NearbyStops({
       }
 
       const nearest = findNearestStops(stops, nextPosition, 3);
+      const ambiguousChoice = nearestChoiceIsAmbiguous(
+        nearest,
+        nextPosition.accuracy
+      );
 
       setPosition(nextPosition);
       setStatus("success");
@@ -154,6 +176,7 @@ function NearbyStops({
       if (
         closest &&
         accurateEnough &&
+        !ambiguousChoice &&
         closest.distanceMeters <= AUTO_SELECT_MAX_DISTANCE_METERS &&
         closest.id !== activeStopId
       ) {
@@ -169,8 +192,26 @@ function NearbyStops({
     nearbyStops[0]?.distanceMeters > AUTO_SELECT_MAX_DISTANCE_METERS;
   const lowAccuracy =
     position?.accuracy > AUTO_SELECT_MAX_ACCURACY_METERS;
+  const ambiguousChoice =
+    position &&
+    !lowAccuracy &&
+    !isFarFromNetwork &&
+    nearestChoiceIsAmbiguous(nearbyStops, position.accuracy);
   const locationDataLoading =
     coordinatesStatus === "loading" && !hasStopCoordinates;
+
+  let locationNotice = "";
+  if (lowAccuracy) {
+    locationNotice =
+      "Your location is approximate, so compare the nearby options before choosing.";
+  } else if (isFarFromNetwork) {
+    locationNotice = `The nearest Föli stop is ${formatDistance(
+      nearbyStops[0].distanceMeters
+    )} away. You may be outside the Föli service area.`;
+  } else if (ambiguousChoice) {
+    locationNotice =
+      "Two stops are almost equally close. Choose the stop that serves your travel direction.";
+  }
 
   return (
     <section className={styles.wrapper} aria-labelledby="nearby-stops-title">
@@ -228,14 +269,8 @@ function NearbyStops({
             )}
           </div>
 
-          {(lowAccuracy || isFarFromNetwork) && (
-            <p className={styles.notice}>
-              {lowAccuracy
-                ? "Your location is approximate, so compare the nearby options before choosing."
-                : `The nearest Föli stop is ${formatDistance(
-                    nearbyStops[0].distanceMeters
-                  )} away. You may be outside the Föli service area.`}
-            </p>
+          {locationNotice && (
+            <p className={styles.notice}>{locationNotice}</p>
           )}
 
           {nearbyStops.length > 0 && (
