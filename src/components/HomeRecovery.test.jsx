@@ -59,7 +59,7 @@ test("offers one-tap transit recovery without embedding the current origin", () 
   expect(url.searchParams.get("travelmode")).toBe("transit");
   expect(url.searchParams.has("origin")).toBe(false);
   expect(
-    screen.getByText(/Google Maps.*saved Home stop.*does not verify/i)
+    screen.getByText(/Google Maps.*saved Home stop.*Check the suggested itinerary/i)
   ).toBeInTheDocument();
 });
 
