@@ -32,25 +32,23 @@ function SetupPlace({
   );
 
   const toggleStop = (stopId) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
+    const next = new Set(selectedIds);
 
-      if (next.has(stopId)) {
-        next.delete(stopId);
-        if (primaryStopId === stopId) {
-          setPrimaryStopId(
-            candidates.find(
-              (candidate) => candidate.id !== stopId && next.has(candidate.id)
-            )?.id || ""
-          );
-        }
-      } else {
-        next.add(stopId);
-        if (!primaryStopId) setPrimaryStopId(stopId);
+    if (next.has(stopId)) {
+      next.delete(stopId);
+      if (primaryStopId === stopId) {
+        setPrimaryStopId(
+          candidates.find(
+            (candidate) => candidate.id !== stopId && next.has(candidate.id)
+          )?.id || ""
+        );
       }
+    } else {
+      next.add(stopId);
+      if (!primaryStopId) setPrimaryStopId(stopId);
+    }
 
-      return next;
-    });
+    setSelectedIds(next);
   };
 
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
@@ -308,8 +306,8 @@ function MyPlaces({
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
-  const hasCoordinates = useMemo(
-    () => stops.some((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lon)),
+  const hasStopCoordinates = useMemo(
+    () => stops.some(hasCoordinates),
     [stops]
   );
 
@@ -317,7 +315,7 @@ function MyPlaces({
     const preset = PLACE_PRESETS.find((candidate) => candidate.id === placeId);
     if (!preset) return;
 
-    if (!hasCoordinates) {
+    if (!hasStopCoordinates) {
       setError(
         coordinatesStatus === "loading"
           ? "Stop locations are still loading. Try again in a moment."
