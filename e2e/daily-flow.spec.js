@@ -965,10 +965,12 @@ test("ten departures remain scan-friendly without horizontal table scrolling", a
   expect(pageOverflow).toBeLessThanOrEqual(1);
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
-  await page.screenshot({
-    path: `artifacts/screenshots/foli-${testInfo.project.name}-ten-departures.png`,
-    fullPage: true,
-  });
+  await page
+    .locator('[aria-labelledby="departures-title"]')
+    .screenshot({
+      path: `artifacts/screenshots/foli-${testInfo.project.name}-ten-departures.png`,
+      animations: "disabled",
+    });
 });
 
 test("six simultaneous alerts stay compact and keep departures reachable", async ({
