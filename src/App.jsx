@@ -126,7 +126,7 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Turku region · live public transport</p>
+          <p className="eyebrow">Independent companion · Föli open data</p>
           <p className="brand">Föli departures</p>
           <p className="context">
             Find a stop, save Home, School or Work without remembering an
@@ -232,7 +232,7 @@ function App() {
       )}
 
       <footer className="source-note">
-        Data: Turku region public transport ·{" "}
+        Independent app · Data: Turku region public transport ·{" "}
         <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
           data.foli.fi
         </a>{" "}
