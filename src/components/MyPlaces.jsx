@@ -42,6 +42,7 @@ function SetupPlace({
 
   const toggleStop = (stopId) => {
     const next = new Set(selectedIds);
+    setConfirmedSafe(false);
 
     if (next.has(stopId)) {
       next.delete(stopId);
@@ -80,9 +81,11 @@ function SetupPlace({
       </div>
 
       <p className={styles.helper}>
-        The closest stop is selected first. Add backup stops only if you know
-        they are safe and useful for arriving at {preset.label}. Only public
-        stop IDs and names are saved; your exact location is discarded.
+        When location quality is good and a stop is reasonably close, the
+        nearest stop is selected first. Otherwise you must choose manually.
+        Add backup stops only if you know they are safe and useful for arriving
+        at {preset.label}. Only public stop IDs and names are saved; your exact
+        location is discarded.
       </p>
 
       <p className={styles.meta}>
