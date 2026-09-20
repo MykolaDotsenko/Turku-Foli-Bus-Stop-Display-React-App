@@ -8,6 +8,7 @@ import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./MyPlaces.module.css";
 
 const MAX_SETUP_DISTANCE_METERS = 10_000;
+const AUTO_PRESELECT_MAX_DISTANCE_METERS = 2_000;
 const LOW_ACCURACY_METERS = 250;
 
 function resolvePlaceStops(place, stops) {
@@ -26,12 +27,18 @@ function SetupPlace({
   onCancel,
   onSave,
 }) {
+  const reliableLocation =
+    Number.isFinite(accuracy) &&
+    accuracy <= LOW_ACCURACY_METERS &&
+    Number.isFinite(candidates[0]?.distanceMeters) &&
+    candidates[0].distanceMeters <= AUTO_PRESELECT_MAX_DISTANCE_METERS;
   const [selectedIds, setSelectedIds] = useState(
-    () => new Set(candidates[0] ? [candidates[0].id] : [])
+    () => new Set(reliableLocation && candidates[0] ? [candidates[0].id] : [])
   );
   const [primaryStopId, setPrimaryStopId] = useState(
-    candidates[0]?.id || ""
+    reliableLocation ? candidates[0]?.id || "" : ""
   );
+  const [confirmedSafe, setConfirmedSafe] = useState(false);
 
   const toggleStop = (stopId) => {
     const next = new Set(selectedIds);
@@ -78,14 +85,14 @@ function SetupPlace({
         stop IDs and names are saved; your exact location is discarded.
       </p>
 
-      {Number.isFinite(accuracy) && (
-        <p className={styles.meta}>
-          Location accuracy ±{formatAccuracy(accuracy)}
-          {accuracy > LOW_ACCURACY_METERS
-            ? " · approximate — review the stops carefully"
-            : ""}
-        </p>
-      )}
+      <p className={styles.meta}>
+        {Number.isFinite(accuracy)
+          ? `Location accuracy ±${formatAccuracy(accuracy)}`
+          : "Location accuracy unavailable"}
+        {!reliableLocation
+          ? " · no stop was preselected — choose and confirm a safe arrival stop yourself"
+          : ""}
+      </p>
 
       <div className={styles.candidateList}>
         {candidates.map((stop) => {
@@ -121,11 +128,25 @@ function SetupPlace({
         })}
       </div>
 
+      <label className={styles.confirmSafe}>
+        <input
+          type="checkbox"
+          checked={confirmedSafe}
+          onChange={(event) => setConfirmedSafe(event.target.checked)}
+        />
+        <span>
+          I confirm the selected stop{selectedStops.length === 1 ? "" : "s"} are
+          safe and useful for arriving at {preset.label}.
+        </span>
+      </label>
+
       <div className={styles.setupActions}>
         <button
           type="button"
           className={styles.primaryButton}
-          disabled={selectedStops.length === 0 || !primaryStopId}
+          disabled={
+            selectedStops.length === 0 || !primaryStopId || !confirmedSafe
+          }
           onClick={() =>
             onSave({
               id: preset.id,
