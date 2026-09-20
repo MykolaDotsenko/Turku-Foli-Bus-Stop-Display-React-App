@@ -470,3 +470,151 @@
     grid-column: auto;
   }
 }
+
+
+.mobileOptionsToggle {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .wrapper {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 9px;
+    border-radius: 14px;
+  }
+
+  .copy .kicker {
+    display: none;
+  }
+
+  .copy h2 {
+    font-size: 0.9375rem;
+    line-height: 1.2;
+  }
+
+  .description {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+  }
+
+  .destination {
+    min-height: 44px;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .homeIcon {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .destination strong,
+  .destination small {
+    font-size: 0.8125rem;
+  }
+
+  .actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .primaryAction,
+  .secondaryAction,
+  .mobileOptionsToggle {
+    min-height: 44px;
+    font-size: 0.8125rem;
+  }
+
+  .primaryAction {
+    grid-column: auto;
+  }
+
+  .mobileOptionsToggle {
+    display: inline-flex;
+    min-width: 72px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #bfd4d7;
+    border-radius: 11px;
+    background: #fff;
+    color: #294851;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+  }
+
+  .mobileOptionsToggle:focus-visible {
+    outline: 3px solid rgba(0, 121, 133, 0.28);
+    outline-offset: 2px;
+  }
+
+  .secondaryAction,
+  .routeNote,
+  .backups,
+  .batteryBackup {
+    display: none;
+  }
+
+  .wrapper[data-mobile-options-open="true"] .secondaryAction {
+    display: inline-block;
+  }
+
+  .wrapper[data-mobile-options-open="true"] .routeNote,
+  .wrapper[data-mobile-options-open="true"] .backups,
+  .wrapper[data-mobile-options-open="true"] .batteryBackup {
+    display: block;
+  }
+
+  .wrapper[data-mobile-options-open="true"] .secondaryAction {
+    grid-column: span 1;
+  }
+
+  .wrapper[data-mobile-options-open="true"] .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wrapper[data-mobile-options-open="true"] .primaryAction {
+    grid-column: 1 / 2;
+  }
+
+  .wrapper[data-mobile-options-open="true"] .mobileOptionsToggle {
+    grid-column: 2 / 3;
+  }
+
+  .status,
+  .routeNote,
+  .backupHint,
+  .backups,
+  .batteryBackup {
+    font-size: 0.8125rem;
+  }
+
+  .backups summary,
+  .batteryBackup summary,
+  .backupActions a,
+  .backupActions button,
+  .printButton {
+    min-height: 44px;
+    font-size: 0.8125rem;
+  }
+}
+
+@media (max-width: 350px) {
+  .actions,
+  .wrapper[data-mobile-options-open="true"] .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .primaryAction,
+  .mobileOptionsToggle,
+  .wrapper[data-mobile-options-open="true"] .primaryAction,
+  .wrapper[data-mobile-options-open="true"] .mobileOptionsToggle,
+  .wrapper[data-mobile-options-open="true"] .secondaryAction {
+    grid-column: auto;
+  }
+}
