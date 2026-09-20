@@ -31,6 +31,7 @@ function formatValidity(validity) {
 }
 
 function AlertItem({ alert }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const isCancellation = alert.type === "cancellation";
   const isEmergency = alert.type === "emergency";
   const isGlobal = alert.type === "global";
@@ -75,14 +76,17 @@ function AlertItem({ alert }) {
             <p className={styles.validity}>{formatValidity(alert.validity)}</p>
           )}
           {(alert.information || alert.images?.length > 0) && (
-            <details className={styles.details}>
+            <details
+              className={styles.details}
+              onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+            >
               <summary>
                 {alert.images?.length > 0
                   ? "View disruption details"
                   : "Show details"}
               </summary>
               {alert.information && <p>{alert.information}</p>}
-              {alert.images?.length > 0 && (
+              {detailsOpen && alert.images?.length > 0 && (
                 <div className={styles.mediaGrid}>
                   {alert.images.map((image, index) => (
                     <a
