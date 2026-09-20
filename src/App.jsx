@@ -55,12 +55,12 @@ function App() {
     }
 
     setStopId(nextStopId);
-    window.history.pushState(null, "", \`?stop=\${nextStopId}\`);
+    window.history.pushState(null, "", `?stop=${nextStopId}`);
   };
 
   const currentStop = {
     id: stopId,
-    name: stopName || \`Stop \${stopId}\`,
+    name: stopName || `Stop ${stopId}`,
   };
 
   return (
