@@ -13,7 +13,7 @@ function resolveStops(place, stops) {
   }));
 }
 
-function HomeRecovery({ home, stops, onOpenStop }) {
+function HomeRecovery({ home, stops, online = true, onOpenStop }) {
   const [showDriver, setShowDriver] = useState(false);
 
   const resolvedStops = useMemo(
@@ -29,9 +29,10 @@ function HomeRecovery({ home, stops, onOpenStop }) {
   const backupStops = resolvedStops.filter(
     (stop) => stop.id !== primaryStop.id
   );
-  const transitUrl = hasCoordinates(primaryStop)
-    ? buildTransitDirectionsUrl(primaryStop)
-    : "";
+  const transitUrl =
+    online && hasCoordinates(primaryStop)
+      ? buildTransitDirectionsUrl(primaryStop)
+      : "";
 
   return (
     <section className={styles.wrapper} aria-labelledby="home-recovery-title">
@@ -97,8 +98,9 @@ function HomeRecovery({ home, stops, onOpenStop }) {
 
       {!transitUrl && (
         <p id="home-recovery-routing-status" className={styles.status}>
-          Transit directions are temporarily unavailable until public stop
-          coordinates load. Your saved stop and driver card still work.
+          {online
+            ? "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work."
+            : "You’re offline. Your saved Home stop and driver card still work; connect to the internet for transit directions."}
         </p>
       )}
 
@@ -113,9 +115,10 @@ function HomeRecovery({ home, stops, onOpenStop }) {
           </p>
           <div className={styles.backupList}>
             {backupStops.map((stop) => {
-              const backupTransitUrl = hasCoordinates(stop)
-                ? buildTransitDirectionsUrl(stop)
-                : "";
+              const backupTransitUrl =
+                online && hasCoordinates(stop)
+                  ? buildTransitDirectionsUrl(stop)
+                  : "";
 
               return (
                 <div key={stop.id} className={styles.backupRow}>
