@@ -235,3 +235,79 @@
   outline-offset: 3px;
   border-radius: 12px;
 }
+
+
+@media (max-width: 620px) {
+  .panel {
+    margin-bottom: 9px;
+    border-radius: 14px;
+  }
+
+  .headingRow {
+    padding: 9px 11px;
+    gap: 10px;
+  }
+
+  .kicker {
+    display: none;
+  }
+
+  .heading {
+    font-size: 0.875rem;
+  }
+
+  .count {
+    min-width: 26px;
+    height: 26px;
+    font-size: 0.8125rem;
+  }
+
+  .alert {
+    padding: 9px 11px;
+  }
+
+  .alertHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+  }
+
+  .alert strong,
+  .alert p,
+  .effectBadge,
+  .details,
+  .feedStatus,
+  .moreButton,
+  .mediaLink {
+    font-size: 0.8125rem;
+  }
+
+  .alert p {
+    margin-top: 3px;
+    line-height: 1.35;
+  }
+
+  .effectBadge {
+    padding: 3px 6px;
+  }
+
+  .details {
+    margin-top: 3px;
+  }
+
+  .details summary {
+    display: flex;
+    min-height: 44px;
+    width: fit-content;
+    align-items: center;
+  }
+
+  .moreButton {
+    min-height: 44px;
+  }
+
+  .feedStatus {
+    padding: 8px 11px;
+  }
+}
