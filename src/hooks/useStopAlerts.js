@@ -47,6 +47,7 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     const controller = new AbortController();
     membershipAbortRef.current = controller;
 
+    const activeLineSet = new Set(lineRefs.map(String));
     const candidateRouteIds = [
       ...new Set(
         (Array.isArray(payload?.messages) ? payload.messages : [])
@@ -58,6 +59,10 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
           )
           .map(String)
           .filter(Boolean)
+          .filter((routeId) => {
+            const shortName = routesById.get(routeId)?.shortName;
+            return !shortName || !activeLineSet.has(String(shortName));
+          })
       ),
     ];
 
@@ -78,7 +83,7 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
       });
 
     return () => controller.abort();
-  }, [payload, stopId]);
+  }, [lineRefs, payload, routesById, stopId]);
 
   useEffect(() => {
     refresh();
