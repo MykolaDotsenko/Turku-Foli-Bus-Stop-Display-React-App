@@ -459,16 +459,13 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
     .toBe("4");
 
-  await page.evaluate(() => {
-    globalThis.setTimeout(() => globalThis.history.back(), 0);
-  });
-  await expect
-    .poll(() => page.evaluate(() => globalThis.location.search))
-    .toBe("?stop=164");
-  await expect
-    .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
-    .toBe("164");
+  await page.evaluate(() => globalThis.history.back());
+  await page.waitForURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  await page.evaluate(() => globalThis.history.forward());
+  await page.waitForURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
 
 test("finds the nearest stop from one-time browser geolocation", async ({
