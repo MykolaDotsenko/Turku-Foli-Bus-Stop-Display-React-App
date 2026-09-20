@@ -3,7 +3,9 @@ import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
 import QuickStops from "./components/QuickStops";
+import ServiceAlerts from "./components/ServiceAlerts";
 import useSavedStops from "./hooks/useSavedStops";
+import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
 
@@ -17,6 +19,7 @@ function stopFromLocation() {
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
   const stops = useStopCatalog();
+  const serviceAlerts = useStopAlerts(stopId);
   const {
     favorites,
     recents,
@@ -94,6 +97,8 @@ function App() {
         activeStopId={stopId}
         onSelect={selectStop}
       />
+
+      <ServiceAlerts alerts={serviceAlerts} />
 
       <BusStopDisplay
         stopId={stopId}
