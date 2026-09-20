@@ -228,7 +228,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
       board &&
         places &&
         (board.compareDocumentPosition(places) &
-          Node.DOCUMENT_POSITION_FOLLOWING)
+          globalThis.Node.DOCUMENT_POSITION_FOLLOWING)
     );
   });
   expect(boardPrecedesPlaceManagement).toBe(true);
@@ -454,11 +454,11 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
 
     if (!navigator.serviceWorker.controller) {
       await new Promise((resolve) => {
-        const timeoutId = setTimeout(resolve, 3_000);
+        const timeoutId = globalThis.setTimeout(resolve, 3_000);
         navigator.serviceWorker.addEventListener(
           "controllerchange",
           () => {
-            clearTimeout(timeoutId);
+            globalThis.clearTimeout(timeoutId);
             resolve();
           },
           { once: true }
