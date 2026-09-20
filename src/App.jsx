@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
 import useRouteCatalog from "./hooks/useRouteCatalog";
+import useSavedPlaces from "./hooks/useSavedPlaces";
 import useSavedStops from "./hooks/useSavedStops";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
@@ -34,6 +36,12 @@ function App() {
     rememberRecent,
     toggleFavorite,
   } = useSavedStops();
+  const {
+    byId: placesById,
+    savePlace,
+    removePlace,
+    setPrimaryStop,
+  } = useSavedPlaces();
   const {
     stopName,
     arrivals,
@@ -89,8 +97,8 @@ function App() {
           <p className="eyebrow">Turku region · live public transport</p>
           <p className="brand">Föli departures</p>
           <p className="context">
-            Find a stop once, save it, and get back to live departures in one
-            tap.
+            Find a stop, save Home, School or Work without remembering an
+            address, and get back to the right journey in one tap.
           </p>
         </div>
         <span className="live-pill">
@@ -112,6 +120,16 @@ function App() {
         coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
         onSelect={selectStop}
+      />
+
+      <MyPlaces
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        placesById={placesById}
+        onSavePlace={savePlace}
+        onRemovePlace={removePlace}
+        onSetPrimaryStop={setPrimaryStop}
+        onOpenStop={selectStop}
       />
 
       <QuickStops
