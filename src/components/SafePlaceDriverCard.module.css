@@ -10,7 +10,7 @@
 .kicker {
   margin: 0;
   color: #007985;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -55,7 +55,7 @@
   border-radius: 10px;
   cursor: pointer;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.82rem;
   font-weight: 850;
 }
 
@@ -81,6 +81,7 @@
   color: #00656f;
 }
 
+.card:focus-visible,
 .speakButton:focus-visible,
 .closeButton:focus-visible {
   outline: 3px solid rgba(0, 121, 133, 0.28);
