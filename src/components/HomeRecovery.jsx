@@ -39,10 +39,9 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
     <section className={styles.wrapper} aria-labelledby="home-recovery-title">
       <div className={styles.copy}>
         <p className={styles.kicker}>Travel recovery</p>
-        <h2 id="home-recovery-title">Lost or unsure? Get home from here.</h2>
+        <h2 id="home-recovery-title">Need help getting home?</h2>
         <p className={styles.description}>
-          Use your saved Safe Arrival Zone. This is travel help, not an
-          emergency service.
+          Use your saved Home stops. Travel help, not an emergency service.
         </p>
       </div>
 
@@ -99,8 +98,8 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
 
       {transitUrl && (
         <p className={styles.routeNote}>
-          Opens Google Maps to plan public transport to this saved Home stop.
-          The app does not verify the itinerary or walking route.
+          Opens Google Maps to this saved Home stop. Check the suggested
+          itinerary before travelling.
         </p>
       )}
 
@@ -115,11 +114,11 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
       {backupStops.length > 0 && (
         <details className={styles.backups}>
           <summary>
-            Other safe Home stop{backupStops.length > 1 ? "s" : ""}
+            Other saved Home stop{backupStops.length > 1 ? "s" : ""}
           </summary>
           <p className={styles.backupHint}>
-            If the usual stop is unavailable, choose another stop that was
-            saved as safe.
+            If the usual stop is unavailable, choose another stop you approved
+            for Home.
           </p>
           <div className={styles.backupList}>
             {backupStops.map((stop) => {
