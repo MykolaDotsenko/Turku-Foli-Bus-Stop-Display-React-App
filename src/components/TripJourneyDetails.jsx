@@ -1,0 +1,139 @@
+import { useEffect, useMemo, useState } from "react";
+import { fetchTripStopTimes } from "../api/foliApi";
+import styles from "./TripJourneyDetails.module.css";
+
+const MAX_VISIBLE_NEXT_STOPS = 7;
+
+function formatGtfsClock(value) {
+  if (typeof value !== "string") return "";
+  const match = value.match(/^(\d{1,2}):(\d{2}):\d{2}$/);
+  if (!match) return "";
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute > 59) {
+    return "";
+  }
+
+  return `${String(hour % 24).padStart(2, "0")}:${String(minute).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+function stopLabel(stopTime, stopsById) {
+  return stopsById.get(stopTime.stopId)?.name || `Stop ${stopTime.stopId}`;
+}
+
+export default function TripJourneyDetails({
+  tripId,
+  currentStopId,
+  stopsById,
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [status, setStatus] = useState("idle");
+  const [stopTimes, setStopTimes] = useState([]);
+
+  useEffect(() => {
+    if (!expanded || !tripId || status !== "idle") return undefined;
+
+    const controller = new AbortController();
+    setStatus("loading");
+
+    fetchTripStopTimes(tripId, controller.signal)
+      .then((items) => {
+        if (controller.signal.aborted) return;
+        setStopTimes(items);
+        setStatus("ready");
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setStatus("error");
+      });
+
+    return () => controller.abort();
+  }, [expanded, status, tripId]);
+
+  const journey = useMemo(() => {
+    const currentIndex = stopTimes.findIndex(
+      (item) => item.stopId === String(currentStopId)
+    );
+    const remaining =
+      currentIndex >= 0 ? stopTimes.slice(currentIndex + 1) : stopTimes;
+
+    return {
+      visible: remaining.slice(0, MAX_VISIBLE_NEXT_STOPS),
+      remainingCount: Math.max(
+        0,
+        remaining.length - MAX_VISIBLE_NEXT_STOPS
+      ),
+      finalStop: remaining.at(-1) || null,
+    };
+  }, [currentStopId, stopTimes]);
+
+  return (
+    <div className={styles.wrapper}>
+      <button
+        type="button"
+        className={styles.toggle}
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+      >
+        {expanded ? "Hide next stops" : "Next stops"}
+      </button>
+
+      {expanded && (
+        <div className={styles.panel}>
+          <p className={styles.kicker}>Planned stop sequence</p>
+
+          {status === "loading" && (
+            <p className={styles.status} role="status">
+              Loading planned stops…
+            </p>
+          )}
+
+          {status === "error" && (
+            <p className={styles.status} role="status">
+              Planned stop sequence is temporarily unavailable.
+            </p>
+          )}
+
+          {status === "ready" && journey.visible.length === 0 && (
+            <p className={styles.status}>No later stops are listed.</p>
+          )}
+
+          {status === "ready" && journey.visible.length > 0 && (
+            <>
+              <ol className={styles.list}>
+                {journey.visible.map((item) => {
+                  const clock = formatGtfsClock(
+                    item.departureTime || item.arrivalTime
+                  );
+                  const approximate = item.timepoint === 0;
+
+                  return (
+                    <li key={`${item.stopId}-${item.stopSequence}`}>
+                      <span>{stopLabel(item, stopsById)}</span>
+                      <small>
+                        {clock
+                          ? `${approximate ? "around " : ""}${clock}`
+                          : "planned"}
+                        {item.dropOffType === 1 ? " · no drop-off" : ""}
+                      </small>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {journey.remainingCount > 0 && journey.finalStop && (
+                <p className={styles.more}>
+                  +{journey.remainingCount} more · final stop{" "}
+                  <strong>{stopLabel(journey.finalStop, stopsById)}</strong>
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
