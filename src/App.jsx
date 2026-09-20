@@ -136,6 +136,23 @@ function App() {
 
       <ConnectivityStatus online={online} />
 
+      {sharedPlace && (
+        <MyPlaces
+          stops={stops}
+          coordinatesStatus={coordinatesStatus}
+          activeStopId={stopId}
+          placesById={placesById}
+          sharedPlace={sharedPlace}
+          online={online}
+          onSavePlace={savePlace}
+          onImportSharedPlace={importSharedPlace}
+          onDismissSharedPlace={dismissSharedPlace}
+          onRemovePlace={removePlace}
+          onSetPrimaryStop={setPrimaryStop}
+          onOpenStop={selectStop}
+        />
+      )}
+
       <HomeRecovery
         home={placesById.get("home") || null}
         stops={stops}
@@ -183,20 +200,22 @@ function App() {
         onToggleFavorite={() => toggleFavorite(currentStop)}
       />
 
-      <MyPlaces
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        placesById={placesById}
-        sharedPlace={sharedPlace}
-        online={online}
-        onSavePlace={savePlace}
-        onImportSharedPlace={importSharedPlace}
-        onDismissSharedPlace={dismissSharedPlace}
-        onRemovePlace={removePlace}
-        onSetPrimaryStop={setPrimaryStop}
-        onOpenStop={selectStop}
-      />
+      {!sharedPlace && (
+        <MyPlaces
+          stops={stops}
+          coordinatesStatus={coordinatesStatus}
+          activeStopId={stopId}
+          placesById={placesById}
+          sharedPlace={sharedPlace}
+          online={online}
+          onSavePlace={savePlace}
+          onImportSharedPlace={importSharedPlace}
+          onDismissSharedPlace={dismissSharedPlace}
+          onRemovePlace={removePlace}
+          onSetPrimaryStop={setPrimaryStop}
+          onOpenStop={selectStop}
+        />
+      )}
 
       <footer className="source-note">
         Source: Turku region public transport · data.foli.fi · CC BY 4.0
