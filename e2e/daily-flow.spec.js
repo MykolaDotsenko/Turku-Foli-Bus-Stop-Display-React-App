@@ -459,14 +459,20 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.length))
     .toBe(historyLengthBeforeStopChange + 1);
 
-  // Exercise the browser's actual session-history traversal. A valid initial
-  // deep link must remain its own entry, so Back returns to Kauppatori rather
-  // than escaping to the pre-navigation blank page.
-  await page.goBack();
+  // Traverse the browser session history through the standard History API.
+  // Playwright's page.goBack()/goForward() waits on document-navigation
+  // lifecycle semantics and can skip/timeout on pushState-only entries. The
+  // History API uses the same browser session-history traversal that the app
+  // must handle and fires popstate for same-document stop navigation.
+  await page.evaluate(() => {
+    globalThis.setTimeout(() => globalThis.history.back(), 0);
+  });
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  await page.goForward();
+  await page.evaluate(() => {
+    globalThis.setTimeout(() => globalThis.history.forward(), 0);
+  });
   await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
