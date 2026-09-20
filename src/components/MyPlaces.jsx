@@ -135,7 +135,7 @@ function SetupPlace({
           onChange={(event) => setConfirmedSafe(event.target.checked)}
         />
         <span>
-          I confirm the selected stop{selectedStops.length === 1 ? "" : "s"} are
+          I confirm the selected {selectedStops.length === 1 ? "stop is" : "stops are"}
           safe and useful for arriving at {preset.label}.
         </span>
       </label>
