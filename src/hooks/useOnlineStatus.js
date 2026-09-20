@@ -8,23 +8,23 @@ function browserSaysOnline() {
 }
 
 function readOfflineHint() {
-  if (typeof globalThis.sessionStorage === "undefined") return false;
+  if (typeof globalThis.localStorage === "undefined") return false;
 
   try {
-    return globalThis.sessionStorage.getItem(OFFLINE_HINT_KEY) === "1";
+    return globalThis.localStorage.getItem(OFFLINE_HINT_KEY) === "1";
   } catch {
     return false;
   }
 }
 
 function writeOfflineHint(offline) {
-  if (typeof globalThis.sessionStorage === "undefined") return;
+  if (typeof globalThis.localStorage === "undefined") return;
 
   try {
     if (offline) {
-      globalThis.sessionStorage.setItem(OFFLINE_HINT_KEY, "1");
+      globalThis.localStorage.setItem(OFFLINE_HINT_KEY, "1");
     } else {
-      globalThis.sessionStorage.removeItem(OFFLINE_HINT_KEY);
+      globalThis.localStorage.removeItem(OFFLINE_HINT_KEY);
     }
   } catch {
     // Connectivity UI must not fail because storage is unavailable.
