@@ -76,6 +76,7 @@ export default function useSavedPlaces() {
   const commit = useCallback((updater) => {
     setPlaces((current) => {
       const next = updater(current);
+      if (next === current) return current;
       persist(next);
       return next;
     });
@@ -126,8 +127,11 @@ export default function useSavedPlaces() {
       );
       const validatedAt = Date.now();
 
-      commit((current) =>
-        current.map((place) => {
+      commit((current) => {
+        if (current.length === 0) return current;
+
+        let changed = false;
+        const next = current.map((place) => {
           let needsReview = false;
           let renamed = false;
 
@@ -155,14 +159,17 @@ export default function useSavedPlaces() {
             return place;
           }
 
+          changed = true;
           return {
             ...place,
             stops,
             validatedAt,
             needsReview,
           };
-        })
-      );
+        });
+
+        return changed ? next : current;
+      });
     },
     [commit]
   );
