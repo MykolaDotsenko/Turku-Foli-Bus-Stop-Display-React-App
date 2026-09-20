@@ -326,7 +326,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await expect(saveHome).toBeDisabled();
   await page
     .getByRole("checkbox", {
-      name: /I confirm the selected stop is safe and useful for arriving at Home/i,
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
     })
     .check();
   await expect(saveHome).toBeEnabled();
