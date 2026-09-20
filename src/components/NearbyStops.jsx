@@ -10,7 +10,8 @@ import { locationErrorMessage, requestOneTimePosition } from "../utils/location"
 import { buildWalkingDirectionsUrl } from "../utils/maps";
 import styles from "./NearbyStops.module.css";
 
-const AUTO_SELECT_MAX_DISTANCE_METERS = 10_000;
+const AUTO_SELECT_MAX_DISTANCE_METERS = 2_000;
+const OUTSIDE_NETWORK_WARNING_METERS = 10_000;
 const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
 const MIN_AMBIGUITY_GAP_METERS = 25;
 const MAX_AMBIGUITY_GAP_METERS = 150;
@@ -141,7 +142,7 @@ function NearbyStops({
 
       const closest = nearest[0];
       const accurateEnough =
-        nextPosition.accuracy === null ||
+        Number.isFinite(nextPosition.accuracy) &&
         nextPosition.accuracy <= AUTO_SELECT_MAX_ACCURACY_METERS;
 
       if (
@@ -159,10 +160,16 @@ function NearbyStops({
     }
   };
 
+  const nearestDistance = nearbyStops[0]?.distanceMeters;
   const isFarFromNetwork =
-    nearbyStops[0]?.distanceMeters > AUTO_SELECT_MAX_DISTANCE_METERS;
+    nearestDistance > OUTSIDE_NETWORK_WARNING_METERS;
+  const isBeyondAutoSelectRange =
+    nearestDistance > AUTO_SELECT_MAX_DISTANCE_METERS &&
+    !isFarFromNetwork;
   const lowAccuracy =
-    position?.accuracy > AUTO_SELECT_MAX_ACCURACY_METERS;
+    Boolean(position) &&
+    (!Number.isFinite(position?.accuracy) ||
+      position.accuracy > AUTO_SELECT_MAX_ACCURACY_METERS);
   const ambiguousChoice =
     position &&
     !lowAccuracy &&
@@ -179,6 +186,10 @@ function NearbyStops({
     locationNotice = `The nearest Föli stop is ${formatDistance(
       nearbyStops[0].distanceMeters
     )} away. You may be outside the Föli service area.`;
+  } else if (isBeyondAutoSelectRange) {
+    locationNotice = `The nearest Föli stop is ${formatDistance(
+      nearbyStops[0].distanceMeters
+    )} away, so it was not selected automatically. Choose the stop that fits your journey.`;
   } else if (ambiguousChoice) {
     locationNotice =
       "Two stops are almost equally close. Choose the stop that serves your travel direction.";
