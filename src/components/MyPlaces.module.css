@@ -12,6 +12,7 @@
 .header h2,
 .placeCard h3,
 .emptyCard h3,
+.importCard h3,
 .setup h3,
 .driverCard h3 {
   margin: 0;
@@ -209,6 +210,7 @@
   color: #a33127;
 }
 
+.importCard,
 .setup {
   display: grid;
   gap: 10px;
@@ -216,6 +218,52 @@
   border: 1px solid #b8d4d7;
   border-radius: 14px;
   background: #f5fbfb;
+}
+
+.importCard {
+  border-color: #9bc6ca;
+  background: #f1fafa;
+}
+
+.importStops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.importStops span {
+  display: grid;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid #d4e5e7;
+  border-radius: 9px;
+  background: #fff;
+  color: #294851;
+  font-size: 0.72rem;
+}
+
+.importStops small {
+  color: #60747d;
+}
+
+.shareFeedback {
+  margin: 8px 0 0;
+  color: #486067;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.shareInput {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 7px;
+  padding: 7px 9px;
+  border: 1px solid #bfd0d4;
+  border-radius: 9px;
+  background: #fff;
+  color: #294851;
+  font: inherit;
+  font-size: 0.68rem;
 }
 
 .setupHeader {

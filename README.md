@@ -19,7 +19,7 @@ These screenshots are generated from the same deterministic Playwright flow that
 ## Daily workflow
 
 1. Save **Home, School or Work** once as a **Safe Arrival Zone** made from 1–3 public Föli stops — no private address required.
-2. Tap **Go Home / Go School / Go Work** to open public-transit directions to the primary safe stop. The external URL omits the user's origin.
+2. Tap **Go Home / Go to School / Go to Work** to open public-transit directions to the primary safe stop. The external URL omits the user's origin.
 3. If location access is unavailable, search/select a stop normally and save that public stop to My Places.
 4. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
 5. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
@@ -38,6 +38,9 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - a no-geolocation fallback lets the user search/select a stop and save that public stop directly
 - **Go Home / School / Work** launches keyless transit directions to the primary public stop with no origin embedded in the URL
 - **Show driver** provides a large stop-focused destination card plus a simple Finnish help sentence
+- a parent/teacher can **Share Home / School / Work** without an account; the link contains only the Safe Arrival stop identity
+- shared Safe Places use a URL fragment rather than a query parameter, so the share payload is not sent to the web server as part of the HTTP request
+- opening a shared place never overwrites local data automatically: the recipient must explicitly Add or Replace it
 - place editing/removal is kept behind Manage instead of exposing destructive controls in the main child-friendly flow
 - one-tap geolocation removes the need to know a nearby stop's name or number
 - the closest stop is selected automatically only when location quality is reasonable, the device is near the Föli network, and one candidate is meaningfully closer than the next
@@ -122,7 +125,7 @@ App.jsx
         ↓
 BusStopForm.jsx       search / accessible autocomplete
 NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
-MyPlaces.jsx          address-free Safe Arrival Zones + transit handoff + driver card
+MyPlaces.jsx          Safe Arrival Zones + transit handoff + driver card + explicit share/import
 QuickStops.jsx        favorites / recents
 ServiceAlerts.jsx     stop + route disruptions / emergency + global notices
 BusStopDisplay.jsx    live departure board + route identity + vehicle proximity
@@ -132,6 +135,7 @@ utils/
   routes.js           route indexing + WCAG-safe route text color
   maps.js             keyless privacy-conscious walking + transit URLs
   location.js         shared one-time geolocation + timeout fallback semantics
+  sharedPlaces.js     validated public-stop-only share fragment codec
   time.js             timing + freshness semantics
   alerts.js           pure alert filtering
 ~~~
@@ -157,6 +161,9 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - My Places persistence strips coordinates, distance and any other setup-only fields before writing to storage
 - only public stop IDs/names are persisted for Safe Arrival Zones; exact home/school/work coordinates are not required
 - Safe Arrival setup is capped at three stops and refuses clearly out-of-network location results
+- Safe Place share serialization strips coordinates and accepts only Home/School/Work plus up to three numeric public stop IDs
+- share links remove unrelated current-stop query state and store the payload in the URL fragment
+- malformed/unsupported shared payloads are ignored and valid imports require explicit user confirmation
 - service alerts refresh conservatively every five minutes while visible
 - the last successful raw alert payload is re-filtered locally when the active stop, visible lines, or route metadata changes
 - route-only disruptions are matched through GTFS route_id → route_short_name rather than guessed from identifiers
@@ -196,7 +203,7 @@ Every pull request to `master` must pass:
 | Gate | Coverage |
 | --- | --- |
 | ESLint | JavaScript/JSX correctness + React Hooks rules |
-| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence privacy, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
+| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence/share privacy, explicit import semantics, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
 | Production build | Vite production compilation |
 | Playwright · Chromium | real DOM daily-flow + real browser geolocation permission flow |
 | Playwright · Firefox | cross-browser behavior |
@@ -219,7 +226,7 @@ CI also retains Playwright reports, failure traces, and recruiter-ready desktop/
 - ESLint
 - Axios
 - CSS Modules
-- browser Geolocation, History, Storage, Visibility, Service Worker, and AbortController APIs
+- browser Geolocation, History, Storage, Visibility, Service Worker, Web Share, Clipboard, and AbortController APIs
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
 - Föli GTFS stops API

@@ -13,6 +13,7 @@ import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
 import { buildRouteIndexes } from "./utils/routes";
+import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
 
 const DEFAULT_STOP = "164";
 
@@ -23,6 +24,9 @@ function stopFromLocation() {
 
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
+  const [sharedPlace, setSharedPlace] = useState(() =>
+    parseSharedPlaceHash(window.location.hash)
+  );
   const { stops, coordinatesStatus } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
@@ -63,8 +67,16 @@ function App() {
 
   useEffect(() => {
     const handlePopState = () => setStopId(stopFromLocation());
+    const handleHashChange = () =>
+      setSharedPlace(parseSharedPlaceHash(window.location.hash));
+
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("hashchange", handleHashChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -88,6 +100,17 @@ function App() {
   const currentStop = {
     id: stopId,
     name: stopName || `Stop ${stopId}`,
+  };
+
+  const dismissSharedPlace = () => {
+    setSharedPlace(null);
+    clearSharedPlaceHash();
+  };
+
+  const importSharedPlace = () => {
+    if (!sharedPlace) return;
+    savePlace(sharedPlace);
+    dismissSharedPlace();
   };
 
   return (
@@ -127,7 +150,10 @@ function App() {
         coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
         placesById={placesById}
+        sharedPlace={sharedPlace}
         onSavePlace={savePlace}
+        onImportSharedPlace={importSharedPlace}
+        onDismissSharedPlace={dismissSharedPlace}
         onRemovePlace={removePlace}
         onSetPrimaryStop={setPrimaryStop}
         onOpenStop={selectStop}

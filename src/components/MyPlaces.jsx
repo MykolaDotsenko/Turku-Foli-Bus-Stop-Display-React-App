@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { findNearestStops, formatAccuracy, formatDistance, hasCoordinates } from "../utils/geo";
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildTransitDirectionsUrl } from "../utils/maps";
+import { buildSharedPlaceUrl } from "../utils/sharedPlaces";
 import { PLACE_PRESETS } from "../hooks/useSavedPlaces";
 import styles from "./MyPlaces.module.css";
 
@@ -169,6 +170,46 @@ function journeyAction(place) {
   return place.id === "home" ? "Go Home" : `Go to ${place.label}`;
 }
 
+function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
+  const preset = PLACE_PRESETS.find((candidate) => candidate.id === place.id);
+  if (!preset) return null;
+
+  return (
+    <section
+      className={styles.importCard}
+      aria-labelledby="shared-place-title"
+    >
+      <p className={styles.kicker}>Shared Safe Place</p>
+      <h3 id="shared-place-title">
+        {replacing ? `Replace ${preset.label}?` : `Add ${preset.label}?`}
+      </h3>
+      <p className={styles.helper}>
+        This link contains only public Föli stop IDs and names — no private
+        address or saved location.
+      </p>
+      <div className={styles.importStops}>
+        {place.stops.map((stop) => (
+          <span key={stop.id}>
+            <strong>{stop.name}</strong>
+            <small>
+              Stop {stop.id}
+              {stop.id === place.primaryStopId ? " · primary" : ""}
+            </small>
+          </span>
+        ))}
+      </div>
+      <div className={styles.setupActions}>
+        <button type="button" className={styles.primaryButton} onClick={onImport}>
+          {replacing ? `Replace ${preset.label}` : `Add ${preset.label}`}
+        </button>
+        <button type="button" className={styles.textButton} onClick={onDismiss}>
+          Not now
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function PlaceCard({
   place,
   stops,
@@ -178,6 +219,8 @@ function PlaceCard({
   onRemove,
 }) {
   const [showDriver, setShowDriver] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState("");
+  const [shareUrl, setShareUrl] = useState("");
   const resolvedStops = resolvePlaceStops(place, stops);
   const primaryStop =
     resolvedStops.find((stop) => stop.id === place.primaryStopId) ||
@@ -185,6 +228,37 @@ function PlaceCard({
   const transitUrl = hasCoordinates(primaryStop)
     ? buildTransitDirectionsUrl(primaryStop)
     : "";
+
+  const sharePlace = async () => {
+    const url = buildSharedPlaceUrl(place);
+    if (!url) return;
+
+    setShareFeedback("");
+    setShareUrl("");
+
+    try {
+      if (typeof navigator?.share === "function") {
+        await navigator.share({
+          title: `${place.label} · Föli Safe Place`,
+          text: `Add ${place.label} to My Places`,
+          url,
+        });
+        setShareFeedback("Safe Place shared.");
+        return;
+      }
+
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setShareFeedback("Share link copied.");
+        return;
+      }
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+
+    setShareUrl(url);
+    setShareFeedback("Copy the share link below.");
+  };
 
   return (
     <article className={styles.placeCard}>
@@ -275,6 +349,13 @@ function PlaceCard({
           </button>
           <button
             type="button"
+            className={styles.textButton}
+            onClick={sharePlace}
+          >
+            Share {place.label}
+          </button>
+          <button
+            type="button"
             className={styles.dangerButton}
             onClick={() => {
               if (window.confirm(`Remove ${place.label} from My Places?`)) {
@@ -285,6 +366,20 @@ function PlaceCard({
             Remove {place.label}
           </button>
         </div>
+        {shareFeedback && (
+          <p className={styles.shareFeedback} role="status">
+            {shareFeedback}
+          </p>
+        )}
+        {shareUrl && (
+          <input
+            className={styles.shareInput}
+            aria-label={`Share link for ${place.label}`}
+            readOnly
+            value={shareUrl}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        )}
       </details>
 
       {showDriver && (
@@ -303,7 +398,10 @@ function MyPlaces({
   coordinatesStatus,
   activeStopId,
   placesById,
+  sharedPlace,
   onSavePlace,
+  onImportSharedPlace,
+  onDismissSharedPlace,
   onRemovePlace,
   onSetPrimaryStop,
   onOpenStop,
@@ -384,6 +482,15 @@ function MyPlaces({
           </p>
         </div>
       </div>
+
+      {sharedPlace && (
+        <SharedPlaceImport
+          place={sharedPlace}
+          replacing={placesById.has(sharedPlace.id)}
+          onImport={onImportSharedPlace}
+          onDismiss={onDismissSharedPlace}
+        />
+      )}
 
       {error && (
         <p className={styles.error} role="alert">
