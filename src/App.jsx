@@ -73,6 +73,7 @@ function App() {
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
   );
+  const displayStopName = selectedStop?.name || stopName;
 
   useEffect(() => {
     const handlePopState = () => setStopId(stopFromLocation());
@@ -89,10 +90,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (stopName) {
-      rememberRecent({ id: stopId, name: stopName });
+    if (displayStopName) {
+      rememberRecent({ id: stopId, name: displayStopName });
     }
-  }, [rememberRecent, stopId, stopName]);
+  }, [displayStopName, rememberRecent, stopId]);
 
   const selectStop = (nextStopId) => {
     if (!/^\d+$/.test(nextStopId || "")) return;
@@ -108,7 +109,7 @@ function App() {
 
   const currentStop = {
     id: stopId,
-    name: stopName || `Stop ${stopId}`,
+    name: displayStopName || `Stop ${stopId}`,
   };
 
   const dismissSharedPlace = () => {
@@ -192,7 +193,7 @@ function App() {
 
       <BusStopDisplay
         stopId={stopId}
-        stopName={stopName}
+        stopName={displayStopName}
         stop={selectedStop}
         arrivals={arrivals}
         routesByShortName={routesByShortName}
