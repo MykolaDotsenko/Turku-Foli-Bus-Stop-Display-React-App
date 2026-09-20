@@ -15,6 +15,7 @@ function resolveStops(place, stops) {
 
 function HomeRecovery({ home, stops, online = true, onOpenStop }) {
   const [showDriver, setShowDriver] = useState(false);
+  const canPrint = typeof globalThis.print === "function";
 
   const resolvedStops = useMemo(
     () => (home ? resolveStops(home, stops) : []),
@@ -150,6 +151,50 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
           </div>
         </details>
       )}
+
+      <details className={styles.batteryBackup}>
+        <summary>Prepare for no battery</summary>
+        <p>
+          A web app cannot help after the phone powers off. Print or save a
+          small Home backup card in advance so the destination still exists
+          outside the phone.
+        </p>
+        {canPrint && (
+          <button
+            type="button"
+            className={styles.printButton}
+            onClick={() => globalThis.print()}
+          >
+            Print / save Home backup card
+          </button>
+        )}
+      </details>
+
+      <section className={styles.printCard} aria-hidden="true">
+        <p className={styles.printKicker}>Föli Home backup card</p>
+        <h2>Home</h2>
+        <p className={styles.printPrimary}>
+          {primaryStop.name}
+          <span>Stop {primaryStop.id} · primary</span>
+        </p>
+        {backupStops.length > 0 && (
+          <div className={styles.printBackups}>
+            <strong>Other approved safe stops</strong>
+            {backupStops.map((stop) => (
+              <p key={stop.id}>
+                {stop.name} · Stop {stop.id}
+              </p>
+            ))}
+          </div>
+        )}
+        <p className={styles.printHelp}>
+          Voitteko auttaa minua jäämään pois oikealla pysäkillä?
+        </p>
+        <p className={styles.printNote}>
+          Show this card to a driver or trusted adult. This card contains public
+          stop information, not a private home address.
+        </p>
+      </section>
 
       {showDriver && (
         <SafePlaceDriverCard
