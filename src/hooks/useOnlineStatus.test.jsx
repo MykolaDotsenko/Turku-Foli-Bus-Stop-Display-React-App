@@ -14,7 +14,7 @@ function setOnline(value) {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  sessionStorage.clear();
+  globalThis.sessionStorage.clear();
   globalThis.localStorage.clear();
 
   if (originalOnLine) {
@@ -134,5 +134,5 @@ test("persists an offline hint before a page exit even when no offline event fir
     window.dispatchEvent(new globalThis.Event("pagehide"));
   });
 
-  expect(sessionStorage.getItem("foli-offline-hint")).toBe("1");
+  expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
 });
