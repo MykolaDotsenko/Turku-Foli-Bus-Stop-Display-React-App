@@ -459,7 +459,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
     .toBe("4");
 
-  await page.evaluate(() => globalThis.history.back());
+  await page.goBack({ waitUntil: "commit" });
   await expect(page).toHaveURL(/stop=164/);
   await expect
     .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
