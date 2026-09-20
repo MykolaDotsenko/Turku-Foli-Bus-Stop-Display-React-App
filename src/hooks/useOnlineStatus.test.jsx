@@ -103,3 +103,19 @@ test("keeps explicit offline state across a PWA-style reload until reachability 
   await waitFor(() => expect(second.result.current).toBe(false));
   expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
 });
+
+
+test("persists an offline hint during reload even if the offline event was missed", () => {
+  setOnline(true);
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { unmount } = renderHook(() => useOnlineStatus());
+
+  setOnline(false);
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("beforeunload"));
+  });
+
+  expect(globalThis.sessionStorage.getItem("foli-offline-hint")).toBe("1");
+  unmount();
+});
