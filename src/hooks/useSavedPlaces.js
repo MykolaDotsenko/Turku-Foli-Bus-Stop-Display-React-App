@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
 const STORAGE_KEY = "foli-my-places-v1";
-const VALIDATION_WRITE_DEDUP_MS = 60_000;
 
 export const PLACE_PRESETS = [
   { id: "home", label: "Home", icon: "⌂" },
@@ -117,21 +116,25 @@ export default function useSavedPlaces() {
   );
 
   const revalidatePlaces = useCallback(
-    (catalogStops) => {
+    (catalogStops, catalogSavedAt = Date.now()) => {
       if (!Array.isArray(catalogStops) || catalogStops.length === 0) return;
 
+      const validatedAt = Number(catalogSavedAt) || Date.now();
       const catalogById = new Map(
         catalogStops
           .filter((stop) => stop?.id)
           .map((stop) => [String(stop.id), stop])
       );
-      const validatedAt = Date.now();
 
       commit((current) => {
         if (current.length === 0) return current;
 
         let changed = false;
         const next = current.map((place) => {
+          if (place.validatedAt >= validatedAt && place.validatedAt > 0) {
+            return place;
+          }
+
           let needsReview = false;
           let renamed = false;
 
@@ -152,20 +155,20 @@ export default function useSavedPlaces() {
           });
 
           if (
-            place.needsReview === needsReview &&
-            !renamed &&
-            validatedAt - place.validatedAt < VALIDATION_WRITE_DEDUP_MS
+            renamed ||
+            place.needsReview !== needsReview ||
+            place.validatedAt !== validatedAt
           ) {
-            return place;
+            changed = true;
+            return {
+              ...place,
+              stops,
+              validatedAt,
+              needsReview,
+            };
           }
 
-          changed = true;
-          return {
-            ...place,
-            stops,
-            validatedAt,
-            needsReview,
-          };
+          return place;
         });
 
         return changed ? next : current;
