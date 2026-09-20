@@ -459,22 +459,15 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.length))
     .toBe(historyLengthBeforeStopChange + 1);
 
-  // History API traversal is a same-document navigation: it changes the URL
-  // and fires popstate, but it does not fire a new document load event. Trigger
-  // traversal on the next task so page.evaluate itself is not interrupted, and
-  // synchronize on the user-visible URL instead of a load lifecycle event.
-  const backNavigation = page.waitForURL(/stop=164/);
-  await page.evaluate(() => {
-    globalThis.setTimeout(() => globalThis.history.back(), 0);
-  });
-  await backNavigation;
+  // Exercise the browser's actual session-history traversal. A valid initial
+  // deep link must remain its own entry, so Back returns to Kauppatori rather
+  // than escaping to the pre-navigation blank page.
+  await page.goBack();
+  await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  const forwardNavigation = page.waitForURL(/stop=4/);
-  await page.evaluate(() => {
-    globalThis.setTimeout(() => globalThis.history.forward(), 0);
-  });
-  await forwardNavigation;
+  await page.goForward();
+  await expect(page).toHaveURL(/stop=4/);
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
 
