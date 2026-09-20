@@ -20,8 +20,8 @@ These screenshots are generated from the same deterministic Playwright flow that
 
 1. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
 2. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
-3. See active **service updates and cancellations before departures**.
-4. Scan line, destination, due time, and realtime status.
+3. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**.
+4. Scan line, destination, due time, realtime status, official Föli route identity, and — when available — the live vehicle's approximate distance from the stop.
 5. Save frequent stops with **☆**.
 6. Return to favorites or recent stops in one tap.
 7. Use browser Back/Forward or share a bookmarkable stop URL.
@@ -42,7 +42,13 @@ No account, backend, tracking, or setup is required. Favorites and recents stay 
 - keyboard autocomplete supports ↑ / ↓ / Enter / Escape
 - favorites optimize repeated commute flows
 - recent stops recover common journeys automatically
-- stop-specific service messages and cancellations appear before the board
+- stop-specific and route-specific service messages appear before the board
+- global Föli notices are included and emergency messages replace lower-priority disruption content
+- semantic alert effects such as Detour, Stop moved, Significant delays and No service are surfaced directly
+- detailed alert information stays collapsed until the user asks for it
+- official GTFS route colors and names improve line recognition without hard-coded branding
+- route text colors are contrast-checked at runtime and corrected when the provider color pair would fail WCAG AA
+- monitored SIRI vehicle coordinates are converted into an approximate vehicle-to-stop distance
 - line, destination, and due time remain the strongest visual hierarchy
 - mobile controls use large touch targets and collapse into a simple one-column action flow
 - loading, empty, stale, scheduled, realtime, and failed states are explicit
@@ -88,15 +94,17 @@ The UI intentionally treats realtime values as estimates rather than promises.
 ## Architecture
 
 ~~~text
-Föli SIRI + GTFS + Alerts APIs
+Föli SIRI + GTFS Stops/Routes + Alerts APIs
         ↓
 api/foliApi.js
   normalize provider data
-  join active SIRI stops with GTFS coordinates
+  keep monitored SIRI vehicle coordinates
+  normalize GTFS stop + route metadata
         ↓
 hooks/
   useStopMonitor.js   30s visible-tab polling + cancellation + stale-data safety
   useStopCatalog.js   non-blocking SIRI catalogue + async GTFS enrichment
+  useRouteCatalog.js  cached route identity/colors for line recognition + alerts
   useSavedStops.js    local-first favorites + recents
   useStopAlerts.js    conservative active-disruption polling
         ↓
@@ -105,11 +113,12 @@ App.jsx
 BusStopForm.jsx       search / accessible autocomplete
 NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
 QuickStops.jsx        favorites / recents
-ServiceAlerts.jsx     relevant disruptions / cancellations
-BusStopDisplay.jsx    live departure board
+ServiceAlerts.jsx     stop + route disruptions / emergency + global notices
+BusStopDisplay.jsx    live departure board + route identity + vehicle proximity
         ↓
 utils/
-  geo.js              Haversine distance + nearest-stop ranking
+  geo.js              Haversine distance + nearest-stop + vehicle distance
+  routes.js           route indexing + WCAG-safe route text color
   maps.js             keyless privacy-conscious walking directions URL
   time.js             timing + freshness semantics
   alerts.js           pure alert filtering
@@ -134,6 +143,11 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - low-accuracy, far-from-network, and ambiguous opposite-direction results do not silently auto-select a stop
 - walking navigation is an explicit external handoff; the user's origin is not embedded in the generated Maps URL
 - service alerts refresh conservatively every five minutes while visible
+- the last successful raw alert payload is re-filtered locally when the active stop, visible lines, or route metadata changes
+- route-only disruptions are matched through GTFS route_id → route_short_name rather than guessed from identifiers
+- empty global/emergency envelopes are ignored; a real emergency notice suppresses ordinary alert noise
+- route metadata is progressive enhancement and cannot block departures
+- vehicle proximity is shown only for monitored arrivals with valid WGS84 coordinates
 - background tabs do not create unnecessary Föli API load
 - service worker caches only same-origin application shell/assets, never `data.foli.fi` realtime responses
 
@@ -146,6 +160,8 @@ Accessibility is a release gate, not a checklist claim.
 - full keyboard autocomplete navigation
 - location feedback uses status/alert semantics rather than visual-only state
 - nearest-stop buttons expose stop name, number, and distance to assistive technology
+- official line colors are paired with runtime contrast correction before rendering text
+- alert effect labels, route scope and expandable detail text remain available without color dependence
 - walking-direction links have explicit destination-aware accessible names and keyboard focus states
 - visible focus states
 - `aria-busy`, `aria-live`, `aria-invalid`, and `aria-pressed`
@@ -163,7 +179,7 @@ Every pull request to `master` must pass:
 | Gate | Coverage |
 | --- | --- |
 | ESLint | JavaScript/JSX correctness + React Hooks rules |
-| Vitest + Testing Library | timing semantics, stale-data safety, search, favorites, alerts, geolocation, distance math, Maps URL privacy, failure states |
+| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, stop/vehicle distance math, Maps URL privacy, failure states |
 | Production build | Vite production compilation |
 | Playwright · Chromium | real DOM daily-flow + real browser geolocation permission flow |
 | Playwright · Firefox | cross-browser behavior |
@@ -190,6 +206,7 @@ CI also retains Playwright reports, failure traces, and recruiter-ready desktop/
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
 - Föli GTFS stops API
+- Föli GTFS routes API
 - Föli service alerts API
 
 ## Run locally
@@ -205,6 +222,7 @@ Optional compatible API overrides:
 VITE_FOLI_API_URL=https://example.test/siri/sm npm run dev
 VITE_FOLI_ALERTS_URL=https://example.test/alerts npm run dev
 VITE_FOLI_STOPS_URL=https://example.test/gtfs/stops npm run dev
+VITE_FOLI_ROUTES_URL=https://example.test/gtfs/routes npm run dev
 ~~~
 
 Core local checks:
