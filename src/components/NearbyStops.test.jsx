@@ -30,7 +30,7 @@ afterEach(() => {
   }
 });
 
-test("requests location only after user action and selects the nearest stop", async () => {
+test("requests location only after user action and selects a clear nearest stop", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -45,7 +45,12 @@ test("requests location only after user action and selects the nearest stop", as
   setGeolocation(getCurrentPosition);
 
   render(
-    <NearbyStops stops={stops} activeStopId="4" onSelect={onSelect} />
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
   );
 
   expect(getCurrentPosition).not.toHaveBeenCalled();
@@ -72,7 +77,12 @@ test("explains denied permission without changing the active stop", async () => 
   setGeolocation(getCurrentPosition);
 
   render(
-    <NearbyStops stops={stops} activeStopId="4" onSelect={onSelect} />
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
   );
 
   fireEvent.click(
@@ -100,7 +110,12 @@ test("does not auto-select when reported location accuracy is poor", async () =>
   setGeolocation(getCurrentPosition);
 
   render(
-    <NearbyStops stops={stops} activeStopId="4" onSelect={onSelect} />
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
   );
 
   fireEvent.click(
@@ -112,6 +127,55 @@ test("does not auto-select when reported location accuracy is poor", async () =>
   ).toBeInTheDocument();
   expect(onSelect).not.toHaveBeenCalled();
   expect(screen.getByText("Nearest")).toBeInTheDocument();
+});
+
+test("does not auto-select when two opposite-direction candidates are similarly close", async () => {
+  const closeStops = [
+    {
+      id: "100",
+      name: "Market eastbound",
+      lat: 60.4519,
+      lon: 22.2666,
+    },
+    {
+      id: "101",
+      name: "Market westbound",
+      lat: 60.4517,
+      lon: 22.2666,
+    },
+    { id: "4", name: "Turun linna", lat: 60.4355, lon: 22.2345 },
+  ];
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.4518,
+        longitude: 22.2666,
+        accuracy: 20,
+      },
+    })
+  );
+  const onSelect = vi.fn();
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <NearbyStops
+      stops={closeStops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find nearest stop" })
+  );
+
+  expect(
+    await screen.findByText(/Two stops are almost equally close/i)
+  ).toBeInTheDocument();
+  expect(onSelect).not.toHaveBeenCalled();
+  expect(screen.getAllByRole("button", { name: /Market/ })).toHaveLength(2);
 });
 
 test("retries a timed-out high-accuracy request with fallback options", async () => {
@@ -132,7 +196,12 @@ test("retries a timed-out high-accuracy request with fallback options", async ()
   setGeolocation(getCurrentPosition);
 
   render(
-    <NearbyStops stops={stops} activeStopId="4" onSelect={onSelect} />
+    <NearbyStops
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="4"
+      onSelect={onSelect}
+    />
   );
 
   fireEvent.click(
