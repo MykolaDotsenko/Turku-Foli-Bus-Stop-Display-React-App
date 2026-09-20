@@ -322,7 +322,15 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   ).toBeVisible();
   await expect(page.getByText(/Location accuracy/)).toBeVisible();
 
-  await page.getByRole("button", { name: "Save Home" }).click();
+  const saveHome = page.getByRole("button", { name: "Save Home" });
+  await expect(saveHome).toBeDisabled();
+  await page
+    .getByRole("checkbox", {
+      name: /I confirm the selected stop is safe and useful for arriving at Home/i,
+    })
+    .check();
+  await expect(saveHome).toBeEnabled();
+  await saveHome.click();
 
   const goHome = page.getByRole("link", {
     name: "Go Home by public transit",
@@ -543,7 +551,18 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   ).toBeVisible();
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
+  await driver.getByRole("button", { name: "Close" }).click();
+  await mockFoli(page);
   await context.setOffline(false);
+  await page.evaluate(() => {
+    window.dispatchEvent(new globalThis.Event("online"));
+  });
+
+  await expect(page.getByText("Offline", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Offline mode", { exact: true })).toHaveCount(0);
+  await expect(
+    recovery.getByRole("link", { name: "Get me Home by public transit" })
+  ).toBeVisible();
 });
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {
@@ -561,11 +580,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();
 
-  const blocking = results.violations.filter((violation) =>
-    ["critical", "serious"].includes(violation.impact)
-  );
-
-  expect(blocking).toEqual([]);
+  expect(results.violations).toEqual([]);
 });
 
 test("mobile layout does not create horizontal page overflow", async ({
