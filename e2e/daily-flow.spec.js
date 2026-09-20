@@ -2,6 +2,22 @@ import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+
+function encodeSharedPlaceForTest(payload) {
+  const bytes = new globalThis.TextEncoder().encode(JSON.stringify(payload));
+  let binary = "";
+
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  return globalThis
+    .btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/g, "");
+}
+
 function monitorPayload(stopId) {
   const now = Math.floor(Date.now() / 1000);
   const isMarket = stopId === "164";
@@ -265,6 +281,49 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   expect(placeStorage).not.toContain("60.45182");
   expect(placeStorage).not.toContain("22.26662");
   expect(placeStorage).not.toContain("distanceMeters");
+});
+
+
+test("imports a parent-shared Safe Place only after explicit confirmation", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  const token = encodeSharedPlaceForTest({
+    v: 1,
+    p: "home",
+    m: "164",
+    s: [
+      ["164", "Kauppatori"],
+      ["32", "Puistokatu"],
+    ],
+  });
+
+  await page.goto(`/?stop=164#place=${token}`);
+
+  await expect(
+    page.getByRole("heading", { name: "Add Home?" })
+  ).toBeVisible();
+
+  const beforeImport = await page.evaluate(() =>
+    localStorage.getItem("foli-my-places-v1")
+  );
+  expect(beforeImport).toBeNull();
+
+  await page.getByRole("button", { name: "Add Home" }).click();
+
+  await expect(
+    page.getByRole("link", { name: "Go Home by public transit" })
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\?stop=164$/);
+
+  const imported = await page.evaluate(() =>
+    localStorage.getItem("foli-my-places-v1")
+  );
+  expect(imported).toContain('"id":"164"');
+  expect(imported).toContain('"id":"32"');
+  expect(imported).not.toContain("lat");
+  expect(imported).not.toContain("lon");
 });
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {
