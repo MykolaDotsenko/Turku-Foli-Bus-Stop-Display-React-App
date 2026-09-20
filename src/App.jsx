@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
@@ -38,8 +39,17 @@ function currentHistoryState() {
     : {};
 }
 
-function canonicalizeCurrentStop(stopId) {
-  window.history.replaceState(currentHistoryState(), "", stopUrl(stopId));
+function stopFromHistoryState(state) {
+  const stopId = state?.foliStopId;
+  return /^\d+$/.test(stopId || "") ? stopId : null;
+}
+
+function canonicalizeCurrentStop(stopId, state = currentHistoryState()) {
+  window.history.replaceState(
+    { ...state, foliStopId: stopId },
+    "",
+    stopUrl(stopId)
+  );
 }
 
 function App() {
@@ -101,37 +111,39 @@ function App() {
   const displayStopName = selectedStop?.name || stopName;
 
   useEffect(() => {
-    const canonicalizeInvalidLocation = () => {
-      const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
+    let initialSyncTimer = null;
 
-      if (!/^\d+$/.test(stopFromUrl || "")) {
-        canonicalizeCurrentStop(DEFAULT_STOP);
-      }
+    const syncInitialHistoryEntry = () => {
+      const currentStopId = stopFromLocation();
+      canonicalizeCurrentStop(currentStopId);
     };
 
-    // Do not rewrite an already-valid initial URL while the document is still
-    // loading. Preserving that browser-created history entry is what makes
-    // native Back/Forward traversal reliable across engines. Invalid or
-    // missing stop links are canonicalized only after the initial load entry
-    // has settled.
+    // The browser owns the initial document entry. Attach app-owned stop state
+    // only after load has settled so we do not interfere with navigation
+    // commit semantics while the production document is still loading.
     if (document.readyState === "complete") {
-      canonicalizeInvalidLocation();
+      initialSyncTimer = window.setTimeout(syncInitialHistoryEntry, 0);
     } else {
-      window.addEventListener("load", canonicalizeInvalidLocation, {
+      window.addEventListener("load", syncInitialHistoryEntry, {
         once: true,
       });
     }
 
-    const handlePopState = () => {
-      const nextStopId = stopFromLocation();
+    const handlePopState = (event) => {
+      const nextStopId =
+        stopFromHistoryState(event.state) || stopFromLocation();
       const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
 
       if (!/^\d+$/.test(stopFromUrl || "")) {
-        canonicalizeCurrentStop(nextStopId);
+        canonicalizeCurrentStop(nextStopId, event.state);
       }
 
-      // The shareable URL is the single source of truth for browser history.
-      setStopId(nextStopId);
+      // popstate is a native browser event outside React's event system.
+      // Flush the route state synchronously so the rendered board and URL
+      // become one observable navigation state across browser engines.
+      flushSync(() => {
+        setStopId(nextStopId);
+      });
     };
     const handleHashChange = () =>
       setSharedPlace(parseSharedPlaceHash(window.location.hash));
@@ -140,7 +152,10 @@ function App() {
     window.addEventListener("hashchange", handleHashChange);
 
     return () => {
-      window.removeEventListener("load", canonicalizeInvalidLocation);
+      if (initialSyncTimer !== null) {
+        window.clearTimeout(initialSyncTimer);
+      }
+      window.removeEventListener("load", syncInitialHistoryEntry);
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("hashchange", handleHashChange);
     };
@@ -172,10 +187,15 @@ function App() {
       return;
     }
 
-    // The URL is the navigation source of truth. Add exactly one history entry
-    // per user-selected stop; do not replace the current entry immediately
-    // before pushing, because that can make Back/Forward traversal brittle.
-    window.history.pushState(null, "", stopUrl(nextStopId));
+    // Keep both the shareable URL and app-owned entry state aligned. Repairing
+    // the current entry before pushing gives Back/Forward a deterministic stop
+    // identity without relying on browser-specific restoration timing.
+    canonicalizeCurrentStop(stopId);
+    window.history.pushState(
+      { ...currentHistoryState(), foliStopId: nextStopId },
+      "",
+      stopUrl(nextStopId)
+    );
     setStopId(nextStopId);
   };
 
