@@ -64,8 +64,19 @@ test("requests location only after user action and selects a clear nearest stop"
   expect(screen.getByText("Nearest")).toBeInTheDocument();
   expect(screen.getByText(/Accuracy ±20 m/)).toBeInTheDocument();
   expect(
-    screen.getByText(/straight-line distances, not walking-route distances/i)
+    screen.getByText(/external walking route in Google Maps/i)
   ).toBeInTheDocument();
+
+  const walkLink = screen.getByRole("link", {
+    name: "Walk to Kauppatori, stop 164, in Google Maps",
+  });
+  expect(walkLink).toHaveAttribute("target", "_blank");
+  expect(walkLink).toHaveAttribute("rel", "noreferrer");
+
+  const url = new globalThis.URL(walkLink.href);
+  expect(url.searchParams.get("destination")).toBe("60.4518,22.2666");
+  expect(url.searchParams.get("travelmode")).toBe("walking");
+  expect(url.searchParams.has("origin")).toBe(false);
 });
 
 test("explains denied permission without changing the active stop", async () => {
@@ -176,6 +187,9 @@ test("does not auto-select when two opposite-direction candidates are similarly 
   ).toBeInTheDocument();
   expect(onSelect).not.toHaveBeenCalled();
   expect(screen.getAllByRole("button", { name: /Market/ })).toHaveLength(2);
+  expect(screen.getAllByRole("link", { name: /Walk to Market/ })).toHaveLength(
+    2
+  );
 });
 
 test("retries a timed-out high-accuracy request with fallback options", async () => {

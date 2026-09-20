@@ -146,6 +146,18 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(page.getByText("Nearest")).toBeVisible();
   await expect(page.getByText(/Selected stop ≈/)).toBeVisible();
+
+  const walkLink = page.getByRole("link", {
+    name: "Walk to Kauppatori, stop 164, in Google Maps",
+  });
+  await expect(walkLink).toBeVisible();
+  await expect(walkLink).toHaveAttribute("target", "_blank");
+
+  const href = await walkLink.getAttribute("href");
+  const mapsUrl = new globalThis.URL(href);
+  expect(mapsUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
+  expect(mapsUrl.searchParams.get("travelmode")).toBe("walking");
+  expect(mapsUrl.searchParams.has("origin")).toBe(false);
 });
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {

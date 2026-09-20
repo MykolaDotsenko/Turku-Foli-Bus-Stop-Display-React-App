@@ -99,30 +99,42 @@
   gap: 8px;
 }
 
+.stopCard {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #c5d9dc;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.stopCard:hover {
+  border-color: #7fa3aa;
+}
+
+.stopCard[data-active="true"] {
+  border-color: #007985;
+  box-shadow: inset 0 0 0 1px #007985;
+}
+
 .stopButton {
   display: flex;
+  width: 100%;
   min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   min-height: 58px;
   padding: 10px 11px;
-  border: 1px solid #c5d9dc;
-  border-radius: 12px;
-  background: #fff;
+  border: 0;
+  background: transparent;
   color: #20343b;
   cursor: pointer;
   text-align: left;
 }
 
 .stopButton:hover {
-  border-color: #7fa3aa;
   background: #f1f9f9;
-}
-
-.stopButton[data-active="true"] {
-  border-color: #007985;
-  box-shadow: inset 0 0 0 1px #007985;
 }
 
 .stopText {
@@ -156,6 +168,32 @@
   text-transform: uppercase;
 }
 
+.walkLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-top: 1px solid #e1ecee;
+  background: #fbfdfd;
+  color: #00656f;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.walkLink:hover {
+  background: #edf8f8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.walkLink:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: -3px;
+}
+
 .disclaimer {
   color: #52666f;
 }
@@ -163,6 +201,16 @@
 @media (max-width: 720px) {
   .stopGrid {
     grid-template-columns: 1fr;
+  }
+
+  .stopCard {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .walkLink {
+    min-width: 102px;
+    border-top: 0;
+    border-left: 1px solid #e1ecee;
   }
 }
 
@@ -178,9 +226,23 @@
   }
 }
 
+@media (max-width: 390px) {
+  .stopCard {
+    grid-template-columns: 1fr;
+  }
+
+  .walkLink {
+    min-height: 42px;
+    border-top: 1px solid #e1ecee;
+    border-left: 0;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .locateButton,
-  .stopButton {
+  .stopCard,
+  .stopButton,
+  .walkLink {
     transition:
       background-color 140ms ease,
       border-color 140ms ease,
@@ -189,8 +251,9 @@
 }
 
 @media (forced-colors: active) {
-  .stopButton[data-active="true"],
-  .locateButton {
+  .stopCard[data-active="true"],
+  .locateButton,
+  .walkLink {
     border: 2px solid ButtonText;
   }
 }

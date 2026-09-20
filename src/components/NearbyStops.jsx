@@ -6,6 +6,7 @@ import {
   formatDistance,
   hasCoordinates,
 } from "../utils/geo";
+import { buildWalkingDirectionsUrl } from "../utils/maps";
 import styles from "./NearbyStops.module.css";
 
 const AUTO_SELECT_MAX_DISTANCE_METERS = 10_000;
@@ -70,25 +71,44 @@ function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
   );
 }
 
-function NearbyStopButton({ stop, isActive, isNearest, onSelect }) {
+function NearbyStopCard({ stop, isActive, isNearest, onSelect }) {
+  const directionsUrl = buildWalkingDirectionsUrl(stop);
+
   return (
-    <button
-      type="button"
-      className={styles.stopButton}
+    <article
+      className={styles.stopCard}
       data-active={isActive ? "true" : "false"}
-      onClick={() => onSelect(stop.id)}
-      aria-label={`${stop.name}, stop ${stop.id}, ${formatDistance(
-        stop.distanceMeters
-      )} away`}
     >
-      <span className={styles.stopText}>
-        <strong>{stop.name}</strong>
-        <span>
-          Stop {stop.id} · {formatDistance(stop.distanceMeters)}
+      <button
+        type="button"
+        className={styles.stopButton}
+        onClick={() => onSelect(stop.id)}
+        aria-label={`${stop.name}, stop ${stop.id}, ${formatDistance(
+          stop.distanceMeters
+        )} away`}
+      >
+        <span className={styles.stopText}>
+          <strong>{stop.name}</strong>
+          <span>
+            Stop {stop.id} · {formatDistance(stop.distanceMeters)}
+          </span>
         </span>
-      </span>
-      {isNearest && <span className={styles.nearestBadge}>Nearest</span>}
-    </button>
+        {isNearest && <span className={styles.nearestBadge}>Nearest</span>}
+      </button>
+
+      {directionsUrl && (
+        <a
+          className={styles.walkLink}
+          href={directionsUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Walk to ${stop.name}, stop ${stop.id}, in Google Maps`}
+        >
+          <span aria-hidden="true">↗</span>
+          Walk there
+        </a>
+      )}
+    </article>
   );
 }
 
@@ -281,7 +301,7 @@ function NearbyStops({
               aria-label="Nearest Föli stops"
             >
               {nearbyStops.map((stop, index) => (
-                <NearbyStopButton
+                <NearbyStopCard
                   key={stop.id}
                   stop={stop}
                   isNearest={index === 0}
@@ -293,8 +313,8 @@ function NearbyStops({
           )}
 
           <p className={styles.disclaimer}>
-            Distances are approximate straight-line distances, not walking-route
-            distances.
+            Distances are approximate straight-line distances. “Walk there”
+            opens an external walking route in Google Maps.
           </p>
         </>
       )}

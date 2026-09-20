@@ -19,7 +19,7 @@ These screenshots are generated from the same deterministic Playwright flow that
 ## Daily workflow
 
 1. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
-2. Compare the three closest stops and their approximate straight-line distances when direction matters.
+2. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
 3. See active **service updates and cancellations before departures**.
 4. Scan line, destination, due time, and realtime status.
 5. Save frequent stops with **☆**.
@@ -35,6 +35,7 @@ No account, backend, tracking, or setup is required. Favorites and recents stay 
 - the three nearest alternatives remain visible because the physically closest stop may serve the wrong travel direction
 - location accuracy is exposed instead of pretending GPS/Wi-Fi positioning is exact
 - stop distances are labelled as approximate straight-line distances rather than walking-route distances
+- each nearby stop can open keyless walking directions in Google Maps without bundling a map SDK
 - user coordinates are never stored and there is no background location tracking
 - stop-name search removes the need to remember numeric stop IDs
 - search tolerates partial names and missing Finnish diacritics
@@ -60,11 +61,12 @@ When the user taps **Find nearest stop**:
 3. distances are calculated locally with the Haversine formula
 4. the three nearest active Föli stops are ranked
 5. the nearest stop is auto-selected only when:
-   - reported location accuracy is at most 1 km, and
-   - the nearest stop is within 10 km
+   - reported location accuracy is at most 250 m,
+   - the nearest stop is within 10 km, and
+   - the second-nearest candidate is not effectively tied within the uncertainty margin
 6. poor accuracy, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
 
-No map SDK, geocoding service, analytics service, or location backend is required.
+No map SDK, geocoding service, analytics service, or location backend is required. **Walk there** uses a standard Google Maps URL with only the public stop destination; the app does not put the user's current coordinates into the external URL.
 
 ## Realtime semantics
 
@@ -101,13 +103,14 @@ hooks/
 App.jsx
         ↓
 BusStopForm.jsx       search / accessible autocomplete
-NearbyStops.jsx       one-time geolocation / nearest-stop ranking
+NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
 QuickStops.jsx        favorites / recents
 ServiceAlerts.jsx     relevant disruptions / cancellations
 BusStopDisplay.jsx    live departure board
         ↓
 utils/
   geo.js              Haversine distance + nearest-stop ranking
+  maps.js             keyless privacy-conscious walking directions URL
   time.js             timing + freshness semantics
   alerts.js           pure alert filtering
 ~~~
@@ -129,6 +132,7 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - geolocation is requested only from a direct user gesture
 - high-accuracy geolocation timeout retries once with a lower-power cached-position strategy
 - low-accuracy, far-from-network, and ambiguous opposite-direction results do not silently auto-select a stop
+- walking navigation is an explicit external handoff; the user's origin is not embedded in the generated Maps URL
 - service alerts refresh conservatively every five minutes while visible
 - background tabs do not create unnecessary Föli API load
 - service worker caches only same-origin application shell/assets, never `data.foli.fi` realtime responses
@@ -142,6 +146,7 @@ Accessibility is a release gate, not a checklist claim.
 - full keyboard autocomplete navigation
 - location feedback uses status/alert semantics rather than visual-only state
 - nearest-stop buttons expose stop name, number, and distance to assistive technology
+- walking-direction links have explicit destination-aware accessible names and keyboard focus states
 - visible focus states
 - `aria-busy`, `aria-live`, `aria-invalid`, and `aria-pressed`
 - reduced-motion support
@@ -158,7 +163,7 @@ Every pull request to `master` must pass:
 | Gate | Coverage |
 | --- | --- |
 | ESLint | JavaScript/JSX correctness + React Hooks rules |
-| Vitest + Testing Library | timing semantics, stale-data safety, search, favorites, alerts, geolocation, distance math, failure states |
+| Vitest + Testing Library | timing semantics, stale-data safety, search, favorites, alerts, geolocation, distance math, Maps URL privacy, failure states |
 | Production build | Vite production compilation |
 | Playwright · Chromium | real DOM daily-flow + real browser geolocation permission flow |
 | Playwright · Firefox | cross-browser behavior |
