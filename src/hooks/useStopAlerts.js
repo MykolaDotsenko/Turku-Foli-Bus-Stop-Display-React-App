@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchAlerts } from "../api/foliApi";
+import { fetchAlerts, fetchStopServedRouteIds } from "../api/foliApi";
 import { extractStopAlerts } from "../utils/alerts";
 
 const ALERT_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -8,7 +8,9 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
   const [payload, setPayload] = useState(null);
   const [receivedAtMs, setReceivedAtMs] = useState(null);
   const [error, setError] = useState(false);
+  const [servedRouteIds, setServedRouteIds] = useState(() => new Set());
   const abortRef = useRef(null);
+  const membershipAbortRef = useRef(null);
   const preferredLanguages = useMemo(() => {
     if (typeof navigator === "undefined") return ["en"];
     const languages = Array.isArray(navigator.languages)
@@ -41,6 +43,44 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
   }, []);
 
   useEffect(() => {
+    membershipAbortRef.current?.abort();
+    const controller = new AbortController();
+    membershipAbortRef.current = controller;
+
+    const candidateRouteIds = [
+      ...new Set(
+        (Array.isArray(payload?.messages) ? payload.messages : [])
+          .filter((message) => message?.isactive === true)
+          .flatMap((message) =>
+            Array.isArray(message?.affected_routes)
+              ? message.affected_routes
+              : []
+          )
+          .map(String)
+          .filter(Boolean)
+      ),
+    ];
+
+    if (!stopId || candidateRouteIds.length === 0) {
+      setServedRouteIds(new Set());
+      return () => controller.abort();
+    }
+
+    fetchStopServedRouteIds(stopId, candidateRouteIds, controller.signal)
+      .then((routeIds) => {
+        if (!controller.signal.aborted) setServedRouteIds(routeIds);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          // Realtime line matching still provides a safe partial fallback.
+          setServedRouteIds(new Set());
+        }
+      });
+
+    return () => controller.abort();
+  }, [payload, stopId]);
+
+  useEffect(() => {
     refresh();
 
     const intervalId = window.setInterval(() => {
@@ -57,6 +97,7 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortRef.current?.abort();
+      membershipAbortRef.current?.abort();
     };
   }, [refresh]);
 
@@ -67,8 +108,16 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
         lineRefs,
         routesById,
         preferredLanguages,
+        servedRouteIds,
       }),
-    [lineRefs, payload, preferredLanguages, routesById, stopId]
+    [
+      lineRefs,
+      payload,
+      preferredLanguages,
+      routesById,
+      servedRouteIds,
+      stopId,
+    ]
   );
 
   return {
