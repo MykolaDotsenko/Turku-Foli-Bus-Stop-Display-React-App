@@ -171,9 +171,11 @@ A stronger directional model would need trip/shape/progress context.
 
 ### Browser connectivity is advisory
 
-navigator.onLine is useful for UI degradation, but it does not prove that Föli or Google Maps is reachable.
+`navigator.onLine` is useful as an immediate browser hint, but it does not prove that Föli or Google Maps is reachable.
 
-Actual API request success/failure remains the authoritative signal for realtime data.
+The connectivity UI therefore also performs a small same-origin **HEAD** probe with `no-store`. The production service worker handles only GET requests, so the cached PWA shell cannot make that probe falsely succeed while offline. This verifies general reachability of the app origin without introducing a third-party tracking endpoint.
+
+Actual Föli request success/failure remains the authoritative signal for realtime and disruption data.
 
 ### Safe Place stop identity still reveals an approximate area
 
