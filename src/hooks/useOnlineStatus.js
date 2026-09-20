@@ -98,10 +98,17 @@ export default function useOnlineStatus() {
       setOnline(false);
     };
 
+    const persistOfflineBeforeReload = () => {
+      if (!browserSaysOnline()) {
+        writeOfflineHint(true);
+      }
+    };
+
     sync();
 
     window.addEventListener("online", sync);
     window.addEventListener("offline", markOffline);
+    window.addEventListener("beforeunload", persistOfflineBeforeReload);
     window.addEventListener("pageshow", sync);
     window.addEventListener("focus", sync);
     document.addEventListener("visibilitychange", sync);
@@ -111,6 +118,7 @@ export default function useOnlineStatus() {
       sequence += 1;
       window.removeEventListener("online", sync);
       window.removeEventListener("offline", markOffline);
+      window.removeEventListener("beforeunload", persistOfflineBeforeReload);
       window.removeEventListener("pageshow", sync);
       window.removeEventListener("focus", sync);
       document.removeEventListener("visibilitychange", sync);
