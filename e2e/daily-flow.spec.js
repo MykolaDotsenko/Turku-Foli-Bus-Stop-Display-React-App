@@ -511,7 +511,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await expect
     .poll(() =>
       page.evaluate(() =>
-        globalThis.sessionStorage.getItem("foli-offline-hint")
+        globalThis.localStorage.getItem("foli-offline-hint")
       )
     )
     .toBe("1");
