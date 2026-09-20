@@ -3,6 +3,7 @@ import {
   distanceInMeters,
   findNearestStops,
   formatDistance,
+  hasCoordinates,
 } from "./geo";
 
 test("calculates realistic short WGS84 distances", () => {
@@ -35,7 +36,20 @@ test("orders nearby stops by straight-line distance", () => {
   );
 });
 
+test("rejects null, blank and out-of-range coordinates", () => {
+  expect(hasCoordinates({ lat: null, lon: null })).toBe(false);
+  expect(hasCoordinates({ lat: "", lon: 22.2 })).toBe(false);
+  expect(hasCoordinates({ lat: 120, lon: 22.2 })).toBe(false);
+  expect(
+    distanceInMeters(
+      { lat: null, lon: null },
+      { lat: 60.4518, lon: 22.2666 }
+    )
+  ).toBeNull();
+});
+
 test("formats distance without implying false precision", () => {
+  expect(formatDistance(3)).toBe("<10 m");
   expect(formatDistance(84)).toBe("80 m");
   expect(formatDistance(1_420)).toBe("1.4 km");
   expect(formatDistance(12_400)).toBe("12 km");
