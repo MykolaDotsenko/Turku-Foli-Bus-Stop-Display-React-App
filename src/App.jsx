@@ -152,20 +152,6 @@ function App() {
         onSelect={selectStop}
       />
 
-      <MyPlaces
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        placesById={placesById}
-        sharedPlace={sharedPlace}
-        onSavePlace={savePlace}
-        onImportSharedPlace={importSharedPlace}
-        onDismissSharedPlace={dismissSharedPlace}
-        onRemovePlace={removePlace}
-        onSetPrimaryStop={setPrimaryStop}
-        onOpenStop={selectStop}
-      />
-
       <QuickStops
         favorites={favorites}
         recents={recents}
@@ -188,6 +174,20 @@ function App() {
         onRefresh={() => refresh()}
         isFavorite={favoriteIds.has(stopId)}
         onToggleFavorite={() => toggleFavorite(currentStop)}
+      />
+
+      <MyPlaces
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId}
+        placesById={placesById}
+        sharedPlace={sharedPlace}
+        onSavePlace={savePlace}
+        onImportSharedPlace={importSharedPlace}
+        onDismissSharedPlace={dismissSharedPlace}
+        onRemovePlace={removePlace}
+        onSetPrimaryStop={setPrimaryStop}
+        onOpenStop={selectStop}
       />
 
       <footer className="source-note">
