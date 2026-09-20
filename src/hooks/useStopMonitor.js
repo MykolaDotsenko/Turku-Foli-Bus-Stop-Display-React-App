@@ -2,6 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
 
 const REFRESH_INTERVAL_MS = 30_000;
+const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
+
+export function pollDelayMs(consecutiveFailures) {
+  const failures = Math.max(0, Number(consecutiveFailures) || 0);
+  if (failures <= 1) return REFRESH_INTERVAL_MS;
+
+  return Math.min(
+    REFRESH_INTERVAL_MS * 2 ** (failures - 1),
+    MAX_RETRY_INTERVAL_MS
+  );
+}
 
 function emptyData(stopId) {
   return {
@@ -19,10 +30,11 @@ export default function useStopMonitor(stopId) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const abortRef = useRef(null);
+  const consecutiveFailuresRef = useRef(0);
 
   const refresh = useCallback(
     async ({ initial = false } = {}) => {
-      if (!stopId) return;
+      if (!stopId) return null;
 
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -33,11 +45,17 @@ export default function useStopMonitor(stopId) {
 
       try {
         const next = await fetchStopMonitor(stopId, controller.signal);
+        consecutiveFailuresRef.current = 0;
         setData({ stopId, ...next, receivedAtMs: Date.now() });
+        return true;
       } catch (err) {
         if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
+          consecutiveFailuresRef.current += 1;
           setError(true);
+          return false;
         }
+
+        return null;
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -49,23 +67,42 @@ export default function useStopMonitor(stopId) {
   );
 
   useEffect(() => {
-    setData(emptyData(stopId));
-    setError(false);
-    setRefreshing(false);
-    refresh({ initial: true });
+    let active = true;
+    let timeoutId = null;
 
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
-    }, REFRESH_INTERVAL_MS);
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") refresh();
+    const scheduleNext = () => {
+      if (!active) return;
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(async () => {
+        if (document.visibilityState === "visible") {
+          await refresh();
+        }
+        scheduleNext();
+      }, pollDelayMs(consecutiveFailuresRef.current));
     };
 
+    const runInitial = async () => {
+      consecutiveFailuresRef.current = 0;
+      setData(emptyData(stopId));
+      setError(false);
+      setRefreshing(false);
+      await refresh({ initial: true });
+      scheduleNext();
+    };
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== "visible") return;
+      window.clearTimeout(timeoutId);
+      await refresh();
+      scheduleNext();
+    };
+
+    runInitial();
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(intervalId);
+      active = false;
+      window.clearTimeout(timeoutId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       abortRef.current?.abort();
     };
