@@ -44,7 +44,7 @@ test("uses official route identity while preserving readable contrast and live p
     />
   );
 
-  const lineBadge = screen.getByText("1");
+  const lineBadge = screen.getByTitle("Satama–Kauppatori–Lentoasema");
   expect(lineBadge).toHaveAttribute(
     "title",
     "Satama–Kauppatori–Lentoasema"
