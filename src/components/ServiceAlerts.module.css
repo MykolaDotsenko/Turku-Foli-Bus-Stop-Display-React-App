@@ -146,6 +146,22 @@
   border-left: 4px solid #a77b28;
 }
 
+.unavailablePanel {
+  border-color: #d7dfe1;
+  background: #f8fbfb;
+}
+
+.feedStatus {
+  margin: 0;
+  padding: 9px 15px;
+  border-bottom: 1px solid #e2e9ea;
+  background: #f8fbfb;
+  color: #536970;
+  font-size: 0.71rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
 .moreButton {
   width: 100%;
   min-height: 42px;
