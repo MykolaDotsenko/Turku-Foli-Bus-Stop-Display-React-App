@@ -457,7 +457,17 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
     .toBe("4");
 
-  await page.goBack();
+  await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        globalThis.addEventListener(
+          "popstate",
+          () => resolve(globalThis.location.href),
+          { once: true }
+        );
+        globalThis.history.back();
+      })
+  );
   await expect(page).toHaveURL(/stop=164/);
   await expect
     .poll(() => page.evaluate(() => globalThis.history.state?.foliStopId))
@@ -589,7 +599,7 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   await page.getByRole("button", { name: "Add Home" }).click();
 
   await expect(
-    page.getByRole("link", { name: "Go Home by public transit" })
+    page.getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
   await expect(page).toHaveURL(/\?stop=164$/);
 
