@@ -213,7 +213,7 @@ The project deliberately avoids a router, global state library, backend, map SDK
 - production service worker precaches the complete hashed same-origin application shell and removes obsolete versioned shell caches
 - service worker never caches `data.foli.fi` realtime responses
 - external walking/transit handoffs are withheld while the browser reports offline; local Safe Places and driver help remain available
-- `navigator.onLine` is treated as a UI hint, not proof that a provider is reachable; request success/failure remains authoritative
+- `navigator.onLine` is treated as a fast hint, not proof of connectivity; the UI also performs a tiny same-origin uncached HEAD probe that bypasses the GET-only service-worker cache, while individual Föli request success/failure remains authoritative for provider data
 
 ## Accessibility
 
