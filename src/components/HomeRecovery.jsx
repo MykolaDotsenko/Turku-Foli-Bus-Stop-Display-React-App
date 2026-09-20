@@ -97,6 +97,13 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         </button>
       </div>
 
+      {transitUrl && (
+        <p className={styles.routeNote}>
+          Opens Google Maps to plan public transport to this saved Home stop.
+          The app does not verify the itinerary or walking route.
+        </p>
+      )}
+
       {!transitUrl && (
         <p id="home-recovery-routing-status" className={styles.status}>
           {online
