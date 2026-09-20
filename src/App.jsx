@@ -101,14 +101,37 @@ function App() {
   const displayStopName = selectedStop?.name || stopName;
 
   useEffect(() => {
-    const currentStopId = stopFromLocation();
-    canonicalizeCurrentStop(currentStopId);
+    const canonicalizeInvalidLocation = () => {
+      const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
+
+      if (!/^\\d+$/.test(stopFromUrl || "")) {
+        canonicalizeCurrentStop(DEFAULT_STOP);
+      }
+    };
+
+    // Do not rewrite an already-valid initial URL while the document is still
+    // loading. Preserving that browser-created history entry is what makes
+    // native Back/Forward traversal reliable across engines. Invalid or
+    // missing stop links are canonicalized only after the initial load entry
+    // has settled.
+    if (document.readyState === "complete") {
+      canonicalizeInvalidLocation();
+    } else {
+      window.addEventListener("load", canonicalizeInvalidLocation, {
+        once: true,
+      });
+    }
 
     const handlePopState = () => {
+      const nextStopId = stopFromLocation();
+      const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
+
+      if (!/^\\d+$/.test(stopFromUrl || "")) {
+        canonicalizeCurrentStop(nextStopId);
+      }
+
       // The shareable URL is the single source of truth for browser history.
-      // Avoid duplicating stop identity in history.state, which can diverge
-      // across same-document navigation implementations.
-      setStopId(stopFromLocation());
+      setStopId(nextStopId);
     };
     const handleHashChange = () =>
       setSharedPlace(parseSharedPlaceHash(window.location.hash));
@@ -117,6 +140,7 @@ function App() {
     window.addEventListener("hashchange", handleHashChange);
 
     return () => {
+      window.removeEventListener("load", canonicalizeInvalidLocation);
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("hashchange", handleHashChange);
     };
