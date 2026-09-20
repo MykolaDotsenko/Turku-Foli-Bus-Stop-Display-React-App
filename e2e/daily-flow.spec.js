@@ -399,7 +399,7 @@ test.beforeEach(async ({ page }) => {
   await mockFoli(page);
 });
 
-test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
+test("daily flow: search, save, navigate and restore with Back", async ({ page, context }, testInfo) => {
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -459,6 +459,30 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
     .poll(() => page.evaluate(() => globalThis.history.length))
     .toBe(historyLengthBeforeStopChange + 1);
 
+  let cdp = null;
+  if (testInfo.project.name === "chromium-desktop") {
+    cdp = await context.newCDPSession(page);
+    const browserHistory = await cdp.send("Page.getNavigationHistory");
+    console.log(
+      "FOLI_HISTORY_BEFORE_BACK",
+      JSON.stringify({
+        currentIndex: browserHistory.currentIndex,
+        entries: browserHistory.entries.map(({ id, url, userTypedURL, transitionType }) => ({
+          id,
+          url,
+          userTypedURL,
+          transitionType,
+        })),
+        inPage: await page.evaluate(() => ({
+          href: globalThis.location.href,
+          length: globalThis.history.length,
+          state: globalThis.history.state,
+          readyState: document.readyState,
+        })),
+      })
+    );
+  }
+
   // Traverse the browser session history through the standard History API.
   // Playwright's page.goBack()/goForward() waits on document-navigation
   // lifecycle semantics and can skip/timeout on pushState-only entries. The
@@ -467,6 +491,26 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await page.evaluate(() => {
     globalThis.setTimeout(() => globalThis.history.back(), 0);
   });
+
+  if (cdp) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const browserHistoryAfterBack = await cdp.send("Page.getNavigationHistory");
+    console.log(
+      "FOLI_HISTORY_AFTER_BACK",
+      JSON.stringify({
+        currentIndex: browserHistoryAfterBack.currentIndex,
+        entries: browserHistoryAfterBack.entries.map(
+          ({ id, url, userTypedURL, transitionType }) => ({
+            id,
+            url,
+            userTypedURL,
+            transitionType,
+          })
+        ),
+      })
+    );
+  }
+
   await expect(page).toHaveURL(/stop=164/);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
