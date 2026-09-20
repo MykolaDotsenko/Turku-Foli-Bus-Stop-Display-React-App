@@ -111,7 +111,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request).then((cached) => cached || fetch(request))
+    caches.match(request, { ignoreVary: true }).then((cached) => cached || fetch(request))
   );
 });
 `;
