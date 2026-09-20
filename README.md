@@ -219,7 +219,7 @@ CI also retains Playwright reports, failure traces, and recruiter-ready desktop/
 - ESLint
 - Axios
 - CSS Modules
-- browser Geolocation, History, Storage, Visibility, Service Worker, Web Share-ready URL handoff, and AbortController APIs
+- browser Geolocation, History, Storage, Visibility, Service Worker, and AbortController APIs
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
 - Föli GTFS stops API
