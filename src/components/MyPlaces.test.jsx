@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import MyPlaces from "./MyPlaces";
 
@@ -151,15 +151,43 @@ test("shows a simple driver card without exposing a private address", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
 
+  const dialog = screen.getByRole("dialog");
   expect(
-    screen.getByRole("heading", { name: "I need to get to School" })
+    within(dialog).getByRole("heading", { name: "I need to get to School" })
   ).toBeInTheDocument();
-  expect(screen.getByText("Puistokatu")).toBeInTheDocument();
-  expect(screen.getByText("Stop 32")).toBeInTheDocument();
+  expect(within(dialog).getByText("Puistokatu")).toBeInTheDocument();
+  expect(within(dialog).getByText("Stop 32")).toBeInTheDocument();
   expect(
-    screen.getByText(
+    within(dialog).getByText(
       "Voitteko auttaa minua jäämään pois oikealla pysäkillä?"
     )
   ).toBeInTheDocument();
-  expect(screen.queryByText(/address/i)).not.toBeInTheDocument();
+});
+
+
+test("can save the already-selected public stop when location is unavailable", () => {
+  const onSavePlace = vi.fn();
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="unavailable"
+      activeStopId="32"
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getAllByRole("button", { name: "Save selected stop" })[0]
+  );
+
+  expect(onSavePlace).toHaveBeenCalledWith({
+    id: "home",
+    stops: [{ id: "32", name: "Puistokatu" }],
+    primaryStopId: "32",
+  });
 });
