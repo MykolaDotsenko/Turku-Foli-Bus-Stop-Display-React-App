@@ -28,7 +28,7 @@
 .kicker {
   margin: 0 0 2px;
   color: #8b641d;
-  font-size: 0.66rem;
+  font-size: 0.8125rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -52,7 +52,7 @@
   border-radius: 999px;
   background: #f3dfb5;
   color: #674b18;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 900;
 }
 
@@ -83,7 +83,7 @@
 
 .alert strong {
   color: #493b22;
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 
 .alert p {
@@ -99,7 +99,7 @@
   border-radius: 999px;
   background: #f2e2be;
   color: #644c1c;
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.02em;
 }
@@ -111,7 +111,7 @@
 .details {
   margin-top: 7px;
   color: #5e4b2e;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
 }
 
 .details summary {
@@ -157,7 +157,7 @@
   border-bottom: 1px solid #e2e9ea;
   background: #f8fbfb;
   color: #536970;
-  font-size: 0.71rem;
+  font-size: 0.78rem;
   font-weight: 750;
   line-height: 1.4;
 }
