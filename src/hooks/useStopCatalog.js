@@ -143,5 +143,6 @@ export default function useStopCatalog() {
     stops: cache.stops,
     coordinatesStatus,
     catalogStatus,
+    catalogSavedAt: cache.savedAt,
   };
 }
