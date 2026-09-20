@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 const CONNECTIVITY_TIMEOUT_MS = 3000;
 const OFFLINE_HINT_KEY = "foli-offline-hint";
+const OFFLINE_SHELL_MARKER_URL = "/__foli_offline_shell__";
 
 function browserSaysOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
@@ -31,6 +32,32 @@ function writeOfflineHint(offline) {
   }
 }
 
+async function shellWasServedOffline() {
+  if (typeof globalThis.caches?.match !== "function") return false;
+
+  try {
+    return Boolean(await globalThis.caches.match(OFFLINE_SHELL_MARKER_URL));
+  } catch {
+    return false;
+  }
+}
+
+async function clearOfflineShellMarker() {
+  if (typeof globalThis.caches?.keys !== "function") return;
+
+  try {
+    const keys = await globalThis.caches.keys();
+    await Promise.all(
+      keys.map(async (key) => {
+        const cache = await globalThis.caches.open(key);
+        await cache.delete(OFFLINE_SHELL_MARKER_URL);
+      })
+    );
+  } catch {
+    // Marker cleanup is best-effort. Connectivity checks still run normally.
+  }
+}
+
 function initialOnlineState() {
   return browserSaysOnline() && !readOfflineHint();
 }
@@ -47,9 +74,6 @@ async function canReachAppOrigin() {
   );
 
   try {
-    // This path is deliberately absent from the production precache. The
-    // service worker can therefore only satisfy it by reaching the network.
-    // A cached application shell cannot make this probe look online.
     await globalThis.fetch(
       new globalThis.URL(
         "/__foli_connectivity_probe__",
@@ -76,8 +100,14 @@ export default function useOnlineStatus() {
     let active = true;
     let sequence = 0;
 
-    const sync = async () => {
+    const sync = async ({ ignoreOfflineShell = false } = {}) => {
       const requestId = ++sequence;
+
+      if (!ignoreOfflineShell && (await shellWasServedOffline())) {
+        writeOfflineHint(true);
+        if (active && requestId === sequence) setOnline(false);
+        return;
+      }
 
       if (!browserSaysOnline()) {
         writeOfflineHint(true);
@@ -89,6 +119,10 @@ export default function useOnlineStatus() {
       if (active && requestId === sequence) {
         writeOfflineHint(!reachable);
         setOnline(reachable);
+
+        if (reachable) {
+          await clearOfflineShellMarker();
+        }
       }
     };
 
@@ -96,6 +130,10 @@ export default function useOnlineStatus() {
       sequence += 1;
       writeOfflineHint(true);
       setOnline(false);
+    };
+
+    const markOnline = () => {
+      sync({ ignoreOfflineShell: true });
     };
 
     const persistOfflineBeforeReload = () => {
@@ -106,7 +144,7 @@ export default function useOnlineStatus() {
 
     sync();
 
-    window.addEventListener("online", sync);
+    window.addEventListener("online", markOnline);
     window.addEventListener("offline", markOffline);
     window.addEventListener("beforeunload", persistOfflineBeforeReload);
     window.addEventListener("pagehide", persistOfflineBeforeReload);
@@ -117,7 +155,7 @@ export default function useOnlineStatus() {
     return () => {
       active = false;
       sequence += 1;
-      window.removeEventListener("online", sync);
+      window.removeEventListener("online", markOnline);
       window.removeEventListener("offline", markOffline);
       window.removeEventListener("beforeunload", persistOfflineBeforeReload);
       window.removeEventListener("pagehide", persistOfflineBeforeReload);
