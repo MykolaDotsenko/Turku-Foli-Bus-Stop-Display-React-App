@@ -90,20 +90,32 @@ export default function useStopMonitor(stopId) {
       scheduleNext();
     };
 
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState !== "visible") return;
+    const refreshNowAndReschedule = async () => {
+      if (!active) return;
       window.clearTimeout(timeoutId);
       await refresh();
       scheduleNext();
     };
 
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState !== "visible") return;
+      await refreshNowAndReschedule();
+    };
+
+    const handleOnline = async () => {
+      if (document.visibilityState !== "visible") return;
+      await refreshNowAndReschedule();
+    };
+
     runInitial();
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       active = false;
       window.clearTimeout(timeoutId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
       abortRef.current?.abort();
     };
   }, [refresh, stopId]);

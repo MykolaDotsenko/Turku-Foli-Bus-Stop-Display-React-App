@@ -302,3 +302,23 @@
     min-height: 44px;
   }
 }
+
+
+@media (max-width: 620px) {
+  .header {
+    flex-wrap: wrap;
+  }
+
+  .header > div {
+    min-width: 0;
+    flex: 1 1 150px;
+  }
+
+  .locateButton {
+    max-width: 100%;
+    flex: 1 1 auto;
+    margin-left: 0;
+    white-space: normal;
+    text-align: center;
+  }
+}

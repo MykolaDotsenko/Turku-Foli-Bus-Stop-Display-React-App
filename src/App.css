@@ -145,8 +145,14 @@ input:focus-visible,
 
   .topbar {
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     margin-bottom: 10px;
+  }
+
+  .topbar > div {
+    min-width: 0;
+    flex: 1 1 180px;
   }
 
   .eyebrow,
@@ -161,10 +167,14 @@ input:focus-visible,
   }
 
   .live-pill {
+    min-width: 0;
+    max-width: 100%;
     min-height: 32px;
+    flex: 0 1 auto;
     margin: 0;
     padding-inline: 10px;
     font-size: 0.8125rem;
+    white-space: normal;
   }
 
   .search-panel {

@@ -108,3 +108,88 @@ test("backs off repeated automatic retries without exceeding five minutes", () =
   expect(pollDelayMs(5)).toBe(300_000);
   expect(pollDelayMs(20)).toBe(300_000);
 });
+
+test("refreshes on foreground return but not while hidden, and cleans up the listener", async () => {
+  let visibility = "hidden";
+  const visibilitySpy = vi
+    .spyOn(document, "visibilityState", "get")
+    .mockImplementation(() => visibility);
+
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 100,
+  });
+
+  const { unmount } = render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  visibility = "visible";
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await waitFor(() => {
+    expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+  });
+
+  unmount();
+  fireEvent(document, new globalThis.Event("visibilitychange"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+
+  visibilitySpy.mockRestore();
+});
+
+
+test("refreshes immediately when connectivity returns while visible and removes the listener on unmount", async () => {
+  const visibilitySpy = vi
+    .spyOn(document, "visibilityState", "get")
+    .mockReturnValue("visible");
+
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 100,
+  });
+
+  const { unmount } = render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  fireEvent(window, new globalThis.Event("online"));
+  await waitFor(() => {
+    expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+  });
+
+  unmount();
+  fireEvent(window, new globalThis.Event("online"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(2);
+
+  visibilitySpy.mockRestore();
+});
+
+test("does not issue a foreground refresh on online while the document is hidden", async () => {
+  const visibilitySpy = vi
+    .spyOn(document, "visibilityState", "get")
+    .mockReturnValue("hidden");
+
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 100,
+  });
+
+  const { unmount } = render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+
+  fireEvent(window, new globalThis.Event("online"));
+  await Promise.resolve();
+  expect(fetchStopMonitor).toHaveBeenCalledTimes(1);
+
+  unmount();
+  visibilitySpy.mockRestore();
+});

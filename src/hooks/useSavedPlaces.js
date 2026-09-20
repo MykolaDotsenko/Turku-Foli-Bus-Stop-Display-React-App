@@ -45,6 +45,8 @@ function normalizePlace(place) {
     stops,
     primaryStopId,
     updatedAt: Number(place.updatedAt) || 0,
+    validatedAt: Number(place.validatedAt) || 0,
+    needsReview: place.needsReview === true,
   };
 }
 
@@ -73,6 +75,7 @@ export default function useSavedPlaces() {
   const commit = useCallback((updater) => {
     setPlaces((current) => {
       const next = updater(current);
+      if (next === current) return current;
       persist(next);
       return next;
     });
@@ -100,12 +103,76 @@ export default function useSavedPlaces() {
         stops: normalizedStops,
         primaryStopId: resolvedPrimary,
         updatedAt: Date.now(),
+        validatedAt: 0,
+        needsReview: false,
       };
 
       commit((current) => [
         ...current.filter((place) => place.id !== id),
         nextPlace,
       ]);
+    },
+    [commit]
+  );
+
+  const revalidatePlaces = useCallback(
+    (catalogStops, catalogSavedAt = Date.now()) => {
+      if (!Array.isArray(catalogStops) || catalogStops.length === 0) return;
+
+      const validatedAt = Number(catalogSavedAt) || Date.now();
+      const catalogById = new Map(
+        catalogStops
+          .filter((stop) => stop?.id)
+          .map((stop) => [String(stop.id), stop])
+      );
+
+      commit((current) => {
+        if (current.length === 0) return current;
+
+        let changed = false;
+        const next = current.map((place) => {
+          if (place.validatedAt >= validatedAt && place.validatedAt > 0) {
+            return place;
+          }
+
+          let needsReview = false;
+          let renamed = false;
+
+          const stops = place.stops.map((savedStop) => {
+            const currentStop = catalogById.get(savedStop.id);
+            if (!currentStop) {
+              needsReview = true;
+              return savedStop;
+            }
+
+            const currentName = String(currentStop.name || "").trim();
+            if (currentName && currentName !== savedStop.name) {
+              renamed = true;
+              return { id: savedStop.id, name: currentName };
+            }
+
+            return savedStop;
+          });
+
+          if (
+            renamed ||
+            place.needsReview !== needsReview ||
+            place.validatedAt !== validatedAt
+          ) {
+            changed = true;
+            return {
+              ...place,
+              stops,
+              validatedAt,
+              needsReview,
+            };
+          }
+
+          return place;
+        });
+
+        return changed ? next : current;
+      });
     },
     [commit]
   );
@@ -140,6 +207,7 @@ export default function useSavedPlaces() {
     places,
     byId,
     savePlace,
+    revalidatePlaces,
     removePlace,
     setPrimaryStop,
   };
