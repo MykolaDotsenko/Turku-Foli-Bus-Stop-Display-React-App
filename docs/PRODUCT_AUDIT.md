@@ -12,12 +12,12 @@ This audit treats every optimistic product claim as something that should surviv
 | Area | Score | Why |
 | --- | ---: | --- |
 | Everyday user utility | **97/100** | Search, realtime board, disruptions, nearest stops, Safe Places, walking/transit handoffs and recovery cover the main daily flow without an account. |
-| Reliability / failure states | **97/100** | Stale-data isolation, abortable polling, degraded offline behavior, production-build E2E and explicit data freshness semantics are strong. |
+| Reliability / failure states | **98/100** | Realtime and alert freshness now age across outages, same-stop fallbacks remain explicit, offline PWA behavior is tested, and dead-phone preparation has a physical fallback. |
 | Privacy | **99/100** | Exact Home/School/Work coordinates are not persisted; Safe Places store public stop identity; shared places use public-stop-only URL fragments; no tracking backend exists. |
 | Accessibility | **98/100** | Keyboard search, semantic controls, forced-colors/reduced-motion support, large touch targets and axe gates are present. |
 | Mobile UX | **97/100** | Core controls collapse well, recovery is prominent, management is deprioritized, and worst-case expanded states are overflow-tested. |
-| Realtime semantics | **96/100** | Live/scheduled/freshness distinctions and vehicle distance are defensive; vehicle direction is deliberately not inferred from coordinates alone. |
-| PWA / degraded use | **96/100** | Production build now generates a content-versioned precache shell and is tested with an offline reload. Live data naturally remains network-dependent. |
+| Realtime semantics | **98/100** | Live/scheduled/freshness distinctions are defensive, stale provider time advances across failed refreshes, old rows are removed, and vehicle direction is deliberately not inferred from coordinates alone. |
+| PWA / degraded use | **98/100** | The complete production shell is precached and offline-reload tested; capability loss is explicit, external routes are withheld offline, and a printable Home card covers the limit where the device itself dies. |
 | Portfolio / recruiter signal | **95/100** | The code demonstrates product reasoning, browser APIs, accessibility, API normalization and cross-browser QA. Repository/deployment branding metadata still needs final cleanup. |
 
 These are implementation-quality scores, not claims of market validation.
@@ -107,7 +107,33 @@ The service worker intentionally does **not** cache live data.foli.fi API respon
 - live departures need connectivity
 - external route planning needs connectivity
 
-External walking/transit links are withheld while the browser reports offline.
+External walking/transit links are withheld while the browser reports offline. The header also changes to **Offline mode**, so the global status does not visually contradict the degraded-state banner.
+
+### 10. Realtime freshness could freeze across repeated failures
+
+**Problem:** the UI retained same-stop data after a failed refresh, but the provider `servertime` inside that payload was also retained.
+
+**Risk:** without advancing the reference clock, a vehicle position and monitored trip could remain labelled fresher than they really were.
+
+**Change:** every successful Stop Monitoring response records a browser receipt timestamp. The provider clock is advanced by elapsed time since receipt, so **Due**, vehicle-position age and live-data freshness continue aging during an outage. A failed refresh also states when the last successful update was received.
+
+The same principle is applied to the disruption feed: retained alerts remain visible, but a failed or old alert check is explicitly marked instead of silently implying the feed is current.
+
+### 11. A dead phone had no externalized fallback
+
+**Problem:** every digital recovery flow disappears once the device powers off.
+
+**Risk:** no browser feature can recover from a fully dead phone, and the Battery Status API is not consistently available enough to be a safety dependency.
+
+**Change:** Home recovery now includes **Prepare for no battery**. A caregiver can print or save a compact Home backup card containing the primary approved stop, optional approved backup stops and the Finnish driver-help sentence. It contains public stop identity, not the private home address or setup coordinates.
+
+### 12. Offline and “live” visual language conflicted
+
+**Problem:** the offline banner could coexist with a green-looking Föli status dot.
+
+**Risk:** a stressed user could read the overall interface as still live.
+
+**Change:** offline state now changes the header status to **Offline mode** with neutral warning styling. The browser connectivity signal remains advisory; API request results still decide whether realtime data is actually trustworthy.
 
 ## Intentionally unresolved limitations
 
