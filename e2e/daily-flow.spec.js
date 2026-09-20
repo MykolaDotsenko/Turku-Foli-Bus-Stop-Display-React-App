@@ -151,7 +151,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(page.getByText("Line 1 city-centre detour")).toBeVisible();
-  await expect(page.getByText("Detour")).toBeVisible();
+  await expect(page.getByText("Detour", { exact: true })).toBeVisible();
   await expect(page.getByText("Affects line 1")).toBeVisible();
   await expect(page.getByText("Satama")).toBeVisible();
   await expect(page.getByText(/Bus approaching/i)).toBeVisible();
