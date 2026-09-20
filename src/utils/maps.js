@@ -7,7 +7,7 @@ function coordinate(value, min, max) {
     : null;
 }
 
-export function buildWalkingDirectionsUrl(stop) {
+function buildDirectionsUrl(stop, travelmode, navigate = false) {
   const lat = coordinate(stop?.lat, -90, 90);
   const lon = coordinate(stop?.lon, -180, 180);
 
@@ -16,9 +16,20 @@ export function buildWalkingDirectionsUrl(stop) {
   const params = new URLSearchParams({
     api: "1",
     destination: `${lat},${lon}`,
-    travelmode: "walking",
-    dir_action: "navigate",
+    travelmode,
   });
 
+  if (navigate) {
+    params.set("dir_action", "navigate");
+  }
+
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+export function buildWalkingDirectionsUrl(stop) {
+  return buildDirectionsUrl(stop, "walking", true);
+}
+
+export function buildTransitDirectionsUrl(stop) {
+  return buildDirectionsUrl(stop, "transit");
 }
