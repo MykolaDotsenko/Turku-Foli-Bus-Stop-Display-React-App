@@ -22,6 +22,7 @@ No account, backend, tracking, or setup is required. Favorites and recents stay 
 - keyboard-friendly autocomplete supports ↑ / ↓ / Enter / Escape
 - favorites optimize repeated commute flows
 - recent stops recover common journeys automatically
+- active stop-specific service messages and cancellations appear before departures
 - bookmarkable stop query URLs make stops shareable
 - browser Back/Forward follows stop navigation
 - the board keeps line, destination, and due time visually dominant
@@ -59,11 +60,13 @@ hooks/
   useStopMonitor.js   polling + cancellation + stale-data safety
   useStopCatalog.js   24h optional stop catalogue cache
   useSavedStops.js    local-first favorites + recents
+  useStopAlerts.js     low-frequency active disruption polling
     ↓
 App.jsx
     ↓
 BusStopForm.jsx     search / autocomplete
 QuickStops.jsx      favorites / recents
+ServiceAlerts.jsx   relevant disruptions and cancellations
 BusStopDisplay.jsx  live departure board
     ↓
 utils/time.js       pure timing + freshness semantics
@@ -83,6 +86,7 @@ The app intentionally avoids a router, global state library, backend, and design
 - malformed arrivals are ignored defensively
 - stop catalogue caching is optional, not required for the core flow
 - background tabs do not create unnecessary Föli API load
+- stop alerts refresh conservatively every five minutes while visible
 
 ## Accessibility
 
@@ -106,6 +110,7 @@ The app intentionally avoids a router, global state library, backend, and design
 - browser History, Storage, Visibility and AbortController APIs
 - GitHub Actions
 - Föli SIRI Stop Monitoring API
+- Föli service alerts API
 
 ## Run locally
 
