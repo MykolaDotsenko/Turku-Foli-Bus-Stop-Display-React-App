@@ -100,3 +100,30 @@ test("exposes saved backup stops only on demand", () => {
   fireEvent.click(screen.getByRole("button", { name: "Open stop" }));
   expect(onOpenStop).toHaveBeenCalledWith("32");
 });
+
+
+test("does not send a stressed user into external routing while offline", () => {
+  const onOpenStop = vi.fn();
+
+  render(
+    <HomeRecovery
+      home={home}
+      stops={stops}
+      online={false}
+      onOpenStop={onOpenStop}
+    />
+  );
+
+  expect(
+    screen.getByRole("button", { name: "Get me Home" })
+  ).toBeDisabled();
+  expect(
+    screen.getByText(/You’re offline.*driver card still work/i)
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));
+  expect(onOpenStop).toHaveBeenCalledWith("164");
+
+  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
