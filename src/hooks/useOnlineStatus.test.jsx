@@ -48,9 +48,12 @@ test("does not trust an online hint when the app origin is unreachable", async (
 
   await waitFor(() => expect(result.current).toBe(false));
   expect(globalThis.fetch).toHaveBeenCalledWith(
-    new globalThis.URL("/", window.location.href).toString(),
+    new globalThis.URL(
+      "/__foli_connectivity_probe__",
+      window.location.href
+    ).toString(),
     expect.objectContaining({
-      method: "HEAD",
+      method: "GET",
       cache: "no-store",
     })
   );
