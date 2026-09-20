@@ -120,3 +120,20 @@ test("persists an offline hint during reload even if the offline event was misse
   unmount();
 });
 
+
+
+test("persists an offline hint on pagehide before a PWA-style reload", async () => {
+  setOnline(true);
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result, unmount } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(true));
+
+  setOnline(false);
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("pagehide"));
+  });
+
+  expect(globalThis.localStorage.getItem("foli-offline-hint")).toBe("1");
+  unmount();
+});
