@@ -58,7 +58,7 @@ test("keeps the active SIRI stop catalogue independent from GTFS coordinates", a
 
 test("normalizes valid GTFS WGS84 stop coordinates", async () => {
   mocks.get.mockImplementation((url) => {
-    if (url === "https://data.foli.fi/gtfs") {
+    if (url === "https://data.foli.fi/gtfs/") {
       return Promise.resolve({ data: datasetMeta });
     }
 
@@ -110,7 +110,7 @@ test("a GTFS failure cannot prevent normal stop search data from loading", async
       });
     }
 
-    if (url === "https://data.foli.fi/gtfs") {
+    if (url === "https://data.foli.fi/gtfs/") {
       return Promise.reject(new Error("GTFS temporarily unavailable"));
     }
 
@@ -131,7 +131,7 @@ test("a GTFS failure cannot prevent normal stop search data from loading", async
 
 test("normalizes route identity and official Föli colors", async () => {
   mocks.get.mockImplementation((url) => {
-    if (url === "https://data.foli.fi/gtfs") {
+    if (url === "https://data.foli.fi/gtfs/") {
       return Promise.resolve({ data: datasetMeta });
     }
 
@@ -222,7 +222,7 @@ test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () =
 
 test("pins GTFS stops and routes to the same dataset metadata lookup", async () => {
   mocks.get.mockImplementation((url) => {
-    if (url === "https://data.foli.fi/gtfs") {
+    if (url === "https://data.foli.fi/gtfs/") {
       return Promise.resolve({ data: datasetMeta });
     }
 
@@ -262,7 +262,7 @@ test("pins GTFS stops and routes to the same dataset metadata lookup", async () 
   expect(coordinates.has("164")).toBe(true);
   expect(routes[0].shortName).toBe("1");
   expect(
-    mocks.get.mock.calls.filter(([url]) => url === "https://data.foli.fi/gtfs")
+    mocks.get.mock.calls.filter(([url]) => url === "https://data.foli.fi/gtfs/")
   ).toHaveLength(1);
   expect(mocks.get).toHaveBeenCalledWith(
     `${datasetBase}/stops`,

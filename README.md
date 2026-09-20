@@ -16,7 +16,7 @@ A fast, local-first departure companion for Turku-region public transport. It is
 
 These screenshots are generated from the same deterministic Playwright flow that runs in CI.
 
-For the adversarial product review, scores, fixed risks and deliberately unresolved limitations, see **[docs/PRODUCT_AUDIT.md](docs/PRODUCT_AUDIT.md)**.
+For the adversarial product review, scores, fixed risks and deliberately unresolved limitations, see **[docs/PRODUCT_AUDIT.md](docs/PRODUCT_AUDIT.md)**. For the four-pass provider contract inventory, field map and app-vs-Föli comparison, see **[docs/FOLI_API_REFERENCE.md](docs/FOLI_API_REFERENCE.md)**.
 
 ## Daily workflow
 
@@ -102,9 +102,9 @@ When the user taps **Find nearest stop**:
 4. the three nearest active Föli stops are ranked
 5. the nearest stop is auto-selected only when:
    - reported location accuracy is at most 250 m,
-   - the nearest stop is within 10 km, and
+   - the nearest stop is within 2 km, and
    - the second-nearest candidate is not effectively tied within the uncertainty margin
-6. poor accuracy, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
+6. poor/unknown accuracy, a stop farther than the 2 km auto-select range, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
 
 No map SDK, geocoding service, analytics service, or location backend is required. **Walk there** uses a standard Google Maps URL with only the public stop destination; the app does not put the user's current coordinates into the external URL.
 
@@ -132,12 +132,12 @@ The UI intentionally treats realtime values as estimates rather than promises. V
 ## Architecture
 
 ~~~text
-Föli SIRI + GTFS Stops/Routes + Alerts APIs
+Föli SIRI + coherent GTFS dataset + Alerts APIs
         ↓
 api/foliApi.js
   normalize provider data
   keep monitored SIRI vehicle coordinates
-  normalize GTFS stop + route metadata
+  resolve one GTFS dataset + normalize stop/route metadata
         ↓
 hooks/
   useStopMonitor.js   30s visible-tab polling + cancellation + stale-data safety
@@ -292,6 +292,7 @@ Optional compatible API overrides:
 ~~~bash
 VITE_FOLI_API_URL=https://example.test/siri/sm npm run dev
 VITE_FOLI_ALERTS_URL=https://example.test/alerts npm run dev
+VITE_FOLI_GTFS_URL=https://example.test/gtfs/ npm run dev
 VITE_FOLI_STOPS_URL=https://example.test/gtfs/stops npm run dev
 VITE_FOLI_ROUTES_URL=https://example.test/gtfs/routes npm run dev
 ~~~
@@ -315,6 +316,8 @@ Browser geolocation requires a secure context in production. HTTPS deployment sa
 Source: Turku region public transport transit and timetable data, maintained by Turku region public transport and distributed through `data.foli.fi` under the Creative Commons Attribution 4.0 International license (CC BY 4.0).
 
 Official Stop Monitoring documentation: https://data.foli.fi/doc/siri/v0/sm-en
+
+Complete provider contract notes: docs/FOLI_API_REFERENCE.md
 
 Official GTFS stops documentation: https://data.foli.fi/doc/gtfs/v0/stops
 

@@ -40,6 +40,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Verify Föli API reference
+        run: npm run verify:api-reference
+
       - name: Build
         run: npm run build
 

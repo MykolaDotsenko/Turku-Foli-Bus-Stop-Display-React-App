@@ -4,7 +4,7 @@ const API_BASE_URL =
 const ALERTS_URL =
   import.meta.env.VITE_FOLI_ALERTS_URL || "https://data.foli.fi/alerts";
 const GTFS_BASE_URL =
-  import.meta.env.VITE_FOLI_GTFS_URL || "https://data.foli.fi/gtfs";
+  import.meta.env.VITE_FOLI_GTFS_URL || "https://data.foli.fi/gtfs/";
 const STOPS_URL_OVERRIDE = import.meta.env.VITE_FOLI_STOPS_URL || "";
 const ROUTES_URL_OVERRIDE = import.meta.env.VITE_FOLI_ROUTES_URL || "";
 
