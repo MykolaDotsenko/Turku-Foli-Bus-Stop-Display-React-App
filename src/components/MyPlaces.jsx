@@ -4,6 +4,7 @@ import { locationErrorMessage, requestOneTimePosition } from "../utils/location"
 import { buildTransitDirectionsUrl } from "../utils/maps";
 import { buildSharedPlaceUrl } from "../utils/sharedPlaces";
 import { PLACE_PRESETS } from "../hooks/useSavedPlaces";
+import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./MyPlaces.module.css";
 
 const MAX_SETUP_DISTANCE_METERS = 10_000;
@@ -138,30 +139,6 @@ function SetupPlace({
           Save {preset.label}
         </button>
       </div>
-    </section>
-  );
-}
-
-function DriverCard({ place, primaryStop, onClose }) {
-  return (
-    <section
-      className={styles.driverCard}
-      role="dialog"
-      aria-modal="false"
-      aria-labelledby={`driver-${place.id}-title`}
-    >
-      <p className={styles.kicker}>Show this screen to the driver</p>
-      <h3 id={`driver-${place.id}-title`}>I need to get to {place.label}</h3>
-      <p className={styles.driverStop}>
-        {primaryStop.name}
-        <span>Stop {primaryStop.id}</span>
-      </p>
-      <p className={styles.finnish}>
-        Voitteko auttaa minua jäämään pois oikealla pysäkillä?
-      </p>
-      <button type="button" className={styles.textButton} onClick={onClose}>
-        Close
-      </button>
     </section>
   );
 }
@@ -383,9 +360,10 @@ function PlaceCard({
       </details>
 
       {showDriver && (
-        <DriverCard
+        <SafePlaceDriverCard
           place={place}
           primaryStop={primaryStop}
+          idPrefix="place"
           onClose={() => setShowDriver(false)}
         />
       )}

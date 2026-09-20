@@ -1,0 +1,66 @@
+.card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 2px solid #007985;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.kicker {
+  margin: 0;
+  color: #007985;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card h3 {
+  margin: 0;
+  color: #20343b;
+}
+
+.stop {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  color: #17212b;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.stop span {
+  color: #536970;
+  font-size: 0.8rem;
+}
+
+.finnish {
+  margin: 0;
+  color: #294851;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.closeButton {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: #00656f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.closeButton:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .card {
+    border-color: CanvasText;
+  }
+}

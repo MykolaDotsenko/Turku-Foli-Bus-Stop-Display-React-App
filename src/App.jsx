@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import HomeRecovery from "./components/HomeRecovery";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
@@ -129,6 +130,12 @@ function App() {
           Föli SIRI
         </span>
       </header>
+
+      <HomeRecovery
+        home={placesById.get("home") || null}
+        stops={stops}
+        onOpenStop={selectStop}
+      />
 
       <section className="search-panel" aria-label="Choose a bus stop">
         <BusStopForm

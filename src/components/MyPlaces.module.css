@@ -13,8 +13,7 @@
 .placeCard h3,
 .emptyCard h3,
 .importCard h3,
-.setup h3,
-.driverCard h3 {
+.setup h3 {
   margin: 0;
   color: #20343b;
 }
@@ -316,36 +315,6 @@
   font-weight: 800;
 }
 
-.driverCard {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 2px solid #007985;
-  border-radius: 14px;
-  background: #fff;
-}
-
-.driverStop {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  color: #17212b;
-  font-size: 1.15rem;
-  font-weight: 900;
-}
-
-.driverStop span {
-  color: #536970;
-  font-size: 0.8rem;
-}
-
-.finnish {
-  margin: 0;
-  color: #294851;
-  font-size: 0.86rem;
-  font-weight: 800;
-  line-height: 1.45;
-}
 
 .privacy {
   padding-top: 2px;
