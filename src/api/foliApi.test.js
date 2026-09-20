@@ -12,7 +12,12 @@ vi.mock("axios", () => ({
   },
 }));
 
-import { fetchStopCatalog, fetchStopCoordinates } from "./foliApi";
+import {
+  fetchRouteCatalog,
+  fetchStopCatalog,
+  fetchStopCoordinates,
+  fetchStopMonitor,
+} from "./foliApi";
 
 beforeEach(() => {
   mocks.get.mockReset();
@@ -102,4 +107,84 @@ test("a GTFS failure cannot prevent normal stop search data from loading", async
     value: [{ id: "164", name: "Kauppatori" }],
   });
   expect(coordinateResult.status).toBe("rejected");
+});
+
+test("normalizes route identity and official Föli colors", async () => {
+  mocks.get.mockResolvedValue({
+    data: [
+      {
+        route_id: "1",
+        route_short_name: "1",
+        route_long_name: "Satama-Kauppatori-Lentoasema",
+        route_type: 3,
+        route_color: "0bbbef",
+        route_text_color: "ffffff",
+      },
+      {
+        route_id: "180",
+        route_short_name: "180",
+        route_long_name: "Waterbus",
+        route_type: 4,
+        route_color: "invalid",
+        route_text_color: "",
+      },
+    ],
+  });
+
+  const routes = await fetchRouteCatalog();
+
+  expect(routes).toEqual([
+    {
+      id: "1",
+      shortName: "1",
+      longName: "Satama-Kauppatori-Lentoasema",
+      type: 3,
+      color: "#0bbbef",
+      textColor: "#ffffff",
+    },
+    {
+      id: "180",
+      shortName: "180",
+      longName: "Waterbus",
+      type: 4,
+      color: null,
+      textColor: null,
+    },
+  ]);
+});
+
+test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () => {
+  mocks.get.mockResolvedValue({
+    data: {
+      status: "OK",
+      servertime: 1900000000,
+      stopname: "Kauppatori",
+      result: [
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: true,
+          latitude: 60.453,
+          longitude: 22.2666,
+          recordedattime: 1899999990,
+          expecteddeparturetime: 1900000300,
+          aimeddeparturetime: 1900000270,
+          originaimeddeparturetime: 1899999000,
+          destinationaimedarrivaltime: 1900002000,
+        },
+      ],
+    },
+  });
+
+  const result = await fetchStopMonitor("164");
+
+  expect(result.arrivals[0]).toEqual(
+    expect.objectContaining({
+      lineref: "1",
+      latitude: 60.453,
+      longitude: 22.2666,
+      originaimeddeparturetime: 1899999000,
+      destinationaimedarrivaltime: 1900002000,
+    })
+  );
 });
