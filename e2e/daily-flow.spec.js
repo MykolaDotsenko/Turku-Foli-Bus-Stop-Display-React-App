@@ -537,10 +537,11 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   ).toBeDisabled();
 
   await recovery.getByRole("button", { name: "Show driver" }).click();
+  const driver = recovery.getByRole("dialog");
   await expect(
-    recovery.getByRole("heading", { name: "I need to get to Home" })
+    driver.getByRole("heading", { name: "I need to get to Home" })
   ).toBeVisible();
-  await expect(recovery.getByText("Kauppatori")).toBeVisible();
+  await expect(driver.getByText("Kauppatori")).toBeVisible();
 
   await context.setOffline(false);
 });
