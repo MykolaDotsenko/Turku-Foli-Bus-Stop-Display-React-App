@@ -12,6 +12,7 @@ const originalGeolocation = Object.getOwnPropertyDescriptor(
   navigator,
   "geolocation"
 );
+const originalShare = Object.getOwnPropertyDescriptor(navigator, "share");
 
 function setGeolocation(getCurrentPosition) {
   Object.defineProperty(navigator, "geolocation", {
@@ -27,6 +28,12 @@ afterEach(() => {
     Object.defineProperty(navigator, "geolocation", originalGeolocation);
   } else {
     delete navigator.geolocation;
+  }
+
+  if (originalShare) {
+    Object.defineProperty(navigator, "share", originalShare);
+  } else {
+    delete navigator.share;
   }
 });
 
@@ -190,4 +197,138 @@ test("can save the already-selected public stop when location is unavailable", (
     stops: [{ id: "32", name: "Puistokatu" }],
     primaryStopId: "32",
   });
+});
+
+
+test("requires explicit confirmation before importing a shared Home", () => {
+  const onImportSharedPlace = vi.fn();
+  const onDismissSharedPlace = vi.fn();
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="164"
+      placesById={new Map()}
+      sharedPlace={{
+        id: "home",
+        primaryStopId: "164",
+        stops: [
+          { id: "164", name: "Kauppatori" },
+          { id: "32", name: "Puistokatu" },
+        ],
+      }}
+      onSavePlace={vi.fn()}
+      onImportSharedPlace={onImportSharedPlace}
+      onDismissSharedPlace={onDismissSharedPlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Add Home?" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/only public Föli stop IDs and names/i)
+  ).toBeInTheDocument();
+  expect(onImportSharedPlace).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Add Home" }));
+  expect(onImportSharedPlace).toHaveBeenCalledTimes(1);
+});
+
+test("labels a shared place as replacement when that preset already exists", () => {
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="164"
+      placesById={
+        new Map([
+          [
+            "home",
+            {
+              id: "home",
+              label: "Home",
+              icon: "⌂",
+              primaryStopId: "32",
+              stops: [{ id: "32", name: "Puistokatu" }],
+            },
+          ],
+        ])
+      }
+      sharedPlace={{
+        id: "home",
+        primaryStopId: "164",
+        stops: [{ id: "164", name: "Kauppatori" }],
+      }}
+      onSavePlace={vi.fn()}
+      onImportSharedPlace={vi.fn()}
+      onDismissSharedPlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Replace Home?" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Replace Home" })
+  ).toBeInTheDocument();
+});
+
+test("shares a configured place through the native share sheet when available", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="164"
+      placesById={
+        new Map([
+          [
+            "home",
+            {
+              id: "home",
+              label: "Home",
+              icon: "⌂",
+              primaryStopId: "164",
+              stops: [
+                { id: "164", name: "Kauppatori" },
+                { id: "32", name: "Puistokatu" },
+              ],
+            },
+          ],
+        ])
+      }
+      sharedPlace={null}
+      onSavePlace={vi.fn()}
+      onImportSharedPlace={vi.fn()}
+      onDismissSharedPlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(screen.getByText("Manage Home"));
+  fireEvent.click(screen.getByRole("button", { name: "Share Home" }));
+
+  await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+
+  const shareData = share.mock.calls[0][0];
+  const url = new globalThis.URL(shareData.url);
+
+  expect(url.search).toBe("");
+  expect(url.hash).toMatch(/^#place=/);
+  expect(shareData.text).toBe("Add Home to My Places");
 });
