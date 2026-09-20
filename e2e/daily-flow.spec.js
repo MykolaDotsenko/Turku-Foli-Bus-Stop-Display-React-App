@@ -500,6 +500,22 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
     .poll(() => page.evaluate(() => navigator.onLine))
     .toBe(false);
 
+  // Playwright's Chromium offline emulation does not consistently dispatch
+  // the browser's offline event to a service-worker-controlled page. Deliver
+  // that standard event explicitly, then verify both the live degraded UI and
+  // the persisted reload hint before testing the cached PWA reload itself.
+  await page.evaluate(() => {
+    window.dispatchEvent(new globalThis.Event("offline"));
+  });
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        globalThis.sessionStorage.getItem("foli-offline-hint")
+      )
+    )
+    .toBe("1");
+
   await page.reload({ waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Offline", { exact: true })).toBeVisible();
