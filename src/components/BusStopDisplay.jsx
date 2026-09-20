@@ -2,14 +2,18 @@ import styles from "./BusStopDisplay.module.css";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor } from "../utils/routes";
 import {
+  advanceServerTime,
   dataAgeSeconds,
+  elapsedSince,
   formatClock,
   formatDue,
+  formatElapsedAge,
   formatServiceStatus,
   getDepartureTime,
 } from "../utils/time";
 
 const MAX_VISIBLE_DEPARTURES = 10;
+const DEPARTED_GRACE_SECONDS = 90;
 
 function vehicleProximity(arrival, stop, route, serverTime) {
   if (
@@ -37,7 +41,7 @@ function vehicleProximity(arrival, stop, route, serverTime) {
 
   if (distance <= 50) return `${vehicle} at or near stop`;
   if (distance <= 250) {
-    return `${vehicle} approaching · ≈${formatDistance(distance)} away`;
+    return `${vehicle} nearby · ≈${formatDistance(distance)} from stop`;
   }
 
   return `${vehicle} ≈${formatDistance(distance)} from stop`;
@@ -59,6 +63,7 @@ function BusStopDisplay({
   arrivals,
   routesByShortName,
   serverTime,
+  receivedAtMs,
   loading,
   refreshing,
   error,
@@ -66,11 +71,24 @@ function BusStopDisplay({
   isFavorite,
   onToggleFavorite,
 }) {
+  const effectiveServerTime =
+    advanceServerTime(serverTime, receivedAtMs) ??
+    Math.floor(Date.now() / 1000);
+  const receiptAgeSeconds = elapsedSince(receivedAtMs);
+  const dataIsStale =
+    receiptAgeSeconds !== null && receiptAgeSeconds > 120;
+  const referenceTime = effectiveServerTime;
   const visibleArrivals = [...arrivals]
+    .filter((arrival) => {
+      const departureTime = getDepartureTime(arrival);
+      return (
+        Number.isFinite(departureTime) &&
+        departureTime >= referenceTime - DEPARTED_GRACE_SECONDS
+      );
+    })
     .sort(
       (a, b) =>
-        (getDepartureTime(a) ?? Infinity) -
-        (getDepartureTime(b) ?? Infinity)
+        getDepartureTime(a) - getDepartureTime(b)
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
   const hasData = Boolean(stopName || arrivals.length);
@@ -110,6 +128,9 @@ function BusStopDisplay({
           <p className={styles.stopMeta} aria-live="polite">
             Stop {stopId}
             {serverTime ? ` · Updated ${formatClock(serverTime)}` : ""}
+            {receiptAgeSeconds !== null && receiptAgeSeconds >= 60
+              ? ` · ${formatElapsedAge(receiptAgeSeconds)}`
+              : ""}
             {refreshing ? " · Refreshing…" : ""}
           </p>
         </div>
@@ -134,9 +155,12 @@ function BusStopDisplay({
         </div>
       )}
 
-      {error && hasData && (
+      {(error || dataIsStale) && hasData && (
         <p className={styles.staleNotice} role="status">
-          Update failed · showing the last successful data
+          {error ? "Live update failed" : "Live data is getting old"}
+          {receiptAgeSeconds !== null
+            ? ` · last successful update ${formatElapsedAge(receiptAgeSeconds)}`
+            : ""}
         </p>
       )}
 
@@ -176,9 +200,14 @@ function BusStopDisplay({
                   arrival.monitored,
                   arrival.delay,
                   arrival.recordedattime,
-                  serverTime
+                  effectiveServerTime
                 );
-                const proximity = vehicleProximity(arrival, stop, route, serverTime);
+                const proximity = vehicleProximity(
+                  arrival,
+                  stop,
+                  route,
+                  effectiveServerTime
+                );
 
                 return (
                   <tr
@@ -208,7 +237,7 @@ function BusStopDisplay({
                       )}
                     </td>
                     <td className={styles.due}>
-                      {formatDue(departureTime)}
+                      {formatDue(departureTime, effectiveServerTime * 1000)}
                     </td>
                   </tr>
                 );

@@ -15,22 +15,40 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173",
+    command:
+      "npm run build && npm run preview -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,
   },
   projects: [
     {
       name: "chromium-desktop",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        serviceWorkers: "block",
+      },
     },
     {
       name: "firefox-desktop",
-      use: { ...devices["Desktop Firefox"] },
+      use: {
+        ...devices["Desktop Firefox"],
+        serviceWorkers: "block",
+      },
     },
     {
       name: "webkit-mobile",
-      use: { ...devices["iPhone 15"] },
+      use: {
+        ...devices["iPhone 15"],
+        serviceWorkers: "block",
+      },
+    },
+    {
+      name: "chromium-pwa",
+      grep: /production PWA reopens offline/,
+      use: {
+        ...devices["Desktop Chrome"],
+        serviceWorkers: "allow",
+      },
     },
   ],
 });

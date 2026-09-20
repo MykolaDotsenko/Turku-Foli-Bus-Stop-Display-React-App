@@ -13,8 +13,9 @@ function resolveStops(place, stops) {
   }));
 }
 
-function HomeRecovery({ home, stops, onOpenStop }) {
+function HomeRecovery({ home, stops, online = true, onOpenStop }) {
   const [showDriver, setShowDriver] = useState(false);
+  const canPrint = typeof globalThis.print === "function";
 
   const resolvedStops = useMemo(
     () => (home ? resolveStops(home, stops) : []),
@@ -29,9 +30,10 @@ function HomeRecovery({ home, stops, onOpenStop }) {
   const backupStops = resolvedStops.filter(
     (stop) => stop.id !== primaryStop.id
   );
-  const transitUrl = hasCoordinates(primaryStop)
-    ? buildTransitDirectionsUrl(primaryStop)
-    : "";
+  const transitUrl =
+    online && hasCoordinates(primaryStop)
+      ? buildTransitDirectionsUrl(primaryStop)
+      : "";
 
   return (
     <section className={styles.wrapper} aria-labelledby="home-recovery-title">
@@ -97,8 +99,9 @@ function HomeRecovery({ home, stops, onOpenStop }) {
 
       {!transitUrl && (
         <p id="home-recovery-routing-status" className={styles.status}>
-          Transit directions are temporarily unavailable until public stop
-          coordinates load. Your saved stop and driver card still work.
+          {online
+            ? "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work."
+            : "You’re offline. Your saved Home stop and driver card still work; connect to the internet for transit directions."}
         </p>
       )}
 
@@ -113,9 +116,10 @@ function HomeRecovery({ home, stops, onOpenStop }) {
           </p>
           <div className={styles.backupList}>
             {backupStops.map((stop) => {
-              const backupTransitUrl = hasCoordinates(stop)
-                ? buildTransitDirectionsUrl(stop)
-                : "";
+              const backupTransitUrl =
+                online && hasCoordinates(stop)
+                  ? buildTransitDirectionsUrl(stop)
+                  : "";
 
               return (
                 <div key={stop.id} className={styles.backupRow}>
@@ -147,6 +151,51 @@ function HomeRecovery({ home, stops, onOpenStop }) {
           </div>
         </details>
       )}
+
+      <details className={styles.batteryBackup}>
+        <summary>Prepare for no battery</summary>
+        <p>
+          A web app cannot help after the phone powers off. Print or save a
+          small Home backup card in advance so the destination still exists
+          outside the phone. The card reveals the saved public Home stop area,
+          so keep it only with the intended user.
+        </p>
+        {canPrint && (
+          <button
+            type="button"
+            className={styles.printButton}
+            onClick={() => globalThis.print()}
+          >
+            Print / save Home backup card
+          </button>
+        )}
+      </details>
+
+      <section className={styles.printCard} aria-hidden="true">
+        <p className={styles.printKicker}>Föli Home backup card</p>
+        <h2>Home</h2>
+        <p className={styles.printPrimary}>
+          {primaryStop.name}
+          <span>Stop {primaryStop.id} · primary</span>
+        </p>
+        {backupStops.length > 0 && (
+          <div className={styles.printBackups}>
+            <strong>Other approved safe stops</strong>
+            {backupStops.map((stop) => (
+              <p key={stop.id}>
+                {stop.name} · Stop {stop.id}
+              </p>
+            ))}
+          </div>
+        )}
+        <p className={styles.printHelp}>
+          Voitteko auttaa minua jäämään pois oikealla pysäkillä?
+        </p>
+        <p className={styles.printNote}>
+          Show this card to a driver or trusted adult. This card contains public
+          stop information, not a private home address.
+        </p>
+      </section>
 
       {showDriver && (
         <SafePlaceDriverCard

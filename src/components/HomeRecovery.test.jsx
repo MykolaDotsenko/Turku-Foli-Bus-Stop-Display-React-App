@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import HomeRecovery from "./HomeRecovery";
 
 const home = {
@@ -17,6 +17,18 @@ const stops = [
   { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
   { id: "32", name: "Puistokatu", lat: 60.4488, lon: 22.255 },
 ];
+
+const originalPrint = Object.getOwnPropertyDescriptor(globalThis, "print");
+
+afterEach(() => {
+  vi.restoreAllMocks();
+
+  if (originalPrint) {
+    Object.defineProperty(globalThis, "print", originalPrint);
+  } else {
+    delete globalThis.print;
+  }
+});
 
 test("does not render recovery before Home has been configured", () => {
   const { container } = render(
@@ -99,4 +111,58 @@ test("exposes saved backup stops only on demand", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Open stop" }));
   expect(onOpenStop).toHaveBeenCalledWith("32");
+});
+
+
+test("does not send a stressed user into external routing while offline", () => {
+  const onOpenStop = vi.fn();
+
+  render(
+    <HomeRecovery
+      home={home}
+      stops={stops}
+      online={false}
+      onOpenStop={onOpenStop}
+    />
+  );
+
+  expect(
+    screen.getByRole("button", { name: "Get me Home" })
+  ).toBeDisabled();
+  expect(
+    screen.getByText(/You’re offline.*driver card still work/i)
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));
+  expect(onOpenStop).toHaveBeenCalledWith("164");
+
+  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
+
+
+test("can print a public-stop-only Home backup card before the phone dies", () => {
+  const print = vi.fn();
+  Object.defineProperty(globalThis, "print", {
+    configurable: true,
+    value: print,
+  });
+
+  render(<HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />);
+
+  fireEvent.click(screen.getByText("Prepare for no battery"));
+  expect(
+    screen.getByText(/A web app cannot help after the phone powers off/i)
+  ).toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Print / save Home backup card" })
+  );
+
+  expect(print).toHaveBeenCalledTimes(1);
+  expect(screen.getByText("Föli Home backup card")).toBeInTheDocument();
+  expect(screen.getAllByText("Kauppatori").length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Stop 164/).length).toBeGreaterThan(0);
+  expect(screen.queryByText("60.4518")).not.toBeInTheDocument();
+  expect(screen.queryByText("22.2666")).not.toBeInTheDocument();
 });

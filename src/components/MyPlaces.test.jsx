@@ -73,6 +73,14 @@ test("sets up Home from one-time location and saves only public safe stops", asy
     })
   ).toBeInTheDocument();
   expect(screen.getByText(/Location accuracy ±20 m/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Add backup stops only if you know they are safe/i)
+  ).toBeInTheDocument();
+
+  const safeStopChoices = screen.getAllByRole("checkbox");
+  expect(safeStopChoices[0]).toBeChecked();
+  expect(safeStopChoices[1]).not.toBeChecked();
+  expect(safeStopChoices[2]).not.toBeChecked();
 
   fireEvent.click(screen.getByRole("button", { name: "Save Home" }));
 
@@ -83,8 +91,6 @@ test("sets up Home from one-time location and saves only public safe stops", asy
   expect(saved.primaryStopId).toBe("164");
   expect(saved.stops).toEqual([
     expect.objectContaining({ id: "164", name: "Kauppatori" }),
-    expect.objectContaining({ id: "32", name: "Puistokatu" }),
-    expect.objectContaining({ id: "4", name: "Turun linna" }),
   ]);
   expect(saved.stops[0]).not.toHaveProperty("lat");
   expect(saved.stops[0]).not.toHaveProperty("lon");
@@ -231,7 +237,7 @@ test("requires explicit confirmation before importing a shared Home", () => {
     screen.getByRole("heading", { name: "Add Home?" })
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/only public Föli stop IDs and names/i)
+    screen.getByText(/can still reveal the general area/i)
   ).toBeInTheDocument();
   expect(onImportSharedPlace).not.toHaveBeenCalled();
 
@@ -331,4 +337,84 @@ test("shares a configured place through the native share sheet when available", 
   expect(url.search).toBe("");
   expect(url.hash).toMatch(/^#place=/);
   expect(shareData.text).toBe("Add Home to My Places");
+});
+
+
+test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
+  const getCurrentPosition = vi.fn((success) =>
+    success({
+      coords: {
+        latitude: 60.45182,
+        longitude: 22.26662,
+        accuracy: 18,
+      },
+    })
+  );
+  const onSavePlace = vi.fn();
+
+  setGeolocation(getCurrentPosition);
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up Home where I am now" })
+  );
+
+  await screen.findByRole("heading", {
+    name: "Choose safe stops for Home",
+  });
+
+  const choices = screen.getAllByRole("checkbox");
+  fireEvent.click(choices[1]);
+  fireEvent.click(screen.getByRole("button", { name: "Save Home" }));
+
+  await waitFor(() => expect(onSavePlace).toHaveBeenCalledTimes(1));
+  expect(onSavePlace.mock.calls[0][0].stops).toEqual([
+    { id: "164", name: "Kauppatori" },
+    { id: "32", name: "Puistokatu" },
+  ]);
+});
+
+
+test("warns that sharing a Safe Place can reveal its general area", () => {
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      activeStopId="164"
+      placesById={
+        new Map([
+          [
+            "home",
+            {
+              id: "home",
+              label: "Home",
+              icon: "⌂",
+              primaryStopId: "164",
+              stops: [{ id: "164", name: "Kauppatori" }],
+            },
+          ],
+        ])
+      }
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(screen.getByText("Manage Home"));
+  expect(
+    screen.getByText(/Sharing Home reveals its saved public stop names and IDs/i)
+  ).toBeInTheDocument();
 });

@@ -1,0 +1,31 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d9c889;
+  border-radius: 12px;
+  background: #fff9e8;
+  color: #5b4c20;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.banner strong {
+  flex: 0 0 auto;
+  color: #44370f;
+}
+
+@media (max-width: 520px) {
+  .banner {
+    display: grid;
+    gap: 3px;
+  }
+}
+
+@media (forced-colors: active) {
+  .banner {
+    border-color: CanvasText;
+  }
+}

@@ -43,24 +43,53 @@
   line-height: 1.45;
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.speakButton,
 .closeButton {
-  width: fit-content;
-  border: 0;
-  background: transparent;
-  color: #00656f;
+  min-height: 42px;
+  border-radius: 10px;
   cursor: pointer;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 850;
 }
 
+.speakButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid #007985;
+  background: #edf8f8;
+  color: #005f68;
+}
+
+.speakButton:hover {
+  background: #dff3f3;
+}
+
+.closeButton {
+  width: fit-content;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: #00656f;
+}
+
+.speakButton:focus-visible,
 .closeButton:focus-visible {
   outline: 3px solid rgba(0, 121, 133, 0.28);
   outline-offset: 2px;
 }
 
 @media (forced-colors: active) {
-  .card {
+  .card,
+  .speakButton {
     border-color: CanvasText;
   }
 }

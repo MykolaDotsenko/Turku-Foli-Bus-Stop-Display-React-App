@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
+import ConnectivityStatus from "./components/ConnectivityStatus";
 import HomeRecovery from "./components/HomeRecovery";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
 import ServiceAlerts from "./components/ServiceAlerts";
+import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
 import useSavedPlaces from "./hooks/useSavedPlaces";
 import useSavedStops from "./hooks/useSavedStops";
@@ -28,6 +30,7 @@ function App() {
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
   );
+  const online = useOnlineStatus();
   const { stops, coordinatesStatus } = useStopCatalog();
   const routes = useRouteCatalog();
   const { byId: routesById, byShortName: routesByShortName } = useMemo(
@@ -51,6 +54,7 @@ function App() {
     stopName,
     arrivals,
     serverTime,
+    receivedAtMs,
     loading,
     refreshing,
     error,
@@ -60,7 +64,11 @@ function App() {
     () => [...new Set(arrivals.map((arrival) => arrival.lineref).filter(Boolean))],
     [arrivals]
   );
-  const serviceAlerts = useStopAlerts(stopId, activeLines, routesById);
+  const {
+    alerts: serviceAlerts,
+    error: serviceAlertsError,
+    receivedAtMs: serviceAlertsReceivedAtMs,
+  } = useStopAlerts(stopId, activeLines, routesById);
   const selectedStop = useMemo(
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
@@ -125,15 +133,39 @@ function App() {
             address, and get back to the right journey in one tap.
           </p>
         </div>
-        <span className="live-pill">
+        <span
+          className="live-pill"
+          data-online={online ? "true" : "false"}
+          aria-live="polite"
+        >
           <span className="live-dot" aria-hidden="true" />
-          Föli SIRI
+          {online ? "Föli SIRI" : "Offline mode"}
         </span>
       </header>
+
+      <ConnectivityStatus online={online} />
+
+      {sharedPlace && (
+        <MyPlaces
+          stops={stops}
+          coordinatesStatus={coordinatesStatus}
+          activeStopId={stopId}
+          placesById={placesById}
+          sharedPlace={sharedPlace}
+          online={online}
+          onSavePlace={savePlace}
+          onImportSharedPlace={importSharedPlace}
+          onDismissSharedPlace={dismissSharedPlace}
+          onRemovePlace={removePlace}
+          onSetPrimaryStop={setPrimaryStop}
+          onOpenStop={selectStop}
+        />
+      )}
 
       <HomeRecovery
         home={placesById.get("home") || null}
         stops={stops}
+        online={online}
         onOpenStop={selectStop}
       />
 
@@ -149,21 +181,8 @@ function App() {
         stops={stops}
         coordinatesStatus={coordinatesStatus}
         activeStopId={stopId}
+        online={online}
         onSelect={selectStop}
-      />
-
-      <MyPlaces
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        placesById={placesById}
-        sharedPlace={sharedPlace}
-        onSavePlace={savePlace}
-        onImportSharedPlace={importSharedPlace}
-        onDismissSharedPlace={dismissSharedPlace}
-        onRemovePlace={removePlace}
-        onSetPrimaryStop={setPrimaryStop}
-        onOpenStop={selectStop}
       />
 
       <QuickStops
@@ -173,7 +192,11 @@ function App() {
         onSelect={selectStop}
       />
 
-      <ServiceAlerts alerts={serviceAlerts} />
+      <ServiceAlerts
+        alerts={serviceAlerts}
+        error={serviceAlertsError}
+        receivedAtMs={serviceAlertsReceivedAtMs}
+      />
 
       <BusStopDisplay
         stopId={stopId}
@@ -182,6 +205,7 @@ function App() {
         arrivals={arrivals}
         routesByShortName={routesByShortName}
         serverTime={serverTime}
+        receivedAtMs={receivedAtMs}
         loading={loading}
         refreshing={refreshing}
         error={error}
@@ -189,6 +213,23 @@ function App() {
         isFavorite={favoriteIds.has(stopId)}
         onToggleFavorite={() => toggleFavorite(currentStop)}
       />
+
+      {!sharedPlace && (
+        <MyPlaces
+          stops={stops}
+          coordinatesStatus={coordinatesStatus}
+          activeStopId={stopId}
+          placesById={placesById}
+          sharedPlace={sharedPlace}
+          online={online}
+          onSavePlace={savePlace}
+          onImportSharedPlace={importSharedPlace}
+          onDismissSharedPlace={dismissSharedPlace}
+          onRemovePlace={removePlace}
+          onSetPrimaryStop={setPrimaryStop}
+          onOpenStop={selectStop}
+        />
+      )}
 
       <footer className="source-note">
         Source: Turku region public transport · data.foli.fi · CC BY 4.0

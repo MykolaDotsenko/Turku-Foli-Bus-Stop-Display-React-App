@@ -3,7 +3,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
   {
-    files: ["src/**/*.{js,jsx}", "e2e/**/*.js", "playwright.config.mjs"],
+    files: ["src/**/*.{js,jsx}", "e2e/**/*.js", "scripts/**/*.mjs", "playwright.config.mjs"],
     plugins: {
       react,
       "react-hooks": reactHooks,

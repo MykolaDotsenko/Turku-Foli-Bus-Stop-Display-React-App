@@ -146,6 +146,44 @@
   border-left: 4px solid #a77b28;
 }
 
+.unavailablePanel {
+  border-color: #d7dfe1;
+  background: #f8fbfb;
+}
+
+.feedStatus {
+  margin: 0;
+  padding: 9px 15px;
+  border-bottom: 1px solid #e2e9ea;
+  background: #f8fbfb;
+  color: #536970;
+  font-size: 0.71rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.moreButton {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-top: 1px solid #f3dfb5;
+  background: #fffdf8;
+  color: #5a471f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.moreButton:hover {
+  background: #fff7e7;
+}
+
+.moreButton:focus-visible {
+  outline: 3px solid rgba(139, 100, 29, 0.25);
+  outline-offset: -3px;
+}
+
 @media (max-width: 620px) {
   .panel {
     border-radius: 16px;

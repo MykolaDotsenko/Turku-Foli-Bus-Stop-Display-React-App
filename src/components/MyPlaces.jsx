@@ -27,7 +27,7 @@ function SetupPlace({
   onSave,
 }) {
   const [selectedIds, setSelectedIds] = useState(
-    () => new Set(candidates.map((stop) => stop.id))
+    () => new Set(candidates[0] ? [candidates[0].id] : [])
   );
   const [primaryStopId, setPrimaryStopId] = useState(
     candidates[0]?.id || ""
@@ -73,8 +73,9 @@ function SetupPlace({
       </div>
 
       <p className={styles.helper}>
-        Only public stop IDs and names will be saved. Your exact location is
-        discarded after this setup.
+        The closest stop is selected first. Add backup stops only if you know
+        they are safe and useful for arriving at {preset.label}. Only public
+        stop IDs and names are saved; your exact location is discarded.
       </p>
 
       {Number.isFinite(accuracy) && (
@@ -161,8 +162,9 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
         {replacing ? `Replace ${preset.label}?` : `Add ${preset.label}?`}
       </h3>
       <p className={styles.helper}>
-        This link contains only public Föli stop IDs and names — no private
-        address or saved location.
+        This link contains public Föli stop IDs and names, not an exact private
+        address. Those stops can still reveal the general area of this place,
+        so accept shared places only from someone you trust.
       </p>
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
@@ -190,6 +192,7 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
 function PlaceCard({
   place,
   stops,
+  online,
   onOpenStop,
   onSetPrimaryStop,
   onReplace,
@@ -202,9 +205,10 @@ function PlaceCard({
   const primaryStop =
     resolvedStops.find((stop) => stop.id === place.primaryStopId) ||
     resolvedStops[0];
-  const transitUrl = hasCoordinates(primaryStop)
-    ? buildTransitDirectionsUrl(primaryStop)
-    : "";
+  const transitUrl =
+    online && hasCoordinates(primaryStop)
+      ? buildTransitDirectionsUrl(primaryStop)
+      : "";
 
   const sharePlace = async () => {
     const url = buildSharedPlaceUrl(place);
@@ -316,6 +320,10 @@ function PlaceCard({
 
       <details className={styles.manage}>
         <summary>Manage {place.label}</summary>
+        <p className={styles.sharePrivacyHint}>
+          Sharing {place.label} reveals its saved public stop names and IDs,
+          which can indicate the general area.
+        </p>
         <div className={styles.manageActions}>
           <button
             type="button"
@@ -377,6 +385,7 @@ function MyPlaces({
   activeStopId,
   placesById,
   sharedPlace,
+  online = true,
   onSavePlace,
   onImportSharedPlace,
   onDismissSharedPlace,
@@ -486,6 +495,7 @@ function MyPlaces({
                 key={preset.id}
                 place={place}
                 stops={stops}
+                online={online}
                 onOpenStop={onOpenStop}
                 onSetPrimaryStop={onSetPrimaryStop}
                 onReplace={startSetup}

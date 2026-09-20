@@ -43,6 +43,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Verify PWA precache
+        run: npm run verify:pwa
+
   browser-qa:
     needs: unit-build
     runs-on: ubuntu-latest

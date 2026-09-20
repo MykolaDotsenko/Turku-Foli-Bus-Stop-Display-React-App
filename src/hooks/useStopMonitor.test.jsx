@@ -8,12 +8,13 @@ vi.mock("../api/foliApi", () => ({
 }));
 
 function Harness({ stopId }) {
-  const { stopName, error, refresh } = useStopMonitor(stopId);
+  const { stopName, error, receivedAtMs, refresh } = useStopMonitor(stopId);
 
   return (
     <div>
       <span>{stopName}</span>
       <span data-testid="error">{String(error)}</span>
+      <span data-testid="received-at">{String(receivedAtMs)}</span>
       <button type="button" onClick={() => refresh()}>
         Refresh
       </button>
@@ -78,4 +79,21 @@ test("keeps same-stop data when a refresh temporarily fails", async () => {
   });
 
   expect(screen.getByText("Kauppatori")).toBeInTheDocument();
+});
+
+
+test("records when the last successful realtime payload was received", async () => {
+  vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+  vi.mocked(fetchStopMonitor).mockResolvedValueOnce({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 1_700_000_000,
+  });
+
+  render(<Harness stopId="164" />);
+
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+  expect(screen.getByTestId("received-at")).toHaveTextContent(
+    "1700000000000"
+  );
 });

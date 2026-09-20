@@ -22,6 +22,32 @@ function encodeSharedPlaceForTest(payload) {
 async function seedHome(page) {
   await page.evaluate(() => {
     localStorage.setItem(
+      "foli-stop-catalog-v2",
+      JSON.stringify({
+        savedAt: Date.now(),
+        stops: [
+          {
+            id: "164",
+            name: "Kauppatori",
+            lat: 60.4518,
+            lon: 22.2666,
+          },
+          {
+            id: "32",
+            name: "Puistokatu",
+            lat: 60.4488,
+            lon: 22.255,
+          },
+          {
+            id: "4",
+            name: "Turun linna",
+            lat: 60.4355,
+            lon: 22.2345,
+          },
+        ],
+      })
+    );
+    localStorage.setItem(
       "foli-my-places-v1",
       JSON.stringify([
         {
@@ -193,7 +219,19 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByText("Detour", { exact: true })).toBeVisible();
   await expect(page.getByText("Affects line 1")).toBeVisible();
   await expect(page.getByText("Satama")).toBeVisible();
-  await expect(page.getByText(/Bus approaching/i)).toBeVisible();
+  await expect(page.getByText(/Bus nearby/i)).toBeVisible();
+
+  const boardPrecedesPlaceManagement = await page.evaluate(() => {
+    const board = document.querySelector('[aria-labelledby="departures-title"]');
+    const places = document.querySelector('[aria-labelledby="my-places-title"]');
+    return Boolean(
+      board &&
+        places &&
+        (board.compareDocumentPosition(places) &
+          globalThis.Node.DOCUMENT_POSITION_FOLLOWING)
+    );
+  });
+  expect(boardPrecedesPlaceManagement).toBe(true);
 
   await page.getByText("Show details").click();
   await expect(
@@ -301,6 +339,8 @@ test("saves Home as a privacy-first safe arrival zone", async ({
     localStorage.getItem("foli-my-places-v1")
   );
   expect(placeStorage).toContain('"id":"164"');
+  expect(placeStorage).not.toContain('"id":"32"');
+  expect(placeStorage).not.toContain('"id":"4"');
   expect(placeStorage).not.toContain("60.45182");
   expect(placeStorage).not.toContain("22.26662");
   expect(placeStorage).not.toContain("distanceMeters");
@@ -398,6 +438,114 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   expect(backupUrl.searchParams.has("origin")).toBe(false);
 });
 
+
+
+test("keeps the live departure board above place management in the normal flow", async ({
+  page,
+}) => {
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  const board = page.locator('section[aria-labelledby="departures-title"]');
+  const places = page.locator('section[aria-labelledby="my-places-title"]');
+
+  const boardBox = await board.boundingBox();
+  const placesBox = await places.boundingBox();
+
+  expect(boardBox).not.toBeNull();
+  expect(placesBox).not.toBeNull();
+  expect(boardBox.y).toBeLessThan(placesBox.y);
+});
+
+test("renders a public-stop-only Home backup card in print mode", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await page.emulateMedia({ media: "print" });
+
+  const printCard = page.getByText("Föli Home backup card");
+  await expect(printCard).toBeVisible();
+  await expect(page.getByText("Stop 164 · primary")).toBeVisible();
+  await expect(page.getByText("Puistokatu · Stop 32")).toBeVisible();
+
+  const headerVisibility = await page
+    .locator(".topbar")
+    .evaluate(
+      (element) => globalThis.getComputedStyle(element).visibility
+    );
+  expect(headerVisibility).toBe("hidden");
+});
+
+test("production PWA reopens offline with Safe Places and driver help", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-pwa");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
+
+  await page.unrouteAll({ behavior: "wait" });
+  await context.setOffline(true);
+  await expect
+    .poll(() => page.evaluate(() => navigator.onLine))
+    .toBe(false);
+
+  // Playwright's Chromium offline emulation does not consistently dispatch
+  // the browser's offline event to a service-worker-controlled page. Deliver
+  // that standard event explicitly, then verify both the live degraded UI and
+  // the persisted reload hint before testing the cached PWA reload itself.
+  await page.evaluate(() => {
+    window.dispatchEvent(new globalThis.Event("offline"));
+  });
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        globalThis.localStorage.getItem("foli-offline-hint")
+      )
+    )
+    .toBe("1");
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect(page.getByText("Offline mode", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/Saved Safe Places and driver help still work/i)
+  ).toBeVisible();
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  await expect(
+    recovery.getByRole("heading", {
+      name: "Lost or unsure? Get home from here.",
+    })
+  ).toBeVisible();
+  await expect(
+    recovery.getByRole("button", { name: "Get me Home" })
+  ).toBeDisabled();
+
+  await recovery.getByRole("button", { name: "Show driver" }).click();
+  const driver = recovery.getByRole("dialog");
+  await expect(
+    driver.getByRole("heading", { name: "I need to get to Home" })
+  ).toBeVisible();
+  await expect(driver.getByText("Kauppatori")).toBeVisible();
+
+  await context.setOffline(false);
+});
+
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
   await seedHome(page);
@@ -433,7 +581,11 @@ test("mobile layout does not create horizontal page overflow", async ({
     'section[aria-labelledby="home-recovery-title"]'
   );
   await recovery.getByText("Other safe Home stop").click();
-  await expect(recovery.getByText("Puistokatu")).toBeVisible();
+  await expect(
+    recovery.getByRole("link", {
+      name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+    })
+  ).toBeVisible();
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth

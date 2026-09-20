@@ -83,3 +83,52 @@ export function formatServiceStatus(
 
   return delay ? `${freshness} · ${delay}` : freshness;
 }
+
+
+export function advanceServerTime(
+  serverTime,
+  receivedAtMs,
+  nowMs = Date.now()
+) {
+  const server = Number(serverTime);
+  const received = Number(receivedAtMs);
+  const now = Number(nowMs);
+
+  if (!Number.isFinite(server) || server <= 0) return null;
+  if (
+    !Number.isFinite(received) ||
+    received <= 0 ||
+    !Number.isFinite(now) ||
+    now < received
+  ) {
+    return server;
+  }
+
+  return server + (now - received) / 1000;
+}
+
+export function elapsedSince(receivedAtMs, nowMs = Date.now()) {
+  const received = Number(receivedAtMs);
+  const now = Number(nowMs);
+
+  if (
+    !Number.isFinite(received) ||
+    received <= 0 ||
+    !Number.isFinite(now) ||
+    now < received
+  ) {
+    return null;
+  }
+
+  return Math.max(0, (now - received) / 1000);
+}
+
+export function formatElapsedAge(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") return "";
+
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) return "";
+  if (value < 60) return "just now";
+  if (value < 120) return "1 min ago";
+  return `${Math.round(value / 60)} min ago`;
+}

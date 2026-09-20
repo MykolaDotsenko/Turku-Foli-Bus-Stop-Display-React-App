@@ -1,4 +1,15 @@
+import { useEffect, useRef } from "react";
 import styles from "./SafePlaceDriverCard.module.css";
+
+const FINNISH_HELP =
+  "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
+
+function speechSupported() {
+  return (
+    typeof globalThis.SpeechSynthesisUtterance === "function" &&
+    typeof globalThis.speechSynthesis?.speak === "function"
+  );
+}
 
 function SafePlaceDriverCard({
   place,
@@ -6,9 +17,35 @@ function SafePlaceDriverCard({
   onClose,
   idPrefix = "safe-place",
 }) {
+  const usedSpeech = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (usedSpeech.current) {
+        globalThis.speechSynthesis?.cancel?.();
+      }
+    },
+    []
+  );
+
   if (!place || !primaryStop) return null;
 
   const titleId = `${idPrefix}-driver-${place.id}-title`;
+  const canReadAloud = speechSupported();
+
+  const readAloud = () => {
+    if (!canReadAloud) return;
+
+    const utterance = new globalThis.SpeechSynthesisUtterance(
+      `Tarvitsen apua. Olen menossa pysäkille ${primaryStop.name}, pysäkki ${primaryStop.id}. ${FINNISH_HELP}`
+    );
+    utterance.lang = "fi-FI";
+    utterance.rate = 0.9;
+
+    usedSpeech.current = true;
+    globalThis.speechSynthesis.cancel();
+    globalThis.speechSynthesis.speak(utterance);
+  };
 
   return (
     <section
@@ -23,12 +60,22 @@ function SafePlaceDriverCard({
         {primaryStop.name}
         <span>Stop {primaryStop.id}</span>
       </p>
-      <p className={styles.finnish}>
-        Voitteko auttaa minua jäämään pois oikealla pysäkillä?
-      </p>
-      <button type="button" className={styles.closeButton} onClick={onClose}>
-        Close
-      </button>
+      <p className={styles.finnish}>{FINNISH_HELP}</p>
+      <div className={styles.actions}>
+        {canReadAloud && (
+          <button
+            type="button"
+            className={styles.speakButton}
+            onClick={readAloud}
+          >
+            <span aria-hidden="true">🔊</span>
+            Read aloud in Finnish
+          </button>
+        )}
+        <button type="button" className={styles.closeButton} onClick={onClose}>
+          Close
+        </button>
+      </div>
     </section>
   );
 }
