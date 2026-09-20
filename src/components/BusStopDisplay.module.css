@@ -39,7 +39,7 @@
 .stopMeta {
   margin: 4px 0 0;
   color: #60747d;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .favoriteButton,
@@ -94,7 +94,7 @@
   border-bottom: 1px solid #edf1f2;
   background: #f8fbfb;
   color: #60747d;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
@@ -129,7 +129,7 @@
 
 .stateKicker {
   color: #007985;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-weight: 850;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -159,7 +159,7 @@
 .table th {
   color: #60747d;
   background: #fbfcfc;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 850;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -277,11 +277,11 @@
   }
 
   .table th {
-    font-size: 0.62rem;
+    font-size: 0.7rem;
   }
 
   .tripMeta {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
   }
 
   .due {
