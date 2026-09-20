@@ -7,6 +7,8 @@ const originalOnLine = Object.getOwnPropertyDescriptor(navigator, "onLine");
 afterEach(() => {
   if (originalOnLine) {
     Object.defineProperty(navigator, "onLine", originalOnLine);
+  } else {
+    delete navigator.onLine;
   }
 });
 
