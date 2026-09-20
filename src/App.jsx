@@ -104,7 +104,7 @@ function App() {
     const canonicalizeInvalidLocation = () => {
       const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
 
-      if (!/^\\d+$/.test(stopFromUrl || "")) {
+      if (!/^\d+$/.test(stopFromUrl || "")) {
         canonicalizeCurrentStop(DEFAULT_STOP);
       }
     };
@@ -126,7 +126,7 @@ function App() {
       const nextStopId = stopFromLocation();
       const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
 
-      if (!/^\\d+$/.test(stopFromUrl || "")) {
+      if (!/^\d+$/.test(stopFromUrl || "")) {
         canonicalizeCurrentStop(nextStopId);
       }
 
