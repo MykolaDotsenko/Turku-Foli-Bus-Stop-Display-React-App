@@ -1,7 +1,10 @@
 import axios from "axios";
+import { extractStopAlerts } from "../utils/alerts";
 
 const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
+const ALERTS_URL =
+  import.meta.env.VITE_FOLI_ALERTS_URL || "https://data.foli.fi/alerts";
 
 const client = axios.create({
   timeout: 8000,
@@ -91,4 +94,9 @@ export async function fetchStopCatalog(signal) {
     }))
     .filter((stop) => /^\d+$/.test(stop.id))
     .sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+export async function fetchStopAlerts(stopId, signal) {
+  const response = await client.get(ALERTS_URL, { signal });
+  return extractStopAlerts(response.data, stopId);
 }
