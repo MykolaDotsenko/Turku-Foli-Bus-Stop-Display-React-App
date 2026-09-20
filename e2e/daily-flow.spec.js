@@ -22,6 +22,32 @@ function encodeSharedPlaceForTest(payload) {
 async function seedHome(page) {
   await page.evaluate(() => {
     localStorage.setItem(
+      "foli-stop-catalog-v2",
+      JSON.stringify({
+        savedAt: Date.now(),
+        stops: [
+          {
+            id: "164",
+            name: "Kauppatori",
+            lat: 60.4518,
+            lon: 22.2666,
+          },
+          {
+            id: "32",
+            name: "Puistokatu",
+            lat: 60.4488,
+            lon: 22.255,
+          },
+          {
+            id: "4",
+            name: "Turun linna",
+            lat: 60.4355,
+            lon: 22.2345,
+          },
+        ],
+      })
+    );
+    localStorage.setItem(
       "foli-my-places-v1",
       JSON.stringify([
         {
@@ -410,6 +436,67 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
 
   expect(backupUrl.searchParams.get("destination")).toBe("60.4488,22.255");
   expect(backupUrl.searchParams.has("origin")).toBe(false);
+});
+
+
+test("production PWA reopens offline with Safe Places and driver help", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+
+    if (!navigator.serviceWorker.controller) {
+      await new Promise((resolve) => {
+        const timeoutId = setTimeout(resolve, 3_000);
+        navigator.serviceWorker.addEventListener(
+          "controllerchange",
+          () => {
+            clearTimeout(timeoutId);
+            resolve();
+          },
+          { once: true }
+        );
+        registration.active?.postMessage?.({ type: "claim" });
+      });
+    }
+  });
+
+  await page.unrouteAll({ behavior: "wait" });
+  await context.setOffline(true);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/Saved Safe Places and driver help still work/i)
+  ).toBeVisible();
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  await expect(
+    recovery.getByRole("heading", {
+      name: "Lost or unsure? Get home from here.",
+    })
+  ).toBeVisible();
+  await expect(
+    recovery.getByRole("button", { name: "Get me Home" })
+  ).toBeDisabled();
+
+  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await expect(
+    recovery.getByRole("heading", { name: "I need to get to Home" })
+  ).toBeVisible();
+  await expect(recovery.getByText("Kauppatori")).toBeVisible();
+
+  await context.setOffline(false);
 });
 
 test("has no serious WCAG accessibility violations", async ({ page }) => {
