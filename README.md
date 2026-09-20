@@ -51,6 +51,7 @@ No account, backend, or tracking is required. Favorites, recents and My Places s
 - **Show driver** provides a large stop-focused destination card plus a simple Finnish help sentence
 - when browser speech synthesis is available, **Read aloud in Finnish** speaks the driver-help sentence locally without an AI service or backend
 - a parent/teacher can **Share Home / School / Work** without an account; the link contains only the Safe Arrival stop identity
+- public stop identity is less sensitive than an exact address but is **not anonymous**: a Home/School/Work stop can reveal the general area, so share/import/print flows say this explicitly
 - shared Safe Places use a URL fragment rather than a query parameter, so the share payload is not sent to the web server as part of the HTTP request
 - opening a shared place never overwrites local data automatically: the recipient must explicitly Add or Replace it
 - place editing/removal is kept behind Manage instead of exposing destructive controls in the main child-friendly flow
