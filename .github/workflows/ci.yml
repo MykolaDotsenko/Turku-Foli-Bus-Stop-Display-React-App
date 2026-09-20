@@ -46,6 +46,9 @@ jobs:
       - name: Verify PWA precache
         run: npm run verify:pwa
 
+      - name: Verify production bundle budget
+        run: npm run verify:bundle
+
   browser-qa:
     needs: unit-build
     runs-on: ubuntu-latest
