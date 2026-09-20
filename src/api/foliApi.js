@@ -3,15 +3,51 @@ const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 const ALERTS_URL =
   import.meta.env.VITE_FOLI_ALERTS_URL || "https://data.foli.fi/alerts";
-const STOPS_URL =
-  import.meta.env.VITE_FOLI_STOPS_URL || "https://data.foli.fi/gtfs/stops";
-const ROUTES_URL =
-  import.meta.env.VITE_FOLI_ROUTES_URL || "https://data.foli.fi/gtfs/routes";
+const GTFS_BASE_URL =
+  import.meta.env.VITE_FOLI_GTFS_URL || "https://data.foli.fi/gtfs";
+const STOPS_URL_OVERRIDE = import.meta.env.VITE_FOLI_STOPS_URL || "";
+const ROUTES_URL_OVERRIDE = import.meta.env.VITE_FOLI_ROUTES_URL || "";
 
 const client = axios.create({
   timeout: 8000,
   headers: { Accept: "application/json" },
 });
+
+let gtfsDatasetBasePromise = null;
+
+function gtfsDatasetBase() {
+  if (!gtfsDatasetBasePromise) {
+    gtfsDatasetBasePromise = client
+      .get(GTFS_BASE_URL)
+      .then(({ data }) => {
+        const host = optionalString(data?.host);
+        const path = optionalString(data?.gtfspath);
+        const latest = optionalString(data?.latest);
+
+        if (!host || !path || !latest || !/^[\w.-]+$/.test(latest)) {
+          throw new Error("Invalid Föli GTFS dataset metadata.");
+        }
+
+        const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+        return `https://${host}${normalizedPath}/${encodeURIComponent(latest)}`;
+      })
+      .catch((error) => {
+        gtfsDatasetBasePromise = null;
+        throw error;
+      });
+  }
+
+  return gtfsDatasetBasePromise;
+}
+
+async function gtfsResourceUrl(resource, overrideUrl) {
+  if (overrideUrl) return overrideUrl;
+  return `${await gtfsDatasetBase()}/${resource}`;
+}
+
+export function resetGtfsDatasetForTests() {
+  gtfsDatasetBasePromise = null;
+}
 
 function positiveNumber(value) {
   const number = Number(value);
@@ -125,7 +161,10 @@ export async function fetchStopCatalog(signal) {
 }
 
 export async function fetchStopCoordinates(signal) {
-  const response = await client.get(STOPS_URL, { signal });
+  const response = await client.get(
+    await gtfsResourceUrl("stops", STOPS_URL_OVERRIDE),
+    { signal }
+  );
   const payload = response.data;
 
   if (!payload || Array.isArray(payload) || typeof payload !== "object") {
@@ -151,7 +190,10 @@ export async function fetchStopCoordinates(signal) {
 }
 
 export async function fetchRouteCatalog(signal) {
-  const response = await client.get(ROUTES_URL, { signal });
+  const response = await client.get(
+    await gtfsResourceUrl("routes", ROUTES_URL_OVERRIDE),
+    { signal }
+  );
   const payload = response.data;
 
   if (!Array.isArray(payload)) {
