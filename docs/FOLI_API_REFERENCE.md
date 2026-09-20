@@ -545,7 +545,7 @@ GET /siri/sm/<stop_id>
 ```text
 {
   sys: "SM",
-  status: "OK" | "NO_SIRI_DATA" | possibly transient service states,
+  status: "OK" | "NO_SIRI_DATA",
   servertime: Unix seconds,
   result: [...]
 }
@@ -687,6 +687,8 @@ validuntiltime
 vehicleatstop
 vehicleref
 ```
+
+The official VM documentation also defines `previouscalls[]`; the audited current vehicle sample did not carry a populated `previouscalls` key. Clients should therefore treat both previous/onward call collections as optional.
 
 Current `onwardcalls[]` fields observed:
 
