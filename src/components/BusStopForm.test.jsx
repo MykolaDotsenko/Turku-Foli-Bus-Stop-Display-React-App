@@ -51,7 +51,7 @@ test("location button fills the nearest stop but waits for explicit submit", asy
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Use my location to find nearest stop",
+        name: "Use current location",
       })
     );
 
