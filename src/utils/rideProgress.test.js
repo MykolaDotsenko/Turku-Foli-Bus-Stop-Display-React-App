@@ -146,7 +146,16 @@ describe("ride progress", () => {
     ).toBe("line-origin-time");
   });
 
-  it("keeps missing evidence neutral", () => {\n    const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {\n      liveEtaSec: null,\n      scheduleEtaSec: null,\n      remainingStops: null,\n    });\n    expect(stage.stage).toBe(RIDE_STAGE.BOARDED);\n  });\n\n  it("keeps schedule-only evidence from claiming NOW", () => {
+  it("keeps missing evidence neutral", () => {
+    const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
+      liveEtaSec: null,
+      scheduleEtaSec: null,
+      remainingStops: null,
+    });
+    expect(stage.stage).toBe(RIDE_STAGE.BOARDED);
+  });
+
+  it("keeps schedule-only evidence from claiming NOW", () => {
     const next = evaluateRideStage(RIDE_STAGE.BOARDED, {
       scheduleEtaSec: 5,
       remainingStops: 1,
