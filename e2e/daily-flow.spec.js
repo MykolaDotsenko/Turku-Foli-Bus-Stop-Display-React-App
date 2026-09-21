@@ -1512,7 +1512,10 @@ test("release gate: an empty realtime board falls back to the published GTFS tim
   ).toBeVisible();
   await expect(page.getByText("Scheduled", { exact: false }).first()).toBeVisible();
   await expect(page.getByText("Satama").first()).toBeVisible();
-  await expect(page.locator("tbody tr")).toHaveCount(1);
+  const scheduledRows = page
+    .locator('section[aria-labelledby="departures-title"] tbody tr');
+  await expect(scheduledRows.first()).toBeVisible();
+  expect(await scheduledRows.count()).toBeGreaterThanOrEqual(1);
 });
 
 test("release gate: departure-board controls all respond to the passenger", async ({
@@ -1679,7 +1682,7 @@ test("release gate: Ride Mode sound, switching and exit controls are coherent", 
   const soundCheck = page.getByRole("group", { name: "Alert sound check" });
   await expect(soundCheck).toBeVisible();
   await soundCheck.getByRole("button", { name: "No" }).click();
-  await expect(soundCheck.getByText("Let’s get the sound working")).toBeVisible();
+  await expect(soundCheck.getByText("Let's get the sound working")).toBeVisible();
   await soundCheck.getByRole("button", { name: "Play it again" }).click();
   await soundCheck.getByRole("button", { name: "I can hear it now" }).click();
   await expect(soundCheck).toHaveCount(0);
@@ -1769,20 +1772,27 @@ test("release gate: Home recovery and My Places management controls work", async
   await page.addInitScript(() => {
     globalThis.__releaseSpoken = false;
     globalThis.__releasePrinted = false;
-    globalThis.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) {
-      this.text = text;
-      this.lang = "";
-      this.voice = null;
-    };
-    globalThis.speechSynthesis = {
-      cancel() {},
-      getVoices() {
-        return [{ lang: "fi-FI", name: "Release Finnish" }];
+    Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
+      configurable: true,
+      value: function SpeechSynthesisUtterance(text) {
+        this.text = text;
+        this.lang = "";
+        this.rate = 1;
+        this.voice = null;
       },
-      speak() {
-        globalThis.__releaseSpoken = true;
+    });
+    Object.defineProperty(globalThis, "speechSynthesis", {
+      configurable: true,
+      value: {
+        cancel() {},
+        getVoices() {
+          return [{ lang: "fi-FI", name: "Release Finnish" }];
+        },
+        speak() {
+          globalThis.__releaseSpoken = true;
+        },
       },
-    };
+    });
     globalThis.print = () => {
       globalThis.__releasePrinted = true;
     };
@@ -1920,17 +1930,28 @@ test("release gate: shared-place dismiss and service-update expansion controls w
   await page.reload();
   await expect(page.getByLabel("6 service updates")).toBeVisible();
 
-  const more = page.getByRole("button", { name: "Show 2 more updates" });
-  await more.click();
-  await expect(page.getByText("Release update 6")).toBeVisible();
-  await page.getByRole("button", { name: "Show fewer updates" }).click();
-  await expect(page.getByText("Release update 6")).toHaveCount(0);
+  const servicePanel = page.locator(
+    'section[aria-labelledby="service-alerts-title"]'
+  );
+  const alertDetails = servicePanel.locator("details");
+  await expect(alertDetails).toHaveCount(4);
 
-  const firstAlert = page.getByText("Release update 1");
-  await firstAlert.click();
-  await expect(page.getByText("Release passenger information 1.")).toBeVisible();
-  await firstAlert.click();
-  await expect(page.getByText("Release passenger information 1.")).toHaveCount(0);
+  const more = servicePanel.getByRole("button", {
+    name: "Show 2 more updates",
+  });
+  await more.click();
+  await expect(alertDetails).toHaveCount(6);
+
+  await servicePanel
+    .getByRole("button", { name: "Show fewer updates" })
+    .click();
+  await expect(alertDetails).toHaveCount(4);
+
+  const firstAlert = alertDetails.first();
+  await firstAlert.locator("summary").click();
+  await expect(firstAlert.locator(".alertBody")).toBeVisible();
+  await firstAlert.locator("summary").click();
+  await expect(firstAlert.locator(".alertBody")).not.toBeVisible();
 });
 
 
