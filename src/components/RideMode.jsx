@@ -71,7 +71,19 @@ export default function RideMode({
 }) {
   if (!session) return null;
 
-  const stage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const baseStage =
+    STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const stopRequestRequired =
+    Number(session.routeType) === 3 || Number(session.routeType) === 11;
+  const stage =
+    session.stage === RIDE_STAGE.NEXT
+      ? {
+          ...baseStage,
+          instruction: stopRequestRequired
+            ? "Press the STOP button now."
+            : "Get ready to exit at the next stop.",
+        }
+      : baseStage;
   const urgent =
     session.stage === RIDE_STAGE.NEXT ||
     session.stage === RIDE_STAGE.NOW ||
