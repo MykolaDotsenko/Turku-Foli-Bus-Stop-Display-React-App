@@ -1,301 +1,264 @@
 # Föli Live Departures
 
 ![CI](https://github.com/MykolaDotsenko/Turku-Foli-Bus-Stop-Display-React-App/actions/workflows/ci.yml/badge.svg)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-A fast, local-first departure companion for Turku-region public transport. It is optimized for the everyday question:
+**Privacy-first realtime public transport companion for Turku.**
 
-> **When does my next bus leave — and is there anything I need to know before I go?**
+Live departures, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
 
-<p align="center">
-  <img src="docs/assets/foli-desktop.webp" alt="Föli Live Departures desktop view showing service updates and live departures for Kauppatori" width="900">
+<p>
+  <a href="https://nuppu-assignment.vercel.app"><strong>Live demo</strong></a>
+  ·
+  <a href="docs/PRODUCT_AUDIT.md">Product audit</a>
+  ·
+  <a href="docs/FOLI_API_REFERENCE.md">Föli API contract</a>
 </p>
 
 <p align="center">
-  <img src="docs/assets/foli-mobile.webp" alt="Föli Live Departures mobile view with stop search, service update and upcoming departures" width="320">
+  <img
+    src="docs/assets/foli-desktop.webp"
+    alt="Föli Live Departures showing realtime departures, service updates and daily travel actions"
+    width="920"
+  >
 </p>
 
-These screenshots are generated from the same deterministic Playwright flow that runs in CI.
+<p align="center">
+  <img
+    src="docs/assets/foli-mobile.webp"
+    alt="Föli Live Departures mobile experience with stop search and upcoming departures"
+    width="320"
+  >
+</p>
 
-For the adversarial product review, scores, fixed risks and deliberately unresolved limitations, see **[docs/PRODUCT_AUDIT.md](docs/PRODUCT_AUDIT.md)**. For the four-pass provider contract inventory, field map and app-vs-Föli comparison, see **[docs/FOLI_API_REFERENCE.md](docs/FOLI_API_REFERENCE.md)**.
+> **Independent portfolio project.** Not an official Föli application.
 
-## Daily workflow
+## What it does
 
-1. Save **Home, School or Work** once as a **Safe Arrival Zone** made from 1–3 public Föli stops — no private address required.
-2. When Home exists, the top of the app exposes **Get me Home** as a dedicated travel-recovery action for a child, newcomer or anyone who is lost or unsure.
-3. **Get me Home** opens public-transit directions to the primary safe Home stop. The app does not embed the user's current origin.
-4. Recovery keeps independent fallbacks: **Open Home stop** for the departure board, **Show driver** for a simple destination card, and **Prepare for no battery** for a printable public-stop-only Home backup card. Saved backup Home stops stay available behind an explicit disclosure.
-5. Tap **Go Home / Go to School / Go to Work** in My Places for the normal daily destination flow.
-6. If location access is unavailable, search/select a stop normally and save that public stop to My Places.
-7. Tap **Find nearest stop** for a one-time location lookup, or search by **stop name / stop number**.
-8. Compare the three closest stops and their approximate straight-line distances when direction matters, then tap **Walk there** for walking directions.
-9. See active **stop- and route-level disruptions, cancellations, global notices, and emergency messages before departures**, including provider disruption maps/images and validity when supplied.
-10. Scan line, localized destination, due time, realtime status, official Föli route identity, trip accessibility and — when available — the provider's **vehicle at stop** state or conservative live distance.
-11. Expand **Next stops** only when needed for a planned downstream stop sequence; approximate GTFS timepoints are labelled as approximate instead of exact.
-12. Save frequent stops with **☆** and return to favorites or recent stops in one tap.
+Föli Live Departures answers the everyday transit question quickly — **what leaves next, from where, and is there anything important I should know before I go?**
 
-No account, backend, or tracking is required. Favorites, recents and My Places stay in the browser. My Places stores public stop IDs/names only; the exact location used during setup is discarded. Location is requested only after a user action.
+It also handles less ideal situations: poor connectivity, an unfamiliar area, a child or newcomer trying to get home, a temporarily unavailable stop, stale realtime data, or a provider disruption.
 
-## Product decisions
+### Core product capabilities
 
-- **Get me Home** is deliberately surfaced above stop search after Home is configured, because a recovery action should not be buried inside settings or a long page
-- recovery uses one dominant action plus independent **Open Home stop** and **Show driver** fallbacks rather than a multi-step wizard
-- recovery is explicitly labelled as travel help, not an emergency service; the UI avoids red/SOS styling that could imply capabilities it does not provide
-- if GTFS stop coordinates are temporarily unavailable, transit routing is disabled rather than pretending it can route; the saved public stop and driver card still work
-- parent-approved backup Home stops remain hidden until requested, reducing cognitive load while preserving resilience when the usual stop is unavailable
-- **Prepare for no battery** produces a printable/save-as-PDF Home card containing only public stop identity and the Finnish help sentence; this is the only fallback that remains usable after the phone itself powers off
-- Safe Arrival setup selects only the closest candidate initially; extra backup stops require explicit opt-in because physical proximity alone does not make a stop safe
-- **My Places** replaces memorized private addresses with intent-based destinations such as Home, School and Work
-- each place is a **Safe Arrival Zone** of up to three public Föli stops; one is primary and the others are backups
-- setup by **where I am now** uses one-time geolocation only to discover nearby public stops, then discards the exact position
-- a no-geolocation fallback lets the user search/select a stop and save that public stop directly
-- **Go Home / Go to School / Go to Work** launches keyless transit directions to the primary public stop with no origin embedded in the URL
-- **Show driver** provides a large stop-focused destination card plus a simple Finnish help sentence
-- when browser speech synthesis is available, **Read aloud in Finnish** speaks the driver-help sentence locally without an AI service or backend
-- a parent/teacher can **Share Home / School / Work** without an account; the link contains only the Safe Arrival stop identity
-- public stop identity is less sensitive than an exact address but is **not anonymous**: a Home/School/Work stop can reveal the general area, so share/import/print flows say this explicitly
-- shared Safe Places use a URL fragment rather than a query parameter, so the share payload is not sent to the web server as part of the HTTP request
-- opening a shared place never overwrites local data automatically: the recipient must explicitly Add or Replace it
-- place editing/removal is kept behind Manage instead of exposing destructive controls in the main child-friendly flow
-- one-tap geolocation removes the need to know a nearby stop's name or number
-- the closest stop is selected automatically only when location quality is reasonable, the point is not outside Föli’s published compact service boundary, the device is near the network, and one candidate is meaningfully closer than the next
-- the three nearest alternatives remain visible because the physically closest stop may serve the wrong travel direction
-- location accuracy is exposed instead of pretending GPS/Wi-Fi positioning is exact
-- stop distances are labelled as approximate straight-line distances rather than walking-route distances
-- each nearby stop can open keyless walking directions in Google Maps without bundling a map SDK
-- user coordinates are never stored and there is no background location tracking
-- stop-name search removes the need to remember numeric stop IDs
-- search tolerates partial names and missing Finnish diacritics
-- keyboard autocomplete supports ↑ / ↓ / Enter / Escape
-- favorites optimize repeated commute flows
-- recent stops recover common journeys automatically
-- stop-specific and route-specific service messages appear before the board
-- global Föli notices are included and emergency messages replace lower-priority disruption content
-- semantic alert effects such as Detour, Stop moved, Significant delays and No service are surfaced directly
-- route-only alerts are cross-checked against static GTFS stop membership, so a disrupted route can still be surfaced even when it has no current realtime departure row
-- provider alert validity is surfaced when available; provider images/maps are HTTPS-normalized and are not mounted until the user explicitly expands disruption details
-- detailed alert information stays collapsed until the user asks for it
-- the first four alerts preserve a low-noise default, while additional relevant updates are explicitly discoverable through **Show N more updates**
-- official GTFS route colors and names improve line recognition without hard-coded branding
-- route text colors are contrast-checked at runtime and corrected when the provider color pair would fail WCAG AA
-- fresh SIRI `vehicleatstop` truth is preferred when available; otherwise monitored coordinates are converted into a conservative approximate vehicle-to-stop distance
-- proximity is labelled **nearby**, not “approaching”, because distance alone cannot prove the vehicle's travel direction
-- SIRI English/Swedish destination variants are selected from the browser language when available, with the normal provider destination as fallback
-- the undocumented live `__tripref` field is used only as optional GTFS enrichment: trip lookup failure never blocks the departure board
-- trip-level `wheelchair_accessible` is shown only for explicit yes/no values; unknown data is not turned into a claim
-- **Next stops** loads `stop_times/trip` only after user expansion and distinguishes approximate `timepoint=0` times from exact planned timepoints
-- already-departed rows and rows without a usable departure timestamp are filtered instead of being presented as current departures
-- line, destination, and due time remain the strongest visual hierarchy
-- the live departure board appears before My Places management in the normal flow; shared-place import is the context-aware exception because confirmation is then the user's immediate task
-- mobile controls use large touch targets and collapse into a simple one-column action flow
-- loading, empty, stale, scheduled, realtime, and failed states are explicit
-- the receipt time of the last successful realtime payload is tracked separately from Föli server time, so a failed refresh cannot freeze an old payload in a misleadingly fresh **Live** state
-- Due-time filtering, vehicle-position freshness and realtime status all age forward across an outage using the last successful provider clock plus elapsed client time
-- service-alert feed failures are also explicit: retained alerts remain visible, but an old/failed disruption check is labelled with when it was last confirmed
-- a temporary refresh failure keeps the last successful same-stop data
-- data from one stop can never render under another stop number
-- the app shell can be installed as a PWA; the production build generates a content-versioned precache for same-origin assets while live Föli API responses are never cached
-- offline mode is explicit: saved Safe Places and driver help remain available, while live departures and external route planning are labelled as network-dependent
-- the header changes from the normal Föli status indicator to **Offline mode**, avoiding contradictory “live-looking” UI while the browser reports no network
+- **Realtime departure board** with conservative Live/Scheduled semantics and stale-data handling
+- **Stop search, favorites and recents** for fast repeat journeys
+- **Nearest-stop discovery** with one-time geolocation, uncertainty checks and nearby alternatives
+- **Service disruption intelligence** across stop-level, route-level and emergency alerts
+- **Safe Places** for Home, School and Work using public stop identities instead of private addresses
+- **Get me Home** recovery with transit handoff, backup stops, driver card and printable no-battery fallback
+- **Offline-capable PWA shell** that keeps saved recovery information available when the network disappears
+- **Accessible mobile-first UX** validated with Playwright and axe across Chromium, Firefox and WebKit
 
-## Location semantics
+## Why this project is more than a departure-board demo
 
-Föli GTFS provides WGS84 stop coordinates through `stop_lat` and `stop_lon`. SIRI stop search and GTFS coordinates are fetched independently: stop-name/number search can become usable as soon as SIRI responds, while coordinates enrich the cached catalogue asynchronously.
+The project is intentionally small in infrastructure and demanding in product behavior.
 
-When the user taps **Find nearest stop**:
+There is **no backend, account system, map SDK, analytics SDK or global state library**. The application instead relies on focused React hooks, browser APIs and explicit provider-boundary normalization.
 
-1. the browser asks for location permission
-2. the app requests a high-accuracy one-time position, with a lower-power timeout fallback
-3. distances are calculated locally with the Haversine formula
-4. the three nearest active Föli stops are ranked
-5. when the compact Föli service boundary is available, the point is checked locally before automatic selection
-6. the nearest stop is auto-selected only when:
-   - reported location accuracy is at most 250 m,
-   - the nearest stop is within 2 km, and
-   - the second-nearest candidate is not effectively tied within the uncertainty margin
-7. poor/unknown accuracy, a point outside the published service area, a stop farther than the 2 km auto-select range, an unexpectedly distant network result, or two nearly tied stops is surfaced as a warning instead of silently making a strong assumption
+The harder engineering work is in the edge cases:
 
-No map SDK, geocoding service, analytics service, or location backend is required. **Walk there** uses a standard Google Maps URL with only the public stop destination; the app does not put the user's current coordinates into the external URL.
+- realtime data can become stale without becoming obviously broken
+- a failed refresh must not make old departures look fresh
+- data from one stop must never appear under another stop
+- route disruptions may matter even when no matching realtime row exists
+- GPS accuracy can be too poor to safely auto-select a stop
+- the physically closest stop can serve the wrong direction
+- accessibility and mobile behavior must survive dense realtime content
+- offline recovery must remain useful without pretending live transit still works
+- browser Back/Forward must switch stops without stale state or render-loop regressions
 
-## Realtime semantics
+Those cases are covered by explicit product rules and automated release gates rather than optimistic UI assumptions.
 
-Föli Stop Monitoring exposes both planned and estimated times. The board uses this defensive order:
+## Stack
 
-~~~text
-expecteddeparturetime
-→ expectedarrivaltime
-→ aimeddeparturetime
-→ aimedarrivaltime
-~~~
+| Area | Technology |
+| --- | --- |
+| UI | React 18, CSS Modules |
+| Build | Vite 8 |
+| Realtime/data | Axios, Föli SIRI + GTFS + alerts APIs |
+| Local state | React hooks, Web Storage |
+| Browser capabilities | Geolocation, History, Visibility, Service Worker, Web Share, Clipboard, AbortController |
+| Unit/integration tests | Vitest, Testing Library |
+| Browser QA | Playwright |
+| Accessibility | axe |
+| CI | GitHub Actions |
+| Delivery model | Installable local-first PWA |
 
-A vehicle is labelled **Live** only when `monitored === true`. Otherwise the trip is shown as **Scheduled**.
+## Product highlights
 
-Rows without a usable departure timestamp are ignored. Departures older than a short grace window are also removed so an already-departed vehicle cannot linger indefinitely as **Due**.
+### Realtime that degrades honestly
 
-The hook records when each successful Stop Monitoring payload actually reaches the browser. Föli `servertime` is then advanced by the elapsed time since that receipt. This means a retained payload continues to age during an outage instead of freezing at the age it had when the last response arrived.
+The departure board prefers Föli estimated departure/arrival data and falls back to planned times only when needed.
 
-`recordedattime` is compared with that advancing provider-time reference. Due labels, vehicle-position age and **Live data · N min old** semantics therefore remain conservative even while retries fail.
+A trip is labelled **Live** only when the provider marks it monitored. The application records when a successful payload reached the browser and advances provider time locally, so an outage cannot freeze an old payload in a misleadingly fresh state.
 
-The UI intentionally treats realtime values as estimates rather than promises. Vehicle coordinates are presented as **nearby / distance from stop** rather than “approaching”, because the stop-monitoring position alone does not prove direction of travel.
+Temporary provider failures keep useful same-stop data visible while clearly degrading freshness.
+
+### Privacy-first Safe Places
+
+Home, School and Work are represented as **Safe Arrival Zones** made from up to three public Föli stops.
+
+The app does not need to persist a private street address or exact setup coordinates. One-time location can help discover nearby public stops; the exact position is discarded after setup.
+
+Shared Safe Places contain public stop identity only and require explicit confirmation before replacing local data.
+
+### Get me Home recovery
+
+After Home is configured, a dedicated recovery action is promoted near the top of the experience.
+
+It provides independent fallbacks:
+
+- **Go Home** — external public-transit handoff to the primary saved stop
+- **Open Home stop** — reopen the local departure board
+- **Show driver** — large destination card with a simple Finnish help sentence
+- **Backup Home stops** — user/parent-approved alternatives
+- **Prepare for no battery** — printable public-stop-only recovery card
+
+The interface deliberately describes this as travel help, not an emergency service.
+
+### Location without overconfidence
+
+Nearest-stop discovery uses one-time browser geolocation and local Haversine calculations.
+
+Automatic selection is withheld when accuracy is poor, the device appears outside the published service area, the network is unexpectedly far away, or two stops are effectively tied inside the uncertainty margin.
+
+The app exposes alternatives because “nearest” does not necessarily mean “correct travel direction”.
+
+### Accessible by design
+
+Accessibility is part of CI rather than a post-build checklist.
+
+The application includes:
+
+- semantic status and alert regions
+- accessible combobox/listbox interaction
+- keyboard autocomplete
+- large mobile touch targets
+- visible focus states
+- reduced-motion and forced-colors support
+- runtime contrast correction for provider-supplied route colors
+- screen-reader-aware loading, invalid, busy and pressed states
+- WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical axe gates
 
 ## Architecture
 
 ~~~text
-Föli SIRI + coherent GTFS dataset + Alerts APIs
-        ↓
+Föli SIRI + GTFS + Alerts
+        │
+        ▼
 api/foliApi.js
-  normalize provider data
-  keep monitored SIRI vehicle coordinates
-  resolve one GTFS dataset + normalize stop/route metadata
-        ↓
-hooks/
-  useStopMonitor.js   30s visible-tab polling + cancellation + stale-data safety
-  useStopCatalog.js   non-blocking SIRI catalogue + async GTFS enrichment
-  useRouteCatalog.js  cached route identity/colors for line recognition + alerts
-  useServiceBoundary.js cached compact Föli service geometry for local checks
-  useTripEnrichment.js optional trip metadata for visible departures
-  useSavedStops.js    local-first favorites + recents
-  useSavedPlaces.js   privacy-first Home / School / Work safe-stop zones
-  useStopAlerts.js    conservative active-disruption polling
-  useOnlineStatus.js  explicit browser online/offline state
-        ↓
-App.jsx
-        ↓
-ConnectivityStatus.jsx explicit degraded/offline capability messaging
-HomeRecovery.jsx     top-level one-tap Home recovery + backup safe-stop fallbacks
-SafePlaceDriverCard.jsx shared child/newcomer driver-assistance card
-BusStopForm.jsx       search / accessible autocomplete
-NearbyStops.jsx       one-time geolocation / nearest-stop ranking / walking handoff
-MyPlaces.jsx          Safe Arrival Zones + transit handoff + explicit share/import
-QuickStops.jsx        favorites / recents
-ServiceAlerts.jsx     stop + complete route disruptions / validity + lazy media
-BusStopDisplay.jsx    live board + localized destination + trip accessibility
-TripJourneyDetails.jsx lazy planned next-stop sequence / timepoint semantics
-        ↓
-utils/
-  geo.js              Haversine distance + nearest-stop + local MultiPolygon boundary check
-  routes.js           route indexing + WCAG-safe route text color
-  maps.js             keyless privacy-conscious walking + transit URLs
-  location.js         shared one-time geolocation + timeout fallback semantics
-  sharedPlaces.js     validated public-stop-only share fragment codec
-  time.js             timing + freshness semantics
-  alerts.js           pure alert filtering
-
-build-time/
-  scripts/build-sw.mjs  content-versioned production app-shell precache
-  scripts/verify-pwa.mjs CI verification of built PWA assets
+provider normalization + defensive contracts
+        │
+        ▼
+React hooks
+├─ useStopMonitor       realtime polling + stale-data safety
+├─ useStopCatalog       stop search + progressive GTFS enrichment
+├─ useRouteCatalog      route identity / colors
+├─ useStopAlerts        disruption matching
+├─ useServiceBoundary   local service-area checks
+├─ useSavedStops        favorites / recents
+├─ useSavedPlaces       privacy-first Safe Places
+└─ useOnlineStatus      degraded/offline capability state
+        │
+        ▼
+Product UI
+├─ HomeRecovery
+├─ BusStopForm
+├─ QuickStops
+├─ ServiceAlerts
+├─ BusStopDisplay
+├─ NearbyStops
+└─ MyPlaces
+        │
+        ▼
+Browser platform
+History · Geolocation · Storage · Visibility · Service Worker
 ~~~
 
-The project deliberately avoids a router, global state library, backend, map SDK, and heavy design system. Its scope is small enough that focused React hooks and browser APIs keep the architecture easier to inspect, test, and maintain.
+The architecture deliberately avoids a router, backend and global state library because the product scope does not require them. That keeps provider semantics, lifecycle behavior and recovery logic visible and testable.
 
-## Reliability
+## Reliability model
 
-- departures refresh every 30 seconds while the page is visible
-- returning to the tab triggers an immediate refresh
-- obsolete requests are aborted
-- HTTP requests time out after 8 seconds
-- same-stop data survives temporary provider failures
-- cross-stop stale-data leakage is prevented
-- provider payloads are normalized at the API boundary
-- malformed arrivals are ignored defensively
-- an expired stop catalogue remains usable while refresh is retried
-- GTFS coordinate loading/failure never blocks normal name/number stop search
-- geolocation is requested only from a direct user gesture
-- high-accuracy geolocation timeout retries once with a lower-power cached-position strategy
-- low-accuracy, far-from-network, and ambiguous opposite-direction results do not silently auto-select a stop
-- walking, normal destination and recovery transit navigation are explicit external handoffs; the user's origin is not embedded in generated Maps URLs
-- Home recovery is rendered only after a validated Home Safe Arrival Zone exists
-- recovery remains useful while stop coordinates are loading: only the route link is withheld, while saved stop identity and driver assistance remain available
-- alternate Home destinations are limited to parent/user-approved backup safe stops rather than arbitrary nearby stops
-- My Places persistence strips coordinates, distance and any other setup-only fields before writing to storage
-- only public stop IDs/names are persisted for Safe Arrival Zones; exact home/school/work coordinates are not required
-- Safe Arrival setup is capped at three stops and refuses clearly out-of-network location results
-- Safe Place share serialization strips coordinates and accepts only Home/School/Work plus up to three numeric public stop IDs
-- share links remove unrelated current-stop query state and store the payload in the URL fragment
-- malformed/unsupported shared payloads are ignored and valid imports require explicit user confirmation
-- service alerts refresh conservatively every five minutes while visible
-- the last successful raw alert payload is re-filtered locally when the active stop, visible lines, or route metadata changes
-- route-only disruptions are matched through GTFS route_id → route_short_name rather than guessed from identifiers
-- empty global/emergency envelopes are ignored; a real emergency notice suppresses ordinary alert noise
-- route metadata is progressive enhancement and cannot block departures
-- vehicle proximity is shown only for monitored arrivals with valid WGS84 coordinates
-- vehicle proximity never claims movement direction from distance alone
-- old/untimed departure rows are removed before the board is rendered
-- background tabs do not create unnecessary Föli API load
-- production service worker precaches the complete hashed same-origin application shell and removes obsolete versioned shell caches
-- service worker never caches `data.foli.fi` realtime responses
-- external walking/transit handoffs are withheld while the browser reports offline; local Safe Places and driver help remain available
-- `navigator.onLine` is treated as a fast hint, not proof of connectivity; the UI also performs a tiny same-origin uncached HEAD probe that bypasses the GET-only service-worker cache, while individual Föli request success/failure remains authoritative for provider data
+The application is defensive around both provider data and browser lifecycle behavior:
 
-## Accessibility
+- 30-second visible-tab departure refresh
+- immediate refresh when returning to the tab
+- request cancellation with AbortController
+- 8-second HTTP timeouts
+- same-stop stale-data retention after transient failures
+- strict cross-stop stale-data isolation
+- progressive stop catalogue enrichment
+- conservative alert refresh and local re-filtering
+- no caching of live Föli API responses in the service worker
+- content-versioned same-origin PWA shell precache
+- explicit online/offline capability messaging
+- stable state identities during stop transitions to prevent synchronous render loops
+- deterministic browser-history regression coverage
 
-Accessibility is a release gate, not a checklist claim.
-
-- semantic headings, labels, table headers, status and alert regions
-- accessible combobox/listbox semantics
-- full keyboard autocomplete navigation
-- location feedback uses status/alert semantics rather than visual-only state
-- nearest-stop buttons expose stop name, number, and distance to assistive technology
-- Safe Arrival setup uses native checkbox/radio semantics to distinguish allowed stops from the primary stop
-- Show driver uses a reusable labelled dialog region and does not rely on color or map interpretation
-- supported browsers expose a touch-friendly **Read aloud in Finnish** control; unsupported browsers omit it rather than showing a broken action
-- recovery controls use large touch targets, a single dominant action and plain-language fallback labels
-- the recovery panel communicates its non-emergency scope in text rather than relying on color
-- official line colors are paired with runtime contrast correction before rendering text
-- alert effect labels, route scope and expandable detail text remain available without color dependence
-- walking-direction links have explicit destination-aware accessible names and keyboard focus states
-- visible focus states
-- `aria-busy`, `aria-live`, `aria-invalid`, and `aria-pressed`
-- reduced-motion support
-- forced-colors-aware styling
-- touch-friendly controls
-- WCAG AA color contrast verified by axe in CI
-
-The automated audit originally found insufficient secondary-text contrast. The palette was corrected rather than suppressing the rule.
+The browser Back/Forward regression is specifically protected after a real production bug was traced to referential instability in pending stop data and alert membership state.
 
 ## Quality gates
 
-Every pull request to `master` must pass:
+Every pull request to `master` runs the same production-oriented checks:
 
-| Gate | Coverage |
+| Gate | What it protects |
 | --- | --- |
-| ESLint | JavaScript/JSX correctness + React Hooks rules |
-| Vitest + Testing Library | timing semantics, stale-data safety, route-aware alerts, emergency precedence, GTFS route metadata, WCAG route contrast, geolocation, Safe Arrival persistence/share privacy, explicit import semantics, Home recovery/fallbacks, stop/vehicle distance math, walking/transit Maps URL privacy, failure states |
-| Production build | Vite production compilation + content-versioned service-worker generation |
-| PWA precache | every generated production asset must be represented in the service-worker precache manifest |
-| Playwright · Chromium | deterministic production-build daily flow + geolocation + parent-share import + Get me Home recovery, with service workers blocked so API mocks remain authoritative |
-| Playwright · Firefox | deterministic cross-browser behavior with service workers blocked |
-| Playwright · mobile WebKit | deterministic iPhone-sized layout and interaction flow with service workers blocked |
-| Playwright · Chromium PWA | dedicated real service-worker install/control + offline reload + saved Home/driver fallback |
-| axe | WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical violations |
-| Mobile overflow | guards against page-level horizontal overflow |
+| ESLint | JavaScript/JSX correctness and React Hooks rules |
+| Vitest + Testing Library | timing, persistence, privacy, geolocation, alerts and failure semantics |
+| Production build | Vite compilation + service-worker generation |
+| PWA verification | generated assets are represented in the production precache |
+| Bundle budget | prevents uncontrolled frontend growth |
+| Playwright · Chromium | core daily flow, recovery, geolocation and screenshots |
+| Playwright · Firefox | cross-browser behavior |
+| Playwright · mobile WebKit | iPhone-sized interaction and layout |
+| Playwright · Chromium mobile | Android-sized interaction and layout |
+| Playwright · Chromium PWA | real service-worker install + offline reopen |
+| axe | serious/critical WCAG regressions |
+| Mobile overflow | guards against page-level horizontal scrolling |
 
-Most browser scenarios mock the documented Föli contracts intentionally so provider incidents cannot make the release pipeline flaky. Those deterministic projects explicitly block service workers so a controlled page cannot bypass Playwright route mocks. A separate Chromium PWA project allows the real service worker, removes Föli mocks, switches the browser context offline and proves that the production app shell, saved Home and driver-help fallback reopen from the generated precache.
+Browser scenarios mock documented Föli contracts so provider incidents cannot make CI flaky. A dedicated PWA project separately exercises the real generated service worker and offline application shell.
 
-CI also retains Playwright reports, failure traces, and recruiter-ready desktop/mobile product screenshots as build artifacts.
+The desktop and mobile screenshots above are generated from deterministic Playwright product flows.
 
-## Stack
+## Data and provider semantics
 
-- React 18
-- Vite 8
-- Vitest 5
-- Testing Library
-- Playwright
-- axe
-- ESLint
-- Axios
-- CSS Modules
-- browser Geolocation, History, Storage, Visibility, Service Worker, Web Share, Clipboard, and AbortController APIs
-- GitHub Actions
-- Föli SIRI Stop Monitoring API
-- Föli GTFS stops API
-- Föli GTFS routes API
-- Föli service alerts API
+The application uses Turku region public transport open data:
+
+- SIRI Stop Monitoring
+- GTFS stops
+- GTFS routes
+- service alerts
+- service-area geometry where available
+
+Provider data is normalized at the application boundary instead of being passed directly into components.
+
+Detailed field-level behavior, fallbacks and known provider limitations are documented in **[Föli API Reference](docs/FOLI_API_REFERENCE.md)**.
+
+For the adversarial product review, fixed risks and deliberately unresolved limitations, see **[Product Audit](docs/PRODUCT_AUDIT.md)**.
 
 ## Run locally
+
+Requires Node.js 20.19+.
 
 ~~~bash
 npm ci
 npm run dev
+~~~
+
+Production verification:
+
+~~~bash
+npm run lint
+npm test
+npm run build
+npm run verify:api-reference
+npm run verify:pwa
+npm run verify:bundle
+npx playwright install --with-deps chromium firefox webkit
+npm run test:e2e
 ~~~
 
 Optional compatible API overrides:
@@ -308,38 +271,27 @@ VITE_FOLI_STOPS_URL=https://example.test/gtfs/stops npm run dev
 VITE_FOLI_ROUTES_URL=https://example.test/gtfs/routes npm run dev
 ~~~
 
-Core local checks:
+## Repository map
 
-~~~bash
-npm run lint
-npm test
-npm run build
-npm run verify:pwa
-npm run test:e2e
+~~~text
+src/
+├─ api/          Föli provider normalization and HTTP boundary
+├─ components/   product UI
+├─ hooks/        realtime, persistence and browser lifecycle logic
+└─ utils/        pure geo, time, route, alert and sharing helpers
+
+e2e/             cross-browser product and accessibility QA
+scripts/         production PWA / bundle / provider-contract verification
+docs/            product audit, provider reference and recruiter screenshots
+.github/         CI and live contract smoke checks
 ~~~
 
-Browser QA uses Playwright and axe against the **production build served by Vite preview**, not the development server. Every gate above runs from a plain `npm ci`; browser binaries are the one extra step:
+## Data attribution
 
-~~~bash
-npx playwright install --with-deps chromium firefox webkit
-~~~
+Transit and timetable data is maintained by Turku region public transport and distributed through `data.foli.fi` under **CC BY 4.0**.
 
-Browser geolocation requires a secure context in production. HTTPS deployment satisfies that requirement; localhost remains valid for local development.
+Application source code is available under the **MIT License**.
 
-## Data source
+---
 
-Source: Turku region public transport transit and timetable data, maintained by Turku region public transport and distributed through `data.foli.fi` under the Creative Commons Attribution 4.0 International license (CC BY 4.0).
-
-Official Stop Monitoring documentation: https://data.foli.fi/doc/siri/v0/sm-en
-
-Complete provider contract notes: docs/FOLI_API_REFERENCE.md
-
-Official GTFS stops documentation: https://data.foli.fi/doc/gtfs/v0/stops
-
-Google Maps URLs documentation (keyless directions handoff): https://developers.google.com/maps/documentation/urls/get-started
-
-This is an independent portfolio project and is not an official Föli application.
-
-## License
-
-Application source code is available under the MIT License. Föli data remains subject to its own CC BY 4.0 terms.
+Built as an independent product engineering portfolio project around a real public transport system, real provider failure modes and real everyday recovery scenarios.
