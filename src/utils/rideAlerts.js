@@ -188,7 +188,7 @@ export async function requestRideNotificationPermission() {
   }
 }
 
-function notificationCopy(stage, stopName) {
+function notificationCopy(stage, stopName, routeType = null) {
   const name = String(stopName || "your stop").trim();
 
   if (stage === "soon") {
@@ -200,7 +200,7 @@ function notificationCopy(stage, stopName) {
   if (stage === "next") {
     return {
       title: `Next stop: ${name}`,
-      body: "Press the STOP button now.",
+      body: rideExitInstruction(routeType).nextNotification,
     };
   }
   if (stage === "now") {
@@ -221,13 +221,13 @@ function notificationCopy(stage, stopName) {
   };
 }
 
-export async function showRideNotification(stage, stopName) {
+export async function showRideNotification(stage, stopName, routeType = null) {
   const NotificationApi = globalThis.Notification;
   if (!NotificationApi || NotificationApi.permission !== "granted") {
     return false;
   }
 
-  const copy = notificationCopy(stage, stopName);
+  const copy = notificationCopy(stage, stopName, routeType);
   const options = {
     body: copy.body,
     tag: "foli-active-ride",
