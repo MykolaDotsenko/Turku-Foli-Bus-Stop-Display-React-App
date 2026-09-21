@@ -308,6 +308,7 @@ async function mockFoli(page) {
             pickup_type: 0,
             drop_off_type: 0,
             timepoint: 1,
+            shape_dist_traveled: 0,
           },
           {
             stop_id: "32",
@@ -317,6 +318,7 @@ async function mockFoli(page) {
             pickup_type: 0,
             drop_off_type: 0,
             timepoint: 0,
+            shape_dist_traveled: 900,
           },
           {
             stop_id: "4",
