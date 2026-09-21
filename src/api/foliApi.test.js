@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -35,6 +35,10 @@ const datasetBase = "https://data.foli.fi/gtfs/v0/20260920-120000";
 beforeEach(() => {
   mocks.get.mockReset();
   resetGtfsDatasetForTests();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 test("keeps the active SIRI stop catalogue independent from GTFS coordinates", async () => {
@@ -446,4 +450,73 @@ test("filters malformed arrival rows while keeping a valid realtime response usa
   const result = await fetchStopMonitor("164");
   expect(result.arrivals).toHaveLength(1);
   expect(result.arrivals[0].lineref).toBe("1");
+});
+
+test("re-resolves the pinned GTFS dataset after its TTL and drops rows cached from the retired dataset", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-21T00:00:00Z"));
+
+  let latest = "20260920-120000";
+  const tripUrls = [];
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: { ...datasetMeta, latest } });
+    }
+
+    if (url.includes("/trips/trip/")) {
+      tripUrls.push(url);
+      return Promise.resolve({ data: [{ route_id: "1", trip_headsign: "Satama" }] });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL ${url}`));
+  });
+
+  await fetchTripDetails("trip-1");
+  await fetchTripDetails("trip-1");
+
+  expect(tripUrls).toHaveLength(1);
+  expect(tripUrls[0]).toContain("/20260920-120000/");
+
+  // Föli publishes a new dataset while this session is still open.
+  latest = "20260921-120000";
+  vi.setSystemTime(new Date("2026-09-21T07:00:00Z"));
+
+  await fetchTripDetails("trip-1");
+
+  expect(tripUrls).toHaveLength(2);
+  expect(tripUrls[1]).toContain("/20260921-120000/");
+});
+
+test("re-reads rows once after the pin expires, against the confirmed dataset", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-21T00:00:00Z"));
+
+  const tripUrls = [];
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url.includes("/trips/trip/")) {
+      tripUrls.push(url);
+      return Promise.resolve({ data: [{ route_id: "1" }] });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL ${url}`));
+  });
+
+  await fetchTripDetails("trip-1");
+  await fetchTripDetails("trip-1");
+  expect(tripUrls).toHaveLength(1);
+
+  vi.setSystemTime(new Date("2026-09-21T07:00:00Z"));
+  await fetchTripDetails("trip-1");
+  await fetchTripDetails("trip-1");
+
+  // One re-read after the pin expires, then cached again against the
+  // dataset that was just confirmed.
+  expect(tripUrls).toHaveLength(2);
+  expect(tripUrls[1]).toContain("/20260920-120000/");
 });

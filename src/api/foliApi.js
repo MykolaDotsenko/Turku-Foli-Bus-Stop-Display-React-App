@@ -1,4 +1,6 @@
 import axios from "axios";
+import createBoundedCache from "../utils/boundedCache";
+
 const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
 const ALERTS_URL =
@@ -16,13 +18,48 @@ const client = axios.create({
   headers: { Accept: "application/json" },
 });
 
+// Föli publishes new GTFS dataset versions, so a long-lived session must not
+// keep requesting a retired dataset path for the rest of its life.
+const GTFS_DATASET_TTL_MS = 6 * 60 * 60 * 1000;
+
+// Dataset-scoped responses. Bounded so a display left running for days cannot
+// grow its memory without limit.
+const tripDetailsCache = createBoundedCache(200);
+const tripStopTimesCache = createBoundedCache(60);
+const stopBoardingTripsCache = createBoundedCache(20);
+const routeTripsCache = createBoundedCache(60);
+
 let gtfsDatasetBasePromise = null;
-const tripDetailsCache = new Map();
-const tripStopTimesCache = new Map();
-const stopBoardingTripsCache = new Map();
-const routeTripsCache = new Map();
+let gtfsDatasetBaseUrl = "";
+let gtfsDatasetResolvedAtMs = 0;
+
+function clearGtfsResourceCaches() {
+  tripDetailsCache.clear();
+  tripStopTimesCache.clear();
+  stopBoardingTripsCache.clear();
+  routeTripsCache.clear();
+}
+
+/**
+ * Drops an expired dataset pin, and everything cached against it, without
+ * waiting on the network. Cached reads stay synchronous, and no response from
+ * a retired dataset can outlive the pin.
+ */
+function invalidateExpiredGtfsDataset() {
+  const expired =
+    gtfsDatasetResolvedAtMs > 0 &&
+    Date.now() - gtfsDatasetResolvedAtMs >= GTFS_DATASET_TTL_MS;
+
+  if (!expired) return;
+
+  gtfsDatasetBasePromise = null;
+  gtfsDatasetResolvedAtMs = 0;
+  clearGtfsResourceCaches();
+}
 
 function gtfsDatasetBase() {
+  invalidateExpiredGtfsDataset();
+
   if (!gtfsDatasetBasePromise) {
     gtfsDatasetBasePromise = client
       .get(GTFS_BASE_URL)
@@ -36,10 +73,22 @@ function gtfsDatasetBase() {
         }
 
         const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-        return `https://${host}${normalizedPath}/${encodeURIComponent(latest)}`;
+        const base = `https://${host}${normalizedPath}/${encodeURIComponent(
+          latest
+        )}`;
+
+        if (gtfsDatasetBaseUrl && gtfsDatasetBaseUrl !== base) {
+          // Everything cached from the previous dataset is now unrelated.
+          clearGtfsResourceCaches();
+        }
+
+        gtfsDatasetBaseUrl = base;
+        gtfsDatasetResolvedAtMs = Date.now();
+        return base;
       })
       .catch((error) => {
         gtfsDatasetBasePromise = null;
+        gtfsDatasetResolvedAtMs = 0;
         throw error;
       });
   }
@@ -54,10 +103,9 @@ async function gtfsResourceUrl(resource, overrideUrl) {
 
 export function resetGtfsDatasetForTests() {
   gtfsDatasetBasePromise = null;
-  tripDetailsCache.clear();
-  tripStopTimesCache.clear();
-  stopBoardingTripsCache.clear();
-  routeTripsCache.clear();
+  gtfsDatasetBaseUrl = "";
+  gtfsDatasetResolvedAtMs = 0;
+  clearGtfsResourceCaches();
 }
 
 function positiveNumber(value) {
@@ -294,6 +342,7 @@ function gtfsTime(value) {
 
 export async function fetchTripDetails(tripId, signal) {
   const id = requiredId(tripId, "trip ID");
+  invalidateExpiredGtfsDataset();
   if (tripDetailsCache.has(id)) return tripDetailsCache.get(id);
   const response = await client.get(
     await gtfsResourceUrl(`trips/trip/${encodeURIComponent(id)}`),
@@ -337,6 +386,7 @@ export async function fetchTripDetails(tripId, signal) {
 
 export async function fetchTripStopTimes(tripId, signal) {
   const id = requiredId(tripId, "trip ID");
+  invalidateExpiredGtfsDataset();
   if (tripStopTimesCache.has(id)) return tripStopTimesCache.get(id);
   const response = await client.get(
     await gtfsResourceUrl(`stop_times/trip/${encodeURIComponent(id)}`),
@@ -370,6 +420,7 @@ export async function fetchTripStopTimes(tripId, signal) {
 
 export async function fetchStopBoardingTripIds(stopId, signal) {
   const id = requiredId(stopId, "stop ID");
+  invalidateExpiredGtfsDataset();
   if (stopBoardingTripsCache.has(id)) {
     return new Set(stopBoardingTripsCache.get(id));
   }
@@ -398,6 +449,7 @@ export async function fetchStopBoardingTripIds(stopId, signal) {
 
 export async function fetchRouteTripIds(routeId, signal) {
   const id = requiredId(routeId, "route ID");
+  invalidateExpiredGtfsDataset();
   if (routeTripsCache.has(id)) return new Set(routeTripsCache.get(id));
   const response = await client.get(
     await gtfsResourceUrl(`trips/route/${encodeURIComponent(id)}`),

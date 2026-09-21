@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import BusStopDisplay from "./BusStopDisplay";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 test("uses official route identity while preserving readable contrast and live proximity", () => {
   const now = Math.floor(Date.now() / 1000);
@@ -232,4 +236,78 @@ test("uses the browser language destination when Föli provides it", () => {
 
   expect(screen.getByText("Harbour")).toBeInTheDocument();
   expect(screen.queryByText("Satama")).not.toBeInTheDocument();
+});
+
+test("keeps counting down between provider refreshes instead of freezing", () => {
+  vi.useFakeTimers();
+
+  const serverTime = 1_900_000_000;
+  const receivedAtMs = Date.now();
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      serverTime={serverTime}
+      receivedAtMs={receivedAtMs}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: true,
+          expecteddeparturetime: serverTime + 300,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("5 min")).toBeInTheDocument();
+
+  // No new payload arrives; only the clock moves.
+  act(() => {
+    vi.advanceTimersByTime(120_000);
+  });
+
+  expect(screen.getByText("3 min")).toBeInTheDocument();
+});
+
+test("drops a departure from the board once it has left, without new data", () => {
+  vi.useFakeTimers();
+
+  const serverTime = 1_900_000_000;
+  const receivedAtMs = Date.now();
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      serverTime={serverTime}
+      receivedAtMs={receivedAtMs}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: true,
+          expecteddeparturetime: serverTime + 60,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+
+  act(() => {
+    vi.advanceTimersByTime(120_000);
+  });
+
+  expect(screen.queryByText("Satama")).not.toBeInTheDocument();
+  expect(screen.getByText("No upcoming departures.")).toBeInTheDocument();
 });

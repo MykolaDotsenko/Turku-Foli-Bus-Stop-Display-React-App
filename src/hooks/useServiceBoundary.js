@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchServiceBoundary } from "../api/foliApi";
+import useRetrySignal from "./useRetrySignal";
 
 const CACHE_KEY = "foli-service-boundary-v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -36,11 +37,12 @@ export default function useServiceBoundary() {
   const [status, setStatus] = useState(() =>
     cache.geometry ? "ready" : "loading"
   );
+  const { attempt, reportFailure, reportSuccess } = useRetrySignal();
+  // Evaluated per render for the same reason as the other catalogues.
+  const fresh =
+    cache.savedAt > 0 && Date.now() - cache.savedAt < CACHE_TTL_MS;
 
   useEffect(() => {
-    const fresh =
-      cache.savedAt > 0 && Date.now() - cache.savedAt < CACHE_TTL_MS;
-
     if (fresh && cache.geometry) {
       setStatus("ready");
       return undefined;
@@ -50,18 +52,23 @@ export default function useServiceBoundary() {
 
     fetchServiceBoundary(controller.signal)
       .then((geometry) => {
+        if (controller.signal.aborted) return;
+
         const next = { geometry, savedAt: Date.now() };
+        reportSuccess();
         setCache(next);
         setStatus("ready");
         persist(next);
       })
       .catch(() => {
         if (controller.signal.aborted) return;
+
+        reportFailure();
         setStatus(cache.geometry ? "ready" : "unavailable");
       });
 
     return () => controller.abort();
-  }, [cache.geometry, cache.savedAt]);
+  }, [attempt, cache.geometry, fresh, reportFailure, reportSuccess]);
 
   return {
     geometry: cache.geometry,

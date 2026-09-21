@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchRouteCatalog } from "../api/foliApi";
+import useRetrySignal from "./useRetrySignal";
 
 const CACHE_KEY = "foli-route-catalog-v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -30,26 +31,36 @@ function persist(next) {
 
 export default function useRouteCatalog() {
   const [cache, setCache] = useState(readCache);
+  const { attempt, reportFailure, reportSuccess } = useRetrySignal();
+  // Evaluated per render, so a session that outlives the cache refreshes
+  // instead of serving day-old route metadata until someone reloads.
+  const isFresh =
+    cache.savedAt > 0 && Date.now() - cache.savedAt < CACHE_TTL_MS;
 
   useEffect(() => {
-    const isFresh =
-      cache.savedAt > 0 && Date.now() - cache.savedAt < CACHE_TTL_MS;
     if (isFresh) return undefined;
 
     const controller = new AbortController();
 
     fetchRouteCatalog(controller.signal)
       .then((routes) => {
+        if (controller.signal.aborted) return;
+
         const next = { routes, savedAt: Date.now() };
+        reportSuccess();
         setCache(next);
         persist(next);
       })
       .catch(() => {
-        // Keep stale route metadata. Core departures do not depend on it.
+        if (controller.signal.aborted) return;
+
+        // Keep stale route metadata and retry. Core departures never depend
+        // on it, but line colours and names stay wrong until it lands.
+        reportFailure();
       });
 
     return () => controller.abort();
-  }, [cache.savedAt]);
+  }, [attempt, isFresh, reportFailure, reportSuccess]);
 
   return cache.routes;
 }
