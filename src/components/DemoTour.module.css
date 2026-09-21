@@ -48,9 +48,9 @@
 .skyline {
   position: absolute;
   z-index: -1;
-  right: -70px;
+  right: 0;
   bottom: 58px;
-  width: min(690px, 92%);
+  width: min(640px, 88%);
   opacity: 0.12;
   pointer-events: none;
   user-select: none;
