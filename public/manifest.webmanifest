@@ -2,14 +2,14 @@
   "name": "Föli Live Departures",
   "short_name": "Föli Departures",
   "description": "Privacy-first live Föli departures, disruptions, Safe Places and Get me Home travel help for the Turku region.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#edf4f5",
   "theme_color": "#007985",
   "icons": [
     {
-      "src": "/foli-icon.svg",
+      "src": "./foli-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
