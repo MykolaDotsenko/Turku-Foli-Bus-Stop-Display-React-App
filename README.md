@@ -7,12 +7,14 @@
 
 **Privacy-first realtime public transport companion for Turku.**
 
-Live departures, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
+Live departures, hands-free **Ride Mode** get-off alerts, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
 
 <p>
   <a href="#product-preview"><strong>Product preview</strong></a>
   ·
   <a href="docs/PRODUCT_AUDIT.md">Product audit</a>
+  ·
+  <a href="docs/RIDE_MODE_SPEC.md">Ride Mode design</a>
   ·
   <a href="docs/FOLI_API_REFERENCE.md">Föli API contract</a>
 </p>
@@ -46,6 +48,7 @@ It also handles less ideal situations: poor connectivity, an unfamiliar area, a 
 ### Core product capabilities
 
 - **Realtime departure board** with conservative Live/Scheduled semantics and stale-data handling
+- **Ride Mode get-off alerts** that warn when to get ready, press STOP and exit without continuously watching a map
 - **Stop search, favorites and recents** for fast repeat journeys
 - **Nearest-stop discovery** with one-time geolocation, uncertainty checks and nearby alternatives
 - **Service disruption intelligence** across stop-level, route-level and emergency alerts
@@ -71,6 +74,7 @@ The harder engineering work is in the edge cases:
 - accessibility and mobile behavior must survive dense realtime content
 - offline recovery must remain useful without pretending live transit still works
 - browser Back/Forward must switch stops without stale state or render-loop regressions
+- get-off alerts must warn early without turning timetable-only evidence into a false “exit now” claim
 
 Those cases are covered by explicit product rules and automated release gates rather than optimistic UI assumptions.
 
@@ -82,7 +86,7 @@ Those cases are covered by explicit product rules and automated release gates ra
 | Build | Vite 8 |
 | Realtime/data | Axios, Föli SIRI + GTFS + alerts APIs |
 | Local state | React hooks, Web Storage |
-| Browser capabilities | Geolocation, History, Visibility, Service Worker, Web Share, Clipboard, AbortController |
+| Browser capabilities | Geolocation, History, Visibility, Service Worker, Notifications, Wake Lock, Web Audio, Speech Synthesis, Web Share, Clipboard, AbortController |
 | Unit/integration tests | Vitest, Testing Library |
 | Browser QA | Playwright |
 | Accessibility | axe |
@@ -98,6 +102,22 @@ The departure board prefers Föli estimated departure/arrival data and falls bac
 A trip is labelled **Live** only when the provider marks it monitored. The application records when a successful payload reached the browser and advances provider time locally, so an outage cannot freeze an old payload in a misleadingly fresh state.
 
 Temporary provider failures keep useful same-stop data visible while clearly degrading freshness.
+
+### Ride without watching the map
+
+A passenger can choose **Alert me when to get off** on a concrete departure, select a downstream stop in real trip order and then keep Ride Mode open instead of continuously checking a map.
+
+Ride Mode combines three independent signals:
+
+- **Föli SIRI at the target and previous stop** to match the selected trip and detect live progression
+- **GTFS stop order + anchored timetable** as a degraded fallback when realtime disappears
+- optional **device location backup**, calculated locally and never persisted or transmitted
+
+The state machine is deliberately asymmetric: weak evidence may warn **SOON** or **NEXT** early, while **NOW** requires stronger provider/location evidence. Timetable-only data is never allowed to claim “get off now”.
+
+Alerts escalate from a gentle preparation cue to **Press STOP now** and finally **This is your stop**, using sound, vibration, speech and system notifications where the browser supports them. Active rides survive a reload, and missed-stop evidence exposes the next planned stop as a recovery action.
+
+Client-only Ride Mode is explicit about its boundary: browsers may suspend background pages, so it does not claim guaranteed lock-screen tracking. The reliability model and the backend + Web Push Phase 2 are documented in **[Ride Mode design](docs/RIDE_MODE_SPEC.md)**.
 
 ### Privacy-first Safe Places
 
@@ -163,6 +183,7 @@ React hooks
 ├─ useServiceBoundary   local service-area checks
 ├─ useSavedStops        favorites / recents
 ├─ useSavedPlaces       privacy-first Safe Places
+├─ useRideMode          get-off tracking + persistence + GPS redundancy
 └─ useOnlineStatus      degraded/offline capability state
         │
         ▼
@@ -172,6 +193,7 @@ Product UI
 ├─ QuickStops
 ├─ ServiceAlerts
 ├─ BusStopDisplay
+├─ RideSetup / RideMode
 ├─ NearbyStops
 └─ MyPlaces
         │
