@@ -1,6 +1,6 @@
 # Föli Live Departures
 
-![CI](https://github.com/MykolaDotsenko/Turku-Foli-Bus-Stop-Display-React-App/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/MykolaDotsenko/foli-live-departures/actions/workflows/ci.yml/badge.svg)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -21,7 +21,7 @@ Live departures, disruptions, nearest stops, Safe Places and resilient **Get me 
 
 <p align="center">
   <img
-    src="docs/assets/foli-desktop.webp"
+    src="docs/assets/foli-desktop.png"
     alt="Föli Live Departures showing realtime departures, service updates and daily travel actions"
     width="920"
   >
@@ -29,7 +29,7 @@ Live departures, disruptions, nearest stops, Safe Places and resilient **Get me 
 
 <p align="center">
   <img
-    src="docs/assets/foli-mobile.webp"
+    src="docs/assets/foli-mobile.png"
     alt="Föli Live Departures mobile experience with stop search and upcoming departures"
     width="320"
   >
