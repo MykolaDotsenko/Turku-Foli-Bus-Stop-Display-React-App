@@ -313,17 +313,38 @@ function candidateStage(signals) {
   const freshProviderPosition =
     providerDistance !== null &&
     (providerAge === null || providerAge <= 120);
-
   const reliableGps =
     gpsDistance !== null &&
-    (gpsAccuracy === null || gpsAccuracy <= 120);
-
+    gpsAccuracy !== null &&
+    gpsAccuracy <= 120;
   const reliableShapeGps =
     signals.gpsShapeUsable === true &&
     signals.gpsOnRoute === true &&
     gpsRouteDistance !== null &&
     gpsAccuracy !== null &&
     gpsAccuracy <= 120;
+
+  const scheduleIsAuthoritative = liveEta === null;
+  const scheduleSaysNext =
+    scheduleIsAuthoritative &&
+    ((remaining !== null && remaining <= 1) ||
+      (scheduleEta !== null && scheduleEta <= 90));
+  const scheduleSaysSoon =
+    scheduleIsAuthoritative &&
+    ((remaining !== null && remaining <= 3) ||
+      (scheduleEta !== null && scheduleEta <= 300));
+
+  const shapeSaysNext =
+    reliableShapeGps &&
+    ((gpsRouteDistance >= -50 && gpsRouteDistance <= 600) ||
+      (gpsRouteEta !== null && gpsRouteEta <= 90));
+  const nextEvidence =
+    signals.previousPassedConfirmed === true ||
+    shapeSaysNext ||
+    (liveEta !== null && liveEta <= 90) ||
+    scheduleSaysNext;
+  const nearEndOfRide =
+    signals.currentAtLeastNext === true || nextEvidence;
 
   if (signals.targetAtStop === true) {
     return {
@@ -333,11 +354,7 @@ function candidateStage(signals) {
     };
   }
 
-  if (
-    signals.currentAtLeastNext === true &&
-    freshProviderPosition &&
-    providerDistance <= 60
-  ) {
+  if (nearEndOfRide && freshProviderPosition && providerDistance <= 60) {
     return {
       stage: RIDE_STAGE.NOW,
       reason: "provider-near-target",
@@ -346,7 +363,7 @@ function candidateStage(signals) {
   }
 
   if (
-    signals.currentAtLeastNext === true &&
+    nearEndOfRide &&
     reliableShapeGps &&
     gpsRouteDistance >= -30 &&
     gpsRouteDistance <= 110
@@ -359,7 +376,7 @@ function candidateStage(signals) {
   }
 
   if (
-    signals.currentAtLeastNext === true &&
+    nearEndOfRide &&
     signals.gpsShapeAvailable !== true &&
     reliableGps &&
     gpsDistance <= 60
@@ -371,30 +388,17 @@ function candidateStage(signals) {
     };
   }
 
-  if (
-    signals.previousPassedConfirmed === true ||
-    (reliableShapeGps &&
+  if (nextEvidence) {
+    const gpsDistanceNext =
+      reliableShapeGps &&
       gpsRouteDistance >= -50 &&
-      gpsRouteDistance <= 600) ||
-    (reliableShapeGps && gpsRouteEta !== null && gpsRouteEta <= 90) ||
-    (liveEta !== null && liveEta <= 90) ||
-    (remaining !== null && remaining <= 1) ||
-    (scheduleEta !== null && scheduleEta <= 90)
-  ) {
-    const degraded =
-      liveEta === null &&
-      signals.previousPassedConfirmed !== true &&
-      !reliableShapeGps &&
-      scheduleEta !== null;
-
+      gpsRouteDistance <= 600;
     return {
       stage: RIDE_STAGE.NEXT,
       reason:
         signals.previousPassedConfirmed === true
           ? "previous-stop-passed"
-          : reliableShapeGps &&
-              gpsRouteDistance >= -50 &&
-              gpsRouteDistance <= 600
+          : gpsDistanceNext
             ? "gps-route-distance"
             : reliableShapeGps &&
                 gpsRouteEta !== null &&
@@ -405,44 +409,47 @@ function candidateStage(signals) {
                 : remaining !== null && remaining <= 1
                   ? "planned-stop-count"
                   : "schedule-fallback",
-      confidence: reliableShapeGps
-        ? "location"
-        : degraded
-          ? "schedule"
-          : "live",
+      confidence:
+        signals.previousPassedConfirmed === true || liveEta !== null
+          ? "live"
+          : reliableShapeGps
+            ? "location"
+            : "schedule",
     };
   }
 
+  const shapeSaysSoon =
+    reliableShapeGps &&
+    ((gpsRouteDistance >= 0 && gpsRouteDistance <= 1200) ||
+      (gpsRouteEta !== null && gpsRouteEta <= 300));
+
   if (
-    (reliableShapeGps &&
-      gpsRouteDistance >= 0 &&
-      gpsRouteDistance <= 1200) ||
-    (reliableShapeGps && gpsRouteEta !== null && gpsRouteEta <= 300) ||
+    shapeSaysSoon ||
     (liveEta !== null && liveEta <= 300) ||
-    (remaining !== null && remaining <= 3) ||
-    (scheduleEta !== null && scheduleEta <= 300)
+    scheduleSaysSoon
   ) {
+    const gpsDistanceSoon =
+      reliableShapeGps &&
+      gpsRouteDistance >= 0 &&
+      gpsRouteDistance <= 1200;
     return {
       stage: RIDE_STAGE.SOON,
-      reason:
-        reliableShapeGps &&
-        gpsRouteDistance >= 0 &&
-        gpsRouteDistance <= 1200
-          ? "gps-route-distance"
-          : reliableShapeGps &&
-              gpsRouteEta !== null &&
-              gpsRouteEta <= 300
-            ? "gps-route-eta"
-            : liveEta !== null && liveEta <= 300
-              ? "live-eta"
-              : remaining !== null && remaining <= 3
-                ? "planned-stop-count"
-                : "schedule-fallback",
+      reason: gpsDistanceSoon
+        ? "gps-route-distance"
+        : reliableShapeGps &&
+            gpsRouteEta !== null &&
+            gpsRouteEta <= 300
+          ? "gps-route-eta"
+          : liveEta !== null && liveEta <= 300
+            ? "live-eta"
+            : remaining !== null && remaining <= 3
+              ? "planned-stop-count"
+              : "schedule-fallback",
       confidence: reliableShapeGps
         ? "location"
-        : liveEta === null && scheduleEta !== null
-          ? "schedule"
-          : "live",
+        : liveEta !== null
+          ? "live"
+          : "schedule",
     };
   }
 
