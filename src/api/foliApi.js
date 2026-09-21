@@ -1,5 +1,10 @@
 import axios from "axios";
 import createBoundedCache from "../utils/boundedCache";
+import {
+  mergeRealtimeAndScheduled,
+  scheduledClockCandidates,
+  serviceRunsOnDate,
+} from "../utils/gtfsSchedule";
 
 const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
@@ -29,6 +34,9 @@ const tripStopTimesCache = createBoundedCache(60);
 const stopBoardingTripsCache = createBoundedCache(20);
 const routeTripsCache = createBoundedCache(60);
 const tripShapeCache = createBoundedCache(40);
+const stopTimetableCache = createBoundedCache(30);
+const calendarDatesCache = createBoundedCache(1);
+const routeCatalogCache = createBoundedCache(1);
 
 let gtfsDatasetBasePromise = null;
 let gtfsDatasetBaseUrl = "";
@@ -40,6 +48,9 @@ function clearGtfsResourceCaches() {
   stopBoardingTripsCache.clear();
   routeTripsCache.clear();
   tripShapeCache.clear();
+  stopTimetableCache.clear();
+  calendarDatesCache.clear();
+  routeCatalogCache.clear();
 }
 
 /**
