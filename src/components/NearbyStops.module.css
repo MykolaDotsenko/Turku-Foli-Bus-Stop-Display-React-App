@@ -198,6 +198,12 @@
   color: #52666f;
 }
 
+@media (max-width: 900px) and (min-width: 721px) {
+  .stopGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
   .stopGrid {
     grid-template-columns: 1fr;
