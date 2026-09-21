@@ -260,7 +260,11 @@ function BusStopDisplay({
                 const tripDetails = arrival.tripref
                   ? tripDetailsById.get(arrival.tripref)
                   : null;
-                const route = routesByShortName?.get(arrival.lineref);
+                const route =
+                  (tripDetails?.routeId
+                    ? routesById?.get(tripDetails.routeId)
+                    : null) ||
+                  routesByShortName?.get(arrival.lineref);
                 const serviceStatus = formatServiceStatus(
                   arrival.monitored,
                   arrival.delay,
