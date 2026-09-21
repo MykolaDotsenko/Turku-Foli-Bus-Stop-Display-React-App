@@ -243,16 +243,46 @@ export function matchRideArrival(arrivals, identity) {
     if (arrival) return { arrival, matchedBy: "trip" };
   }
 
-  const vehicle = normalizedString(identity.vehicleRef);
-  if (vehicle) {
-    const arrival = rows.find(
-      (row) => normalizedString(row?.vehicleref) === vehicle
-    );
-    if (arrival) return { arrival, matchedBy: "vehicle" };
-  }
-
   const line = normalizedString(identity.lineRef);
   const originTime = finiteNumber(identity.originAimedDepartureTime);
+
+  const vehicle = normalizedString(identity.vehicleRef);
+  if (vehicle) {
+    // A registration is not a journey. A bus that reaches its terminus starts
+    // a new run, often under a different line number, so a stop served in
+    // both directions lists the same vehicle twice. Taking whichever row the
+    // feed happened to put first would track the wrong run and time the
+    // get-off alarm against it.
+    const sameVehicle = rows.filter(
+      (row) =>
+        normalizedString(row?.vehicleref) === vehicle &&
+        (line === "" || normalizedString(row?.lineref) === line)
+    );
+
+    if (sameVehicle.length === 1) {
+      return { arrival: sameVehicle[0], matchedBy: "vehicle" };
+    }
+
+    if (sameVehicle.length > 1 && originTime !== null) {
+      const ranked = sameVehicle
+        .map((arrival) => ({
+          arrival,
+          delta: Math.abs(
+            (finiteNumber(arrival?.originaimeddeparturetime) ??
+              Number.POSITIVE_INFINITY) - originTime
+          ),
+        }))
+        .sort((a, b) => a.delta - b.delta);
+
+      if (ranked[0].delta <= 90 && ranked[1].delta - ranked[0].delta >= 90) {
+        return {
+          arrival: ranked[0].arrival,
+          matchedBy: "vehicle-origin-time",
+        };
+      }
+    }
+  }
+
   if (line && originTime !== null) {
     const arrival = rows.find((row) => {
       const rowOrigin = finiteNumber(row?.originaimeddeparturetime);
@@ -336,7 +366,13 @@ function candidateStage(signals) {
     gpsAccuracy <= 120 &&
     gpsFresh;
 
-  const scheduleIsAuthoritative = liveEta === null;
+  // The timetable is anchored at boarding, so it drifts by every minute the
+  // bus loses in traffic. A fresh on-route fix is direct evidence about where
+  // the passenger is right now, so a drifted clock is not allowed to raise
+  // the alarm over it and send someone out a kilometre early. Straight-line
+  // GPS does not count: 300 metres as the crow flies can be three kilometres
+  // of one-way streets.
+  const scheduleIsAuthoritative = liveEta === null && !reliableShapeGps;
   const scheduleSaysNext =
     scheduleIsAuthoritative &&
     ((remaining !== null && remaining <= 1) ||

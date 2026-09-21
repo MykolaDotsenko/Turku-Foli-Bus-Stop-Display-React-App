@@ -146,6 +146,79 @@ describe("ride progress", () => {
     ).toBe("line-origin-time");
   });
 
+  it("refuses a vehicle match that belongs to another run", () => {
+    // The bus reached its terminus and started line 2. It is the same
+    // registration at the same stop, but it is no longer our journey.
+    expect(
+      matchRideArrival(
+        [{ lineref: "2", vehicleref: "bus-a", originaimeddeparturetime: 5000 }],
+        { vehicleRef: "bus-a", lineRef: "1" }
+      )
+    ).toBeNull();
+  });
+
+  it("picks the run whose origin time matches when one bus is listed twice", () => {
+    const ourRun = {
+      lineref: "1",
+      vehicleref: "bus-a",
+      originaimeddeparturetime: 1030,
+    };
+    const returnRun = {
+      lineref: "1",
+      vehicleref: "bus-a",
+      originaimeddeparturetime: 4000,
+    };
+
+    const match = matchRideArrival([returnRun, ourRun], {
+      vehicleRef: "bus-a",
+      lineRef: "1",
+      originAimedDepartureTime: 1000,
+    });
+
+    expect(match?.arrival).toBe(ourRun);
+    expect(match?.matchedBy).toBe("vehicle-origin-time");
+  });
+
+  it("does not let a drifted timetable outvote a fresh on-route fix", () => {
+    // The bus is nine minutes down in traffic. The timetable, anchored at
+    // boarding, believes the stop is here; GPS says it is 2.4 km along the
+    // route. Believing the clock would send the passenger out early.
+    const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
+      liveEtaSec: null,
+      scheduleEtaSec: 40,
+      remainingStops: 1,
+      gpsShapeAvailable: true,
+      gpsShapeUsable: true,
+      gpsOnRoute: true,
+      gpsRouteDistanceM: 2_400,
+      gpsRouteEtaSec: null,
+      gpsAccuracyM: 15,
+      gpsAgeSec: 5,
+    });
+
+    expect(stage.stage).toBe(RIDE_STAGE.BOARDED);
+  });
+
+  it("still trusts the timetable once the fix goes stale", () => {
+    // Same ride, but the phone has not reported for four minutes. The fix is
+    // no longer evidence about anything, so the schedule takes over again.
+    const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
+      liveEtaSec: null,
+      scheduleEtaSec: 40,
+      remainingStops: 1,
+      gpsShapeAvailable: true,
+      gpsShapeUsable: true,
+      gpsOnRoute: true,
+      gpsRouteDistanceM: 2_400,
+      gpsRouteEtaSec: null,
+      gpsAccuracyM: 15,
+      gpsAgeSec: 240,
+    });
+
+    expect(stage.stage).toBe(RIDE_STAGE.NEXT);
+    expect(stage.reason).toBe("planned-stop-count");
+  });
+
   it("keeps missing evidence neutral", () => {
     const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
       liveEtaSec: null,
