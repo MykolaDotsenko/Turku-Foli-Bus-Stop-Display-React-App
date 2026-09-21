@@ -311,3 +311,69 @@ test("drops a departure from the board once it has left, without new data", () =
   expect(screen.queryByText("Satama")).not.toBeInTheDocument();
   expect(screen.getByText("No upcoming departures.")).toBeInTheDocument();
 });
+
+
+test("shows scheduled departures when realtime is unavailable instead of an empty board", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="621"
+      stopName="Takakirves"
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      receivedAtMs={Date.now()}
+      realtimeAvailable={false}
+      scheduleAvailable
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "32",
+          destinationdisplay: "Varissuo",
+          monitored: false,
+          aimeddeparturetime: now + 300,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Varissuo")).toBeInTheDocument();
+  expect(
+    screen.getByText(/Live updates are unavailable.*showing scheduled Föli times/i)
+  ).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("keeps a future planned row visible when its realtime estimate has gone stale", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="621"
+      stopName="Takakirves"
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "32",
+          destinationdisplay: "Varissuo",
+          monitored: true,
+          expecteddeparturetime: now - 120,
+          aimeddeparturetime: now + 300,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Varissuo")).toBeInTheDocument();
+  expect(screen.getByText("5 min")).toBeInTheDocument();
+});
