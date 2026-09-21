@@ -109,6 +109,7 @@ function BusStopDisplay({
   stop,
   stops = [],
   arrivals,
+  routesById,
   routesByShortName,
   serverTime,
   receivedAtMs,
