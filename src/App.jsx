@@ -7,9 +7,11 @@ import HomeRecovery from "./components/HomeRecovery";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
+import RideMode from "./components/RideMode";
 import ServiceAlerts from "./components/ServiceAlerts";
 import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
+import useRideMode from "./hooks/useRideMode";
 import useSavedPlaces from "./hooks/useSavedPlaces";
 import useSavedStops from "./hooks/useSavedStops";
 import useServiceBoundary from "./hooks/useServiceBoundary";
@@ -48,6 +50,7 @@ function App() {
     parseSharedPlaceHash(window.location.hash)
   );
   const online = useOnlineStatus();
+  const ride = useRideMode();
   const { geometry: serviceBoundary } = useServiceBoundary();
   const {
     stops,
@@ -194,6 +197,18 @@ function App() {
 
       <ConnectivityStatus online={online} />
 
+      {ride.session && (
+        <RideMode
+          session={ride.session}
+          runtime={ride.runtime}
+          gps={ride.gps}
+          wakeLockState={ride.wakeLockState}
+          onTestAlert={ride.testAlert}
+          onEndRide={ride.endRide}
+          onOpenStop={selectStop}
+        />
+      )}
+
       {sharedPlace && (
         <MyPlaces
           stops={stops}
@@ -255,6 +270,9 @@ function App() {
         onRefresh={() => refresh()}
         isFavorite={favoriteIds.has(stopId)}
         onToggleFavorite={() => toggleFavorite(currentStop)}
+        placesById={placesById}
+        onStartRide={ride.startRide}
+        activeRideTripRef={ride.session?.tripRef || ""}
       />
 
       <NearbyStops
