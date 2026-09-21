@@ -27,19 +27,72 @@ describe("GTFS scheduled departure helpers", () => {
     ).toBe("20260921");
   });
 
-  it("accepts Föli's historical active exception type and standard GTFS adds", () => {
+  it("uses the weekly GTFS calendar for ordinary service days", () => {
+    const calendar = {
+      weekday: {
+        monday: 1,
+        tuesday: 1,
+        wednesday: 1,
+        thursday: 1,
+        friday: 1,
+        saturday: 0,
+        sunday: 0,
+        startDate: "20260901",
+        endDate: "20260930",
+      },
+    };
+
+    // 2026-09-21 is Monday.
+    expect(serviceRunsOnDate(calendar, {}, "weekday", "20260921")).toBe(true);
+    expect(serviceRunsOnDate(calendar, {}, "weekday", "20260920")).toBe(false);
+    expect(serviceRunsOnDate(calendar, {}, "weekday", "20261001")).toBe(false);
+  });
+
+  it("lets calendar-date exceptions override the weekly calendar", () => {
+    const calendar = {
+      weekday: {
+        monday: 1,
+        tuesday: 1,
+        wednesday: 1,
+        thursday: 1,
+        friday: 1,
+        saturday: 0,
+        sunday: 0,
+        startDate: "20260901",
+        endDate: "20260930",
+      },
+      special: {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0,
+        startDate: "20260901",
+        endDate: "20260930",
+      },
+    };
     const calendarDates = {
-      weekday: [
+      weekday: [{ date: "20260921", exceptionType: 2 }],
+      special: [
         { date: "20260921", exceptionType: 0 },
         { date: "20260922", exceptionType: 1 },
       ],
-      removed: [{ date: "20260921", exceptionType: 2 }],
     };
 
-    expect(serviceRunsOnDate(calendarDates, "weekday", "20260921")).toBe(true);
-    expect(serviceRunsOnDate(calendarDates, "weekday", "20260922")).toBe(true);
-    expect(serviceRunsOnDate(calendarDates, "removed", "20260921")).toBe(false);
-    expect(serviceRunsOnDate(calendarDates, "missing", "20260921")).toBe(false);
+    expect(
+      serviceRunsOnDate(calendar, calendarDates, "weekday", "20260921")
+    ).toBe(false);
+    expect(
+      serviceRunsOnDate(calendar, calendarDates, "special", "20260921")
+    ).toBe(true);
+    expect(
+      serviceRunsOnDate(calendar, calendarDates, "special", "20260922")
+    ).toBe(true);
+    expect(
+      serviceRunsOnDate(calendar, calendarDates, "missing", "20260921")
+    ).toBe(false);
   });
 
   it("finds timetable rows around now across midnight", () => {
