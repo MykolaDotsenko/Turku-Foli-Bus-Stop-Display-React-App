@@ -445,7 +445,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
     page.getByRole("heading", { name: "Where do you want to get off?" })
   ).toBeVisible();
 
-  await expect(page.getByRole("radio", { name: /Puistokatu/i })).toBeChecked();
+  await expect(page.locator('input[type="radio"][value="32"]')).toBeChecked();
 
   await page
     .getByRole("checkbox", { name: /Use location as a backup/i })
