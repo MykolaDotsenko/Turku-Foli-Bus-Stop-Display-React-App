@@ -267,7 +267,8 @@ export default function useRideMode() {
         announceRideStage(
           evaluated.stage,
           current.targetStop.name,
-          current.options?.notifications !== false
+          current.options?.notifications !== false,
+          current.routeType
         );
       }
     },
