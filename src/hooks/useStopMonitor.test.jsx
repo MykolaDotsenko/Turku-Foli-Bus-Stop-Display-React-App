@@ -27,6 +27,14 @@ beforeEach(() => {
   vi.mocked(fetchStopMonitor).mockReset();
 });
 
+test("stays idle and makes no realtime request before a stop is selected", async () => {
+  render(<Harness stopId="" />);
+
+  await Promise.resolve();
+  expect(fetchStopMonitor).not.toHaveBeenCalled();
+  expect(screen.getByTestId("error")).toHaveTextContent("false");
+});
+
 test("never renders previous-stop data under a new stop ID", async () => {
   let resolveSecondRequest;
 

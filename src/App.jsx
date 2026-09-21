@@ -21,16 +21,21 @@ import useStopMonitor from "./hooks/useStopMonitor";
 import { buildRouteIndexes } from "./utils/routes";
 import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
 
-const DEFAULT_STOP = "164";
 
 function stopFromLocation() {
   const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
-  return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : DEFAULT_STOP;
+  return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : "";
 }
 
 function stopUrl(stopId) {
   const url = new globalThis.URL(window.location.href);
-  url.searchParams.set("stop", stopId);
+
+  if (/^\d+$/.test(stopId || "")) {
+    url.searchParams.set("stop", stopId);
+  } else {
+    url.searchParams.delete("stop");
+  }
+
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -158,10 +163,12 @@ function App() {
     setStopId(nextStopId);
   };
 
-  const currentStop = {
-    id: stopId,
-    name: displayStopName || `Stop ${stopId}`,
-  };
+  const currentStop = stopId
+    ? {
+        id: stopId,
+        name: displayStopName || `Stop ${stopId}`,
+      }
+    : null;
 
   const dismissSharedPlace = () => {
     setSharedPlace(null);
@@ -241,6 +248,7 @@ function App() {
         <BusStopForm
           activeStopId={stopId}
           stops={stops}
+          coordinatesStatus={coordinatesStatus}
           onSubmit={selectStop}
         />
       </section>
@@ -252,41 +260,47 @@ function App() {
         onSelect={selectStop}
       />
 
-      <ServiceAlerts
-        alerts={serviceAlerts}
-        error={serviceAlertsError}
-        receivedAtMs={serviceAlertsReceivedAtMs}
-      />
+      {stopId && (
+        <>
+          <ServiceAlerts
+            alerts={serviceAlerts}
+            error={serviceAlertsError}
+            receivedAtMs={serviceAlertsReceivedAtMs}
+          />
 
-      <BusStopDisplay
-        stopId={stopId}
-        stopName={displayStopName}
-        stop={selectedStop}
-        stops={stops}
-        arrivals={arrivals}
-        routesById={routesById}
-        routesByShortName={routesByShortName}
-        serverTime={serverTime}
-        receivedAtMs={receivedAtMs}
-        loading={loading}
-        refreshing={refreshing}
-        error={error}
-        onRefresh={() => refresh()}
-        isFavorite={favoriteIds.has(stopId)}
-        onToggleFavorite={() => toggleFavorite(currentStop)}
-        placesById={placesById}
-        onStartRide={ride.startRide}
-        activeRideTripRef={ride.session?.tripRef || ""}
-      />
+          <BusStopDisplay
+            stopId={stopId}
+            stopName={displayStopName}
+            stop={selectedStop}
+            stops={stops}
+            arrivals={arrivals}
+            routesById={routesById}
+            routesByShortName={routesByShortName}
+            serverTime={serverTime}
+            receivedAtMs={receivedAtMs}
+            loading={loading}
+            refreshing={refreshing}
+            error={error}
+            onRefresh={() => refresh()}
+            isFavorite={favoriteIds.has(stopId)}
+            onToggleFavorite={() =>
+              currentStop && toggleFavorite(currentStop)
+            }
+            placesById={placesById}
+            onStartRide={ride.startRide}
+            activeRideTripRef={ride.session?.tripRef || ""}
+          />
 
-      <NearbyStops
-        stops={stops}
-        coordinatesStatus={coordinatesStatus}
-        activeStopId={stopId}
-        serviceBoundary={serviceBoundary}
-        online={online}
-        onSelect={selectStop}
-      />
+          <NearbyStops
+            stops={stops}
+            coordinatesStatus={coordinatesStatus}
+            activeStopId={stopId}
+            serviceBoundary={serviceBoundary}
+            online={online}
+            onSelect={selectStop}
+          />
+        </>
+      )}
 
       {!sharedPlace && (
         <MyPlaces
