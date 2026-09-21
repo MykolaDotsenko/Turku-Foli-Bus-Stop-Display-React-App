@@ -115,7 +115,7 @@ export function projectPositionToRideShape(
   if (!hasCoordinates(position) || !shape?.points?.length) return null;
 
   const previous = finiteNumber(previousAlongM);
-  let best = null;
+  const candidates = [];
 
   for (let index = 0; index < shape.points.length - 1; index += 1) {
     const start = shape.points[index];
@@ -141,22 +141,61 @@ export function projectPositionToRideShape(
     const score =
       projection.lateralDistanceM + backwardsM * 4;
 
-    if (!best || score < best.score) {
-      best = {
-        score,
-        segmentIndex: index,
-        alongM,
-        lateralDistanceM: projection.lateralDistanceM,
+    candidates.push({
+      score,
+      segmentIndex: index,
+      alongM,
+      lateralDistanceM: projection.lateralDistanceM,
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.score - b.score);
+
+  let best = candidates[0];
+  const nearAlternatives = candidates.filter(
+    (candidate) =>
+      candidate !== best &&
+      candidate.lateralDistanceM <= best.lateralDistanceM + 20 &&
+      Math.abs(candidate.alongM - best.alongM) >= 250
+  );
+
+  if (nearAlternatives.length > 0) {
+    if (previous === null) {
+      return {
+        segmentIndex: best.segmentIndex,
+        alongM: best.alongM,
+        lateralDistanceM: best.lateralDistanceM,
+        ambiguous: true,
+      };
+    }
+
+    const continuityRanked = [best, ...nearAlternatives]
+      .map((candidate) => ({
+        candidate,
+        delta: Math.abs(candidate.alongM - previous),
+      }))
+      .sort((a, b) => a.delta - b.delta);
+
+    best = continuityRanked[0].candidate;
+    if (
+      continuityRanked[1] &&
+      continuityRanked[1].delta - continuityRanked[0].delta < 250
+    ) {
+      return {
+        segmentIndex: best.segmentIndex,
+        alongM: best.alongM,
+        lateralDistanceM: best.lateralDistanceM,
+        ambiguous: true,
       };
     }
   }
-
-  if (!best) return null;
 
   return {
     segmentIndex: best.segmentIndex,
     alongM: best.alongM,
     lateralDistanceM: best.lateralDistanceM,
+    ambiguous: false,
   };
 }
 
@@ -200,6 +239,18 @@ export function analyzeRideGps({
     return {
       usable: false,
       reason: "shape-match-unavailable",
+    };
+  }
+
+  if (projection.ambiguous) {
+    return {
+      usable: false,
+      reason: "shape-match-ambiguous",
+      alongM: projection.alongM,
+      lateralDistanceM: projection.lateralDistanceM,
+      offRouteSinceMs: null,
+      offRouteSuspected: false,
+      passedTarget: false,
     };
   }
 
