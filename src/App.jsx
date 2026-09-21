@@ -285,23 +285,25 @@ function App() {
           onSubmit={selectStop}
         />
 
-        <div className="demo-launcher">
-          <div>
-            <p className="demo-kicker">New to Turku Föli?</p>
-            <p className="demo-copy">
-              See the core flow in about a minute, then open a real central
-              Turku stop.
-            </p>
+        {!stopId && (
+          <div className="demo-launcher">
+            <div>
+              <p className="demo-kicker">New to Turku Föli?</p>
+              <p className="demo-copy">
+                See the core flow in about a minute, then open a real central
+                Turku stop.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="demo-button"
+              onClick={() => setDemoOpen(true)}
+            >
+              <span aria-hidden="true">▶</span>
+              Try Turku demo
+            </button>
           </div>
-          <button
-            type="button"
-            className="demo-button"
-            onClick={() => setDemoOpen(true)}
-          >
-            <span aria-hidden="true">▶</span>
-            Try Turku demo
-          </button>
-        </div>
+        )}
       </section>
 
       <QuickStops
