@@ -470,7 +470,7 @@ export function evaluateRideStage(currentStage, signals = {}) {
   }
 
   if (
-    currentStage === RIDE_STAGE.NOW &&
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT) &&
     (signals.targetPassedConfirmed === true ||
       signals.gpsPassedTarget === true ||
       signals.gpsMovedAwayAfterNear === true)
