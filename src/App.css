@@ -34,9 +34,28 @@ input:focus-visible,
 }
 
 .app-shell {
+  position: relative;
+  isolation: isolate;
   width: min(960px, calc(100% - 28px));
   margin: 0 auto;
   padding: 30px 0 22px;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: min(38vw, 360px);
+  background-image: var(--turku-skyline);
+  background-repeat: no-repeat;
+  background-position: center bottom -8px;
+  background-size: min(1080px, 100vw) auto;
+  opacity: 0.055;
+  pointer-events: none;
+  user-select: none;
 }
 
 .topbar {
@@ -141,6 +160,61 @@ input:focus-visible,
   backdrop-filter: blur(12px);
 }
 
+.demo-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5edef;
+}
+
+.demo-kicker,
+.demo-copy {
+  margin: 0;
+}
+
+.demo-kicker {
+  color: #2e4e55;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.demo-copy {
+  margin-top: 2px;
+  color: #687b82;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.demo-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #9fc2c6;
+  border-radius: 12px;
+  background: #eef8f8;
+  color: #006b75;
+  cursor: pointer;
+  font-weight: 850;
+  box-shadow: 0 5px 14px rgba(0, 121, 133, 0.06);
+}
+
+.demo-button:hover {
+  border-color: #6aa3aa;
+  background: #e2f3f4;
+}
+
+.demo-button:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
+}
+
 .source-note {
   margin-top: 14px;
   color: #52666f;
@@ -234,6 +308,31 @@ input:focus-visible,
     border-radius: 15px;
   }
 
+  .demo-launcher {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .demo-kicker,
+  .demo-copy {
+    font-size: 0.8125rem;
+  }
+
+  .demo-button {
+    width: 100%;
+    min-height: 46px;
+  }
+
+  .app-shell::before {
+    height: 260px;
+    background-position: center bottom 8px;
+    background-size: 760px auto;
+    opacity: 0.045;
+  }
+
   .source-note {
     font-size: 0.8125rem;
   }
@@ -252,5 +351,9 @@ input:focus-visible,
 @media (forced-colors: active) {
   .live-dot {
     forced-color-adjust: auto;
+  }
+
+  .app-shell::before {
+    display: none;
   }
 }
