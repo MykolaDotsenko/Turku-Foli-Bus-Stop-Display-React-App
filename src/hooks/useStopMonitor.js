@@ -46,6 +46,11 @@ function readSnapshot(stopId, nowMs = Date.now()) {
     arrivals: entry.arrivals,
     serverTime:
       Number.isFinite(serverTime) && serverTime > 0 ? serverTime : null,
+    realtimeAvailable:
+      typeof entry.realtimeAvailable === "boolean"
+        ? entry.realtimeAvailable
+        : null,
+    scheduleAvailable: entry.scheduleAvailable === true,
     receivedAtMs,
   };
 }
@@ -57,6 +62,8 @@ function writeSnapshot(data) {
       stopName: data.stopName,
       arrivals: data.arrivals.slice(0, MAX_SNAPSHOT_ARRIVALS),
       serverTime: data.serverTime,
+      realtimeAvailable: data.realtimeAvailable,
+      scheduleAvailable: data.scheduleAvailable,
       receivedAtMs: data.receivedAtMs,
     };
 
@@ -92,6 +99,8 @@ function emptyData(stopId) {
     stopName: "",
     arrivals: [],
     serverTime: null,
+    realtimeAvailable: null,
+    scheduleAvailable: false,
     receivedAtMs: null,
   };
 }
