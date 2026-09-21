@@ -452,12 +452,7 @@ async function fetchStopTimetable(stopId, signal) {
       dropOffType: optionalNumber(item?.drop_off_type),
       shapeDistTraveled: optionalNumber(item?.shape_dist_traveled),
     }))
-    .filter(
-      (item) =>
-        item.tripId &&
-        (item.departureTime || item.arrivalTime) &&
-        item.pickupType !== 1
-    );
+    .filter((item) => item.tripId && item.pickupType !== 1);
 
   stopTimetableCache.set(id, normalized);
   return normalized;
