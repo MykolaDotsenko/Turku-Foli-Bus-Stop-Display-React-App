@@ -258,13 +258,18 @@ export async function showRideNotification(stage, stopName, routeType = null) {
   return false;
 }
 
-export function announceRideStage(stage, stopName, notificationsEnabled = true) {
+export function announceRideStage(
+  stage,
+  stopName,
+  notificationsEnabled = true,
+  routeType = null
+) {
   playRideTone(stage);
   vibrateRideStage(stage);
-  speakRideStage(stage, stopName);
+  speakRideStage(stage, stopName, routeType);
 
   if (notificationsEnabled) {
-    void showRideNotification(stage, stopName);
+    void showRideNotification(stage, stopName, routeType);
   }
 }
 
