@@ -53,13 +53,35 @@ function trackingLabel(health) {
   return "Schedule fallback";
 }
 
-function gpsDetail(gps) {
+// The same window the stage logic uses to decide a fix is still evidence.
+// Past it the panel must stop presenting the last distance as current: a
+// tunnel-old "420 m along route" reads more concrete than the alert badge
+// beside it, and a passenger will believe it over the alarm.
+const GPS_STALE_AFTER_SEC = 60;
+
+function gpsIsStale(ageSec) {
+  const age = Number(ageSec);
+  return Number.isFinite(age) && age > GPS_STALE_AFTER_SEC;
+}
+
+function staleLabel(ageSec) {
+  const minutes = Math.round(Number(ageSec) / 60);
+  return minutes >= 2 ? `last fix ${minutes} min ago` : "last fix over a minute ago";
+}
+
+function gpsDetail(gps, enabled, ageSec) {
+  if (!enabled) return "Föli realtime only";
+  if (gpsIsStale(ageSec)) return staleLabel(ageSec);
+
   if (
     gps.routeDistanceM !== null &&
     gps.routeDistanceM !== undefined &&
     Number.isFinite(Number(gps.routeDistanceM))
   ) {
-    return `~${Math.max(0, Math.round(gps.routeDistanceM))} m along route`;
+    const along = Math.round(Number(gps.routeDistanceM));
+    return along < 0
+      ? `~${Math.abs(along)} m past your stop`
+      : `~${along} m along route`;
   }
   if (
     gps.distanceM !== null &&
@@ -68,11 +90,12 @@ function gpsDetail(gps) {
   ) {
     return `~${Math.round(gps.distanceM)} m straight-line fallback`;
   }
-  return "coordinates are never stored";
+  return "no location fix yet";
 }
 
-function locationLabel(gps, enabled) {
+function locationLabel(gps, enabled, ageSec) {
   if (!enabled) return "GPS ride tracking off";
+  if (gpsIsStale(ageSec)) return "GPS fix is out of date";
   if (gps.status === "off-route") return "GPS no longer matches this trip";
   if (gps.status === "active" && gps.shapeUsable && gps.onRoute) {
     return "GPS matched to trip path";
@@ -178,9 +201,19 @@ export default function RideMode({
         </span>
         <span>
           <strong>
-            {locationLabel(gps, session.options?.locationBackup === true)}
+            {locationLabel(
+              gps,
+              session.options?.locationBackup === true,
+              runtime.gpsAgeSec
+            )}
           </strong>
-          <small>{gpsDetail(gps)}</small>
+          <small>
+            {gpsDetail(
+              gps,
+              session.options?.locationBackup === true,
+              runtime.gpsAgeSec
+            )}
+          </small>
         </span>
         <span>
           <strong>

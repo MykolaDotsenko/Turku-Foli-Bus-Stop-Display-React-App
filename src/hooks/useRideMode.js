@@ -44,6 +44,7 @@ function emptyRuntime() {
     scheduleEtaSec: null,
     remainingStops: null,
     etaSec: null,
+    gpsAgeSec: null,
     trackingHealth: "schedule",
     lastError: "",
     notificationPermission: "unknown",
@@ -285,6 +286,10 @@ export default function useRideMode() {
         ...nextRuntime,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
+        // Published so the panel can age out a fix on exactly the same clock
+        // the stage logic uses, instead of presenting a tunnel-old distance
+        // as where the passenger is now.
+        gpsAgeSec,
         etaSec: gpsEtaUsable
           ? Number(nextGps.routeEtaSec)
           : liveEtaUsable && Number.isFinite(Number(nextRuntime.liveEtaSec))

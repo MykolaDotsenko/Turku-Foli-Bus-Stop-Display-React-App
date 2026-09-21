@@ -121,6 +121,69 @@ test("shows the estimate the hook resolved rather than re-deriving one", () => {
   expect(screen.queryByText("~1 min")).not.toBeInTheDocument();
 });
 
+// A distance reads as harder fact than an estimate, so a fix frozen by a
+// tunnel is the number a passenger will trust over the alert badge.
+test("stops presenting a stale fix as where the passenger is now", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{
+        trackingHealth: "delayed",
+        etaSec: 240,
+        remainingStops: 2,
+        gpsAgeSec: 300,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 420,
+        distanceM: 380,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("GPS fix is out of date")).toBeInTheDocument();
+  expect(screen.getByText("last fix 5 min ago")).toBeInTheDocument();
+  expect(screen.queryByText(/420 m along route/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("GPS matched to trip path")).not.toBeInTheDocument();
+});
+
+test("says the stop is behind you instead of showing zero metres", () => {
+  render(
+    <RideMode
+      session={session("missed")}
+      runtime={{
+        trackingHealth: "live",
+        etaSec: -120,
+        remainingStops: 0,
+        gpsAgeSec: 4,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: -180,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("~180 m past your stop")).toBeInTheDocument();
+  expect(screen.queryByText("~0 m along route")).not.toBeInTheDocument();
+});
+
 test("offers recovery at the next stop after a missed-stop signal", () => {
   const onEndRide = vi.fn();
   const onOpenStop = vi.fn();
