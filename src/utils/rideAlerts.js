@@ -123,7 +123,12 @@ function speakUtterance(text, lang, voice = null) {
   globalThis.speechSynthesis.speak(utterance);
 }
 
-export function speakRideStage(stage, stopName) {
+function needsStopRequest(routeType) {
+  const type = Number(routeType);
+  return type === 3 || type === 11;
+}
+
+export function speakRideStage(stage, stopName, routeType = null) {
   if (!speechSupported()) return false;
 
   const name = String(stopName || "your stop").trim();
@@ -147,7 +152,12 @@ export function speakRideStage(stage, stopName) {
     if (stage === "next") {
       speakUtterance("The next stop is yours.", "en-US");
       speakUtterance(name, "fi-FI", fiVoice);
-      speakUtterance("Press the stop button now.", "en-US");
+      speakUtterance(
+        needsStopRequest(routeType)
+          ? "Press the stop button now."
+          : "Get ready to exit at the next stop.",
+        "en-US"
+      );
       return true;
     }
 
@@ -186,7 +196,7 @@ export async function requestRideNotificationPermission() {
   }
 }
 
-function notificationCopy(stage, stopName) {
+function notificationCopy(stage, stopName, routeType = null) {
   const name = String(stopName || "your stop").trim();
 
   if (stage === "soon") {
@@ -198,7 +208,9 @@ function notificationCopy(stage, stopName) {
   if (stage === "next") {
     return {
       title: `Next stop: ${name}`,
-      body: "Press the STOP button now.",
+      body: needsStopRequest(routeType)
+        ? "Press the STOP button now."
+        : "Get ready to exit at the next stop.",
     };
   }
   if (stage === "now") {
@@ -219,13 +231,13 @@ function notificationCopy(stage, stopName) {
   };
 }
 
-export async function showRideNotification(stage, stopName) {
+export async function showRideNotification(stage, stopName, routeType = null) {
   const NotificationApi = globalThis.Notification;
   if (!NotificationApi || NotificationApi.permission !== "granted") {
     return false;
   }
 
-  const copy = notificationCopy(stage, stopName);
+  const copy = notificationCopy(stage, stopName, routeType);
   const options = {
     body: copy.body,
     tag: "foli-active-ride",
@@ -256,13 +268,18 @@ export async function showRideNotification(stage, stopName) {
   return false;
 }
 
-export function announceRideStage(stage, stopName, notificationsEnabled = true) {
+export function announceRideStage(
+  stage,
+  stopName,
+  notificationsEnabled = true,
+  routeType = null
+) {
   playRideTone(stage);
   vibrateRideStage(stage);
-  speakRideStage(stage, stopName);
+  speakRideStage(stage, stopName, routeType);
 
   if (notificationsEnabled) {
-    void showRideNotification(stage, stopName);
+    void showRideNotification(stage, stopName, routeType);
   }
 }
 
