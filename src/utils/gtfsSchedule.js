@@ -1,6 +1,6 @@
 import { SERVICE_TIME_ZONE } from "./time";
 
-const DEFAULT_LOOKAHEAD_SECONDS = 4 * 60 * 60;
+const DEFAULT_LOOKAHEAD_SECONDS = 36 * 60 * 60;
 const DEFAULT_GRACE_SECONDS = 30;
 
 function finiteNumber(value) {
@@ -206,11 +206,16 @@ export function scheduledClockCandidates(
   const reference = finiteNumber(referenceTimeSec);
   if (reference === null || reference <= 0) return [];
 
-  const serviceDates = [-1, 0, 1]
+  const lookahead = Math.max(0, Number(lookaheadSeconds) || 0);
+  const daysAhead = Math.max(1, Math.ceil(lookahead / (24 * 60 * 60)) + 1);
+  const serviceDates = Array.from(
+    { length: daysAhead + 2 },
+    (_, index) => index - 1
+  )
     .map((offset) => serviceDateKey(reference, offset))
     .filter(Boolean);
   const earliest = reference - Math.max(0, Number(graceSeconds) || 0);
-  const latest = reference + Math.max(0, Number(lookaheadSeconds) || 0);
+  const latest = reference + lookahead;
 
   const candidates = [];
 

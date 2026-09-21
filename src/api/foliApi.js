@@ -247,14 +247,22 @@ export async function fetchStopMonitor(stopId, signal) {
     status === "OK"
       ? payload.result.map(normalizeArrival).filter(Boolean)
       : [];
+  const hasFutureRealtime = realtimeRows.some((arrival) => {
+    const departure =
+      positiveNumber(arrival.expecteddeparturetime) ??
+      positiveNumber(arrival.expectedarrivaltime) ??
+      positiveNumber(arrival.aimeddeparturetime) ??
+      positiveNumber(arrival.aimedarrivaltime);
+    return departure !== null && departure >= serverTime - 30;
+  });
 
   let scheduledRows = [];
   let scheduleAvailable = false;
 
-  // SIRI is a realtime feed, not the source of the published timetable.
-  // If it has no rows at all, fall back to GTFS so a busy scheduled stop
-  // cannot turn into a false "No upcoming departures" state.
-  if (realtimeRows.length === 0) {
+  // SIRI is a near-term realtime feed, not the published timetable. If it
+  // has no future row, ask GTFS for the next actual service instead of
+  // rendering a false empty board. This also covers stale SIRI rows.
+  if (!hasFutureRealtime) {
     try {
       scheduledRows = await fetchScheduledStopDepartures(
         stopId,
@@ -576,21 +584,34 @@ export async function fetchScheduledStopDepartures(
   ]);
 
   const clockCandidates = scheduledClockCandidates(rows, reference, {
-    lookaheadSeconds: 4 * 60 * 60,
+    // SIRI can legitimately be empty even though the next published service
+    // is later tonight or tomorrow morning. Search far enough to bridge that
+    // gap without turning this into a week-long timetable browser.
+    lookaheadSeconds: 36 * 60 * 60,
     graceSeconds: 30,
-    maxRows: 64,
+    maxRows: 256,
   });
 
   if (clockCandidates.length === 0) return [];
 
-  const tripDetailsById = await fetchTripDetailsInBatches(
-    clockCandidates.map((candidate) => candidate.tripId),
-    signal
-  );
   const routesById = new Map(routes.map((route) => [route.id, route]));
+  const scheduled = [];
 
-  return clockCandidates
-    .map((candidate) => {
+  // Resolve trip metadata chronologically and stop as soon as we have enough
+  // active departures. This keeps the fallback cheap at busy stops while
+  // still being able to skip inactive service patterns and reach tomorrow.
+  for (
+    let index = 0;
+    index < clockCandidates.length && scheduled.length < 24;
+    index += 12
+  ) {
+    const batch = clockCandidates.slice(index, index + 12);
+    const tripDetailsById = await fetchTripDetailsInBatches(
+      batch.map((candidate) => candidate.tripId),
+      signal
+    );
+
+    batch.forEach((candidate) => {
       const details = tripDetailsById.get(candidate.tripId);
       if (
         !details?.serviceId ||
@@ -601,12 +622,12 @@ export async function fetchScheduledStopDepartures(
           candidate.serviceDate
         )
       ) {
-        return null;
+        return;
       }
 
       const route = routesById.get(details.routeId);
 
-      return {
+      scheduled.push({
         lineref: route?.shortName || details.routeId || "",
         destinationdisplay: details.headsign || "",
         destinationdisplay_en: "",
@@ -634,9 +655,11 @@ export async function fetchScheduledStopDepartures(
         expectedarrivaltime: null,
         aimeddeparturetime: candidate.aimedDepartureTime,
         aimedarrivaltime: candidate.aimedArrivalTime,
-      };
-    })
-    .filter(Boolean)
+      });
+    });
+  }
+
+  return scheduled
     .sort((a, b) => a.aimeddeparturetime - b.aimeddeparturetime)
     .slice(0, 24);
 }

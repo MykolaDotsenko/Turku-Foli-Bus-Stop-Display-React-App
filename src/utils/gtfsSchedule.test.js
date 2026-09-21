@@ -124,6 +124,27 @@ describe("GTFS scheduled departure helpers", () => {
     expect(candidates[1].serviceDate).toBe("20260922");
   });
 
+  it("keeps tomorrow morning in the default fallback horizon", () => {
+    const reference = Date.parse("2026-09-21T12:45:00Z") / 1000; // 15:45 Helsinki
+    const candidates = scheduledClockCandidates(
+      [
+        {
+          tripId: "tomorrow-morning",
+          departureTime: "06:30:00",
+          arrivalTime: "06:30:00",
+          pickupType: 0,
+        },
+      ],
+      reference
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0].serviceDate).toBe("20260922");
+    expect(candidates[0].aimedDepartureTime).toBe(
+      Date.parse("2026-09-22T03:30:00Z") / 1000
+    );
+  });
+
   it("excludes drop-off-only and far-away timetable rows", () => {
     const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
     const candidates = scheduledClockCandidates(
@@ -144,7 +165,8 @@ describe("GTFS scheduled departure helpers", () => {
           pickupType: 0,
         },
       ],
-      reference
+      reference,
+      { lookaheadSeconds: 4 * 60 * 60 }
     );
 
     expect(candidates.map((item) => item.tripId)).toEqual(["boardable"]);

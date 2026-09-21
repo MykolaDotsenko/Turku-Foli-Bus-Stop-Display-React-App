@@ -348,6 +348,44 @@ test("shows scheduled departures when realtime is unavailable instead of an empt
   expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
 });
 
+test("shows tomorrow's next scheduled service instead of an empty board", () => {
+  const nowMs = Date.parse("2026-09-21T12:45:00Z");
+  const now = Math.floor(nowMs / 1000);
+  vi.spyOn(Date, "now").mockReturnValue(nowMs);
+
+  render(
+    <BusStopDisplay
+      stopId="621"
+      stopName="Takakirves"
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      receivedAtMs={nowMs}
+      realtimeAvailable
+      scheduleAvailable
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        {
+          lineref: "32",
+          destinationdisplay: "Varissuo",
+          monitored: false,
+          aimeddeparturetime: Date.parse("2026-09-22T03:30:00Z") / 1000,
+        },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("Varissuo")).toBeInTheDocument();
+  expect(screen.getByText("Tomorrow 06:30")).toBeInTheDocument();
+  expect(
+    screen.getByText(/No live departure is published right now.*next scheduled Föli times/i)
+  ).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
 test("keeps a future planned row visible when its realtime estimate has gone stale", () => {
   const now = Math.floor(Date.now() / 1000);
 

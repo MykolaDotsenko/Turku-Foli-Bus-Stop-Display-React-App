@@ -3,6 +3,7 @@ import {
   advanceServerTime,
   elapsedSince,
   formatClock,
+  formatDue,
   formatElapsedAge,
   formatServiceStatus,
   getDepartureTime,
@@ -36,6 +37,18 @@ test("shows Turku-region clock times whatever zone the device is set to", () => 
 
   expect(formatClock(winterNoonUtc, "en-GB")).toBe("14:00");
   expect(formatClock(summerNoonUtc, "en-GB")).toBe("15:00");
+});
+
+test("labels distant scheduled departures as today or tomorrow", () => {
+  const nowMs = Date.parse("2026-09-21T12:45:00Z"); // 15:45 Helsinki
+
+  expect(
+    formatDue(Date.parse("2026-09-21T16:15:00Z") / 1000, nowMs)
+  ).toBe("Today 19:15");
+
+  expect(
+    formatDue(Date.parse("2026-09-22T03:30:00Z") / 1000, nowMs)
+  ).toBe("Tomorrow 06:30");
 });
 
 test("still refuses to invent a clock time for missing departures", () => {

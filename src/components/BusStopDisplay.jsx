@@ -228,11 +228,13 @@ function BusStopDisplay({
         </p>
       )}
 
-      {realtimeAvailable === false &&
-        scheduleAvailable &&
-        visibleArrivals.length > 0 && (
+      {scheduleAvailable &&
+        visibleArrivals.length > 0 &&
+        realtimeCount === 0 && (
           <p className={styles.staleNotice} role="status">
-            Live updates are unavailable · showing scheduled Föli times.
+            {realtimeAvailable === false
+              ? "Live updates are unavailable · showing scheduled Föli times."
+              : "No live departure is published right now · showing the next scheduled Föli times."}
           </p>
         )}
 
