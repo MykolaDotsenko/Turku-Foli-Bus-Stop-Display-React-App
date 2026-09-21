@@ -1,0 +1,165 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Install Capacitor Android toolchain
+        run: |
+          npm install --no-save \
+            @capacitor/core@8.5.2 \
+            @capacitor/cli@8.5.2 \
+            @capacitor/android@8.5.2
+
+      - name: Build web application
+        env:
+          VITE_BASE_PATH: /
+        run: npm run build
+
+      - name: Configure Capacitor
+        run: |
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "fi.turku.folilivedepartures",
+            "appName": "Turku Föli",
+            "webDir": "dist",
+            "server": {
+              "androidScheme": "https"
+            },
+            "android": {
+              "allowMixedContent": false
+            }
+          }
+          JSON
+
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Configure Android permissions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+
+          permissions = [
+              "android.permission.ACCESS_COARSE_LOCATION",
+              "android.permission.ACCESS_FINE_LOCATION",
+              "android.permission.ACCESS_NETWORK_STATE",
+              "android.permission.POST_NOTIFICATIONS",
+              "android.permission.VIBRATE",
+              "android.permission.WAKE_LOCK",
+          ]
+
+          marker = "<application"
+          lines = []
+          for permission in permissions:
+              token = f'android:name="{permission}"'
+              if token not in text:
+                  lines.append(
+                      f'    <uses-permission android:name="{permission}" />'
+                  )
+
+          if lines:
+              text = text.replace(marker, "\n".join(lines) + "\n\n    " + marker, 1)
+
+          manifest.write_text(text)
+          PY
+
+      - name: Apply Föli launcher icon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+          for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $spec
+            density="$1"
+            size="$2"
+            dir="android/app/src/main/res/mipmap-$density"
+            mkdir -p "$dir"
+            rsvg-convert -w "$size" -h "$size" public/foli-icon.svg -o "$dir/ic_launcher.png"
+            cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
+          done
+
+          mkdir -p android/app/src/main/res/drawable
+          cat > android/app/src/main/res/drawable/ic_launcher_foreground.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="512"
+              android:viewportHeight="512">
+              <path
+                  android:fillColor="#FFFFFFFF"
+                  android:pathData="M126,128c0,-27 22,-48 48,-48h164c27,0 48,21 48,48v198c0,23 -16,42 -38,47v35c0,13 -11,24 -24,24h-10c-13,0 -24,-11 -24,-24v-32h-68v32c0,13 -11,24 -24,24h-10c-13,0 -24,-11 -24,-24v-35c-22,-5 -38,-24 -38,-47V128ZM182,140v104h148V140H182ZM203,300a30,30 0,1 0,0 60,30 30,0 0,0 0,-60ZM309,300a30,30 0,1 0,0 60,30 30,0 0,0 0,-60Z" />
+          </vector>
+          XML
+
+          mkdir -p android/app/src/main/res/values
+          cat > android/app/src/main/res/values/ic_launcher_background.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#007985</color>
+          </resources>
+          XML
+
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          XML
+          cp android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml \
+             android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+
+      - name: Build installable APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Normalize APK filename
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             Turku-Foli-${{ github.sha }}.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Turku-Foli-Android-APK
+          path: Turku-Foli-${{ github.sha }}.apk
+          if-no-files-found: error
+          retention-days: 30
