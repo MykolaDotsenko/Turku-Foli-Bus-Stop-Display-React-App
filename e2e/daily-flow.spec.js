@@ -450,7 +450,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
   await page
-    .getByRole("checkbox", { name: /Use location as a backup/i })
+    .getByRole("checkbox", { name: /Use GPS ride tracking/i })
     .uncheck();
   await page
     .getByRole("checkbox", { name: /Use system notifications/i })
