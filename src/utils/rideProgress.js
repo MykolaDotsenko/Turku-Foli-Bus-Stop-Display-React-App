@@ -284,15 +284,29 @@ export function matchRideArrival(arrivals, identity) {
   }
 
   if (line && originTime !== null) {
-    const arrival = rows.find((row) => {
-      const rowOrigin = finiteNumber(row?.originaimeddeparturetime);
-      return (
-        normalizedString(row?.lineref) === line &&
-        rowOrigin !== null &&
-        Math.abs(rowOrigin - originTime) <= 90
-      );
-    });
-    if (arrival) return { arrival, matchedBy: "line-origin-time" };
+    // This is the weakest identity left, so it is also the one most likely to
+    // land on the wrong row. A loop route serves the same stop twice on one
+    // journey and a terminus lists departures minutes apart, so taking the
+    // first row that fits the window can be a visit the passenger already
+    // rode past. Rank by closeness and only answer when one row clearly wins.
+    const ranked = rows
+      .filter((row) => normalizedString(row?.lineref) === line)
+      .map((arrival) => ({
+        arrival,
+        delta: Math.abs(
+          (finiteNumber(arrival?.originaimeddeparturetime) ??
+            Number.POSITIVE_INFINITY) - originTime
+        ),
+      }))
+      .filter((candidate) => candidate.delta <= 90)
+      .sort((a, b) => a.delta - b.delta);
+
+    if (
+      ranked.length === 1 ||
+      (ranked.length > 1 && ranked[1].delta - ranked[0].delta >= 30)
+    ) {
+      return { arrival: ranked[0].arrival, matchedBy: "line-origin-time" };
+    }
   }
 
   return null;

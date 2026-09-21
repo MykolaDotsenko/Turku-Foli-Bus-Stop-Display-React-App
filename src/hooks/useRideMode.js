@@ -1,29 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchStopMonitor, fetchTripShape } from "../api/foliApi";
 import { distanceInMeters, hasCoordinates } from "../utils/geo";
-import { analyzeRideGps, prepareRideShape } from "../utils/rideGeometry";
+import { analyzeRideGps } from "../utils/rideGeometry";
 import {
   announceRideStage,
   repeatNowRideSignal,
   requestRideNotificationPermission,
   runRideTestAlert,
-  primeRideVoices,
   stopRideAlerts,
-  unlockRideAudio,
 } from "../utils/rideAlerts";
 import {
   RIDE_STAGE,
   arrivalEtaSeconds,
   rideStageRank,
   evaluateRideStage,
-  matchRideArrival,
   plannedRideProgress,
 } from "../utils/rideProgress";
 import { dataAgeSeconds } from "../utils/time";
+import useRideAudioReadiness from "./useRideAudioReadiness";
+import useRideProviderPoll from "./useRideProviderPoll";
+import useRideShape from "./useRideShape";
+import useRideWakeLock from "./useRideWakeLock";
 
 const STORAGE_KEY = "foli-active-ride-v1";
 const RIDE_TTL_MS = 6 * 60 * 60 * 1000;
-const POLL_INTERVAL_MS = 20_000;
 const CLOCK_INTERVAL_MS = 10_000;
 const NOW_REPEAT_MS = 5_000;
 
@@ -167,12 +166,13 @@ export default function useRideMode() {
   );
   const [runtime, setRuntimeState] = useState(emptyRuntime);
   const [gps, setGpsState] = useState(emptyGps);
-  const [wakeLockState, setWakeLockState] = useState("inactive");
+
+  const rideId = session?.id || "";
+  const rideActive = Boolean(session);
 
   const sessionRef = useRef(session);
   const runtimeRef = useRef(runtime);
   const gpsRef = useRef(gps);
-  const shapeRef = useRef(null);
 
   const commitSession = useCallback((updater) => {
     setSession((current) => {
@@ -202,13 +202,25 @@ export default function useRideMode() {
     });
   }, []);
 
+  const setShapeStatus = useCallback(
+    (shapeStatus) => commitGps((value) => ({ ...value, shapeStatus })),
+    [commitGps]
+  );
+
+  const shapeRef = useRideShape({
+    rideId,
+    enabled: session?.options?.locationBackup === true,
+    shapeId: session?.shapeId || "",
+    onStatus: setShapeStatus,
+  });
+
   const endRide = useCallback(() => {
     stopRideAlerts();
     shapeRef.current = null;
     commitSession(null);
     commitRuntime(emptyRuntime());
     commitGps(emptyGps());
-  }, [commitGps, commitRuntime, commitSession]);
+  }, [commitGps, commitRuntime, commitSession, shapeRef]);
 
   const applyProgress = useCallback(
     (nextRuntime = runtimeRef.current, nextGps = gpsRef.current) => {
@@ -383,35 +395,39 @@ export default function useRideMode() {
     );
   }, []);
 
-  useEffect(() => {
-    const current = sessionRef.current;
-    shapeRef.current = null;
-    if (!current?.options?.locationBackup || !current.shapeId) return undefined;
+  const wakeLockState = useRideWakeLock(rideId);
+  useRideAudioReadiness(rideId);
 
-    const controller = new AbortController();
-    fetchTripShape(current.shapeId, controller.signal)
-      .then((points) => {
-        if (controller.signal.aborted) return;
-        const prepared = prepareRideShape(points);
-        if (!prepared?.usesGtfsDistance) {
-          // Stop distances and shape distances would be on different scales,
-          // so map matching is refused. Say so instead of showing "idle".
-          commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
-          return;
-        }
-        shapeRef.current = prepared;
-        commitGps((value) => ({ ...value, shapeStatus: "ready" }));
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
-      });
+  const readArrivalSignals = useCallback(
+    (arrival, serverTime, targetStop) => ({
+      liveEtaSec: arrivalEtaSeconds(arrival, serverTime),
+      providerDistanceM: providerDistanceToTarget(arrival, targetStop),
+      providerPositionAgeSec: dataAgeSeconds(
+        arrival.recordedattime,
+        serverTime
+      ),
+    }),
+    []
+  );
 
-    return () => {
-      controller.abort();
-      shapeRef.current = null;
-    };
-  }, [commitGps, session?.id, session?.options?.locationBackup, session?.shapeId]);
+  const commitPolledRuntime = useCallback(
+    (next) => {
+      const merged = { ...next, trackingHealth: trackingHealth(next) };
+      runtimeRef.current = merged;
+      setRuntimeState(merged);
+      applyProgress(merged, gpsRef.current);
+    },
+    [applyProgress]
+  );
+
+  useRideProviderPoll({
+    rideId,
+    sessionRef,
+    runtimeRef,
+    rideIdentity,
+    readArrivalSignals,
+    onRuntime: commitPolledRuntime,
+  });
 
   useEffect(() => {
     const current = sessionRef.current;
@@ -562,195 +578,16 @@ export default function useRideMode() {
       active = false;
       globalThis.navigator?.geolocation?.clearWatch?.(watchId);
     };
-  }, [applyProgress, commitGps, session?.id, session?.options?.locationBackup]);
+  }, [
+    applyProgress,
+    commitGps,
+    rideId,
+    session?.options?.locationBackup,
+    shapeRef,
+  ]);
 
   useEffect(() => {
-    if (!session) {
-      setWakeLockState("inactive");
-      return undefined;
-    }
-
-    if (typeof globalThis.navigator?.wakeLock?.request !== "function") {
-      setWakeLockState("unsupported");
-      return undefined;
-    }
-
-    let active = true;
-    let sentinel = null;
-
-    const request = async () => {
-      if (!active || document.visibilityState !== "visible") return;
-
-      try {
-        sentinel = await globalThis.navigator.wakeLock.request("screen");
-        if (!active) {
-          await sentinel.release?.();
-          return;
-        }
-        setWakeLockState("active");
-        sentinel.addEventListener?.("release", () => {
-          sentinel = null;
-          if (active) setWakeLockState("inactive");
-        });
-      } catch {
-        if (active) setWakeLockState("inactive");
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible" && !sentinel) {
-        void request();
-      }
-    };
-
-    void request();
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      active = false;
-      document.removeEventListener("visibilitychange", handleVisibility);
-      void sentinel?.release?.();
-    };
-  }, [session?.id]);
-
-  useEffect(() => {
-    if (!session) return undefined;
-
-    let active = true;
-    let timeoutId = null;
-    let controller = null;
-
-    const schedule = () => {
-      if (!active) return;
-      window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(runPoll, POLL_INTERVAL_MS);
-    };
-
-    const runPoll = async () => {
-      if (!active) return;
-
-      const current = sessionRef.current;
-      if (!current) return;
-
-      controller?.abort();
-      controller = new AbortController();
-      const signal = controller.signal;
-
-      const targetPromise = fetchStopMonitor(current.targetStop.id, signal);
-      const previousPromise = current.previousStop?.id
-        ? fetchStopMonitor(current.previousStop.id, signal)
-        : Promise.resolve(null);
-
-      const [targetResult, previousResult] = await Promise.allSettled([
-        targetPromise,
-        previousPromise,
-      ]);
-
-      if (!active || signal.aborted) return;
-
-      const before = runtimeRef.current;
-      let next = {
-        ...before,
-        lastPollAt: Date.now(),
-        lastError: "",
-      };
-
-      const identity = rideIdentity(current);
-      let targetMatch = null;
-
-      if (targetResult.status === "fulfilled") {
-        next.lastProviderSuccessAt = Date.now();
-        targetMatch = matchRideArrival(
-          targetResult.value?.arrivals,
-          identity
-        );
-        next.targetListed = Boolean(targetMatch);
-        next.targetMatchBy = targetMatch?.matchedBy || "";
-
-        if (targetMatch) {
-          next.lastLiveMatchAt = Date.now();
-          next.targetMissingCount = 0;
-          next.targetWasAtStop =
-            next.targetWasAtStop || targetMatch.arrival.vehicleatstop === true;
-          next.liveEtaSec = arrivalEtaSeconds(
-            targetMatch.arrival,
-            targetResult.value.serverTime
-          );
-          next.providerDistanceM = providerDistanceToTarget(
-            targetMatch.arrival,
-            current.targetStop
-          );
-          next.providerPositionAgeSec = dataAgeSeconds(
-            targetMatch.arrival.recordedattime,
-            targetResult.value.serverTime
-          );
-        } else {
-          next.targetMissingCount =
-            before.targetListed ||
-            before.targetMissingCount > 0 ||
-            before.targetWasAtStop
-              ? before.targetMissingCount + 1
-              : 0;
-          next.liveEtaSec = null;
-          next.providerDistanceM = null;
-          next.providerPositionAgeSec = null;
-        }
-      } else {
-        next.lastError = "Live target-stop tracking is temporarily unavailable.";
-      }
-
-      if (previousResult.status === "fulfilled" && previousResult.value) {
-        next.lastProviderSuccessAt = Date.now();
-        const previousMatch = matchRideArrival(
-          previousResult.value.arrivals,
-          identity
-        );
-
-        if (previousMatch) {
-          next.lastLiveMatchAt = Date.now();
-          next.previousSeen = true;
-          next.previousMissingCount = 0;
-        } else if (before.previousSeen) {
-          next.previousMissingCount = before.previousMissingCount + 1;
-        }
-      } else if (previousResult.status === "rejected") {
-        next.lastError =
-          next.lastError || "Previous-stop tracking is temporarily unavailable.";
-      }
-
-      next.trackingHealth = trackingHealth(next);
-      runtimeRef.current = next;
-      setRuntimeState(next);
-      applyProgress(next, gpsRef.current);
-      schedule();
-    };
-
-    const handleVisible = () => {
-      if (document.visibilityState === "visible") {
-        window.clearTimeout(timeoutId);
-        void runPoll();
-      }
-    };
-    const handleOnline = () => {
-      window.clearTimeout(timeoutId);
-      void runPoll();
-    };
-
-    void runPoll();
-    document.addEventListener("visibilitychange", handleVisible);
-    window.addEventListener("online", handleOnline);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timeoutId);
-      controller?.abort();
-      document.removeEventListener("visibilitychange", handleVisible);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, [applyProgress, session?.id]);
-
-  useEffect(() => {
-    if (!session) return undefined;
+    if (!rideActive) return undefined;
 
     const id = window.setInterval(() => {
       const next = {
@@ -761,7 +598,7 @@ export default function useRideMode() {
     }, CLOCK_INTERVAL_MS);
 
     return () => window.clearInterval(id);
-  }, [applyProgress, session?.id]);
+  }, [applyProgress, rideActive, rideId]);
 
   // The vehicle leaving the target ends the alarm whether the passenger got
   // off or not. Repeating "get off now" at someone already standing on the
@@ -780,37 +617,6 @@ export default function useRideMode() {
 
     return () => window.clearInterval(id);
   }, [session?.stage, targetVehicleGone]);
-
-  // Autoplay policy suspends the audio context on a fresh page load, and a
-  // ride restored after a reload never runs the start-up test alert. Without
-  // this the tones are silently dead for the rest of the ride.
-  const rideActive = Boolean(session);
-
-  useEffect(() => {
-    if (!rideActive) return undefined;
-
-    let active = true;
-
-    const detach = () => {
-      document.removeEventListener("pointerdown", tryUnlock);
-      document.removeEventListener("keydown", tryUnlock);
-    };
-
-    async function tryUnlock() {
-      const unlocked = await unlockRideAudio();
-      if (unlocked && active) detach();
-    }
-
-    primeRideVoices();
-    void tryUnlock();
-    document.addEventListener("pointerdown", tryUnlock);
-    document.addEventListener("keydown", tryUnlock);
-
-    return () => {
-      active = false;
-      detach();
-    };
-  }, [rideActive, session?.id]);
 
   useEffect(
     () => () => {

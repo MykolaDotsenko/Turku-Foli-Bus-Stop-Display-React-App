@@ -51,6 +51,7 @@ export default function RideSetup({
   const [targetStopSequence, setTargetStopSequence] = useState("");
   const [locationBackup, setLocationBackup] = useState(true);
   const [notifications, setNotifications] = useState(true);
+  const [startError, setStartError] = useState("");
 
   useEffect(() => {
     if (!arrival?.tripref) {
@@ -117,7 +118,21 @@ export default function RideSetup({
       (item) => String(item.stopSequence) === String(targetStopSequence)
     );
 
-    if (!selectedTarget || !departureEpochSec) return;
+    // Returning quietly here leaves an enabled button that does nothing when
+    // pressed, on the one action the whole feature hangs on.
+    if (!selectedTarget) {
+      setStartError(
+        "Choose the stop you want to get off at before starting Ride Mode."
+      );
+      return;
+    }
+
+    if (!departureEpochSec) {
+      setStartError(
+        "This departure has no usable time yet, so the ride cannot be anchored to the timetable. Wait for the next realtime update and try again."
+      );
+      return;
+    }
 
     const plan = buildRidePlan({
       stopTimes,
@@ -128,7 +143,14 @@ export default function RideSetup({
       stopsById,
       departureEpochSec,
     });
-    if (!plan) return;
+    if (!plan) {
+      setStartError(
+        "This trip's planned stop times do not line up with the selected stop, so Ride Mode cannot build a reliable plan. Pick another stop or start from the departure board."
+      );
+      return;
+    }
+
+    setStartError("");
 
     const exactRoute =
       tripDetails?.routeId && routesById instanceof Map
@@ -245,9 +267,10 @@ export default function RideSetup({
                       checked={
                         String(targetStopSequence) === String(item.stopSequence)
                       }
-                      onChange={() =>
-                        setTargetStopSequence(String(item.stopSequence))
-                      }
+                      onChange={() => {
+                        setStartError("");
+                        setTargetStopSequence(String(item.stopSequence));
+                      }}
                     />
                     <span className={styles.stopCopy}>
                       <strong>{item.stop.name}</strong>
@@ -312,6 +335,12 @@ export default function RideSetup({
                 definitive “get off now”.
               </span>
             </div>
+
+            {startError && (
+              <p className={styles.status} role="alert">
+                {startError}
+              </p>
+            )}
 
             <div className={styles.actions}>
               <button

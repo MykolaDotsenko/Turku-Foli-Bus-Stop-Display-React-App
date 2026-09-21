@@ -219,6 +219,42 @@ describe("ride progress", () => {
     expect(stage.reason).toBe("planned-stop-count");
   });
 
+  it("declines a line and time match when two visits both fit", () => {
+    // A loop journey serves this stop twice and both rows carry the same
+    // origin time. Answering with the earlier visit would alarm a passenger
+    // riding to the later one, a full lap early.
+    const firstVisit = {
+      lineref: "1",
+      originaimeddeparturetime: 1000,
+      visitnumber: 1,
+    };
+    const secondVisit = {
+      lineref: "1",
+      originaimeddeparturetime: 1000,
+      visitnumber: 2,
+    };
+
+    expect(
+      matchRideArrival([firstVisit, secondVisit], {
+        lineRef: "1",
+        originAimedDepartureTime: 1000,
+      })
+    ).toBeNull();
+  });
+
+  it("still answers when one departure clearly fits best", () => {
+    const ours = { lineref: "1", originaimeddeparturetime: 1005 };
+    const other = { lineref: "1", originaimeddeparturetime: 1080 };
+
+    const match = matchRideArrival([other, ours], {
+      lineRef: "1",
+      originAimedDepartureTime: 1000,
+    });
+
+    expect(match?.arrival).toBe(ours);
+    expect(match?.matchedBy).toBe("line-origin-time");
+  });
+
   it("keeps missing evidence neutral", () => {
     const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
       liveEtaSec: null,
