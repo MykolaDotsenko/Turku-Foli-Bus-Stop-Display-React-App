@@ -87,6 +87,40 @@ test("uses generic NEXT wording for non-bus modes", () => {
   expect(screen.getByText(/480 m along route/i)).toBeInTheDocument();
 });
 
+// The hook already decides which source is fresh enough to trust. If the
+// panel re-derives that order it can show a confident estimate from a stale
+// GPS fix while the badge next to it says tracking has degraded.
+test("shows the estimate the hook resolved rather than re-deriving one", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{
+        trackingHealth: "schedule",
+        liveEtaSec: 70,
+        scheduleEtaSec: 200,
+        etaSec: 200,
+        remainingStops: 2,
+        targetMatchBy: "",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 900,
+        routeEtaSec: 55,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("~4 min")).toBeInTheDocument();
+  expect(screen.queryByText("~1 min")).not.toBeInTheDocument();
+});
+
 test("offers recovery at the next stop after a missed-stop signal", () => {
   const onEndRide = vi.fn();
   const onOpenStop = vi.fn();

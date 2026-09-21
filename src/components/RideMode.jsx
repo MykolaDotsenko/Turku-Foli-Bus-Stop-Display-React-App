@@ -106,7 +106,7 @@ export default function RideMode({
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
   const afterName = session.previousStop?.name || session.boardingStop?.name;
-  const eta = etaLabel(gps.routeEtaSec ?? runtime.liveEtaSec ?? runtime.scheduleEtaSec);
+  const eta = etaLabel(runtime.etaSec);
   const remaining = remainingLabel(runtime.remainingStops);
 
   const recoverAtNextStop = () => {

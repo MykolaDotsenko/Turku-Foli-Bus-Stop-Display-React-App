@@ -43,6 +43,7 @@ function emptyRuntime() {
     providerPositionAgeSec: null,
     scheduleEtaSec: null,
     remainingStops: null,
+    etaSec: null,
     trackingHealth: "schedule",
     lastError: "",
     notificationPermission: "unknown",
@@ -239,6 +240,10 @@ export default function useRideMode() {
       // A failed poll keeps the previous prediction in runtime. Past this age
       // it is no longer a live answer, so the stage logic must fall back to
       // the timetable instead of trusting a frozen number.
+      const gpsAgeSec = Number.isFinite(Number(nextGps.updatedAt))
+        ? Math.max(0, (Date.now() - Number(nextGps.updatedAt)) / 1000)
+        : null;
+
       const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
       const liveEtaUsable =
         Number.isFinite(lastLiveMatchAt) &&
@@ -253,9 +258,7 @@ export default function useRideMode() {
         providerPositionAgeSec: nextRuntime.providerPositionAgeSec,
         gpsDistanceM: nextGps.distanceM,
         gpsAccuracyM: nextGps.accuracyM,
-        gpsAgeSec: Number.isFinite(Number(nextGps.updatedAt))
-          ? Math.max(0, (Date.now() - Number(nextGps.updatedAt)) / 1000)
-          : null,
+        gpsAgeSec,
         gpsShapeAvailable: nextGps.shapeStatus === "ready",
         gpsShapeUsable: nextGps.shapeUsable,
         gpsOnRoute: nextGps.onRoute,
@@ -271,10 +274,22 @@ export default function useRideMode() {
       });
 
       const health = trackingHealth(nextRuntime);
+      // The panel must not read a different source than the stage logic. A
+      // frozen prediction from a failed poll, or a fix from before a tunnel,
+      // would otherwise keep showing a confident "~2 min" next to a badge
+      // that already says tracking is degraded.
+      const gpsEtaUsable =
+        Number.isFinite(Number(nextGps.routeEtaSec)) &&
+        (gpsAgeSec === null || gpsAgeSec <= 60);
       const mergedRuntime = {
         ...nextRuntime,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
+        etaSec: gpsEtaUsable
+          ? Number(nextGps.routeEtaSec)
+          : liveEtaUsable && Number.isFinite(Number(nextRuntime.liveEtaSec))
+            ? Number(nextRuntime.liveEtaSec)
+            : planned.etaSec,
         trackingHealth: health,
       };
       runtimeRef.current = mergedRuntime;

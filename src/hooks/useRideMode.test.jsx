@@ -365,3 +365,70 @@ test("an early pass near the target cannot later fake a missed stop", async () =
   });
   unmount();
 });
+
+test("the shown estimate falls back with the stage logic instead of freezing", async () => {
+  // A failed poll leaves the previous prediction in runtime. Showing it as a
+  // confident "~2 min" beside a badge that already reads "schedule" tells the
+  // passenger two different things at once.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 11, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: nowSec,
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              {
+                datedvehiclejourneyref: "journey-1",
+                expectedarrivaltime: nowSec + 120,
+                vehicleatstop: false,
+                recordedattime: nowSec,
+              },
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 1_800,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 900 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 1_800 },
+        ],
+      },
+    });
+  });
+
+  await waitFor(() => expect(result.current.runtime.etaSec).toBe(120));
+
+  // The provider goes quiet for five minutes.
+  vi.setSystemTime(startMs + 5 * 60_000);
+  mocks.fetchStopMonitor.mockImplementation(() =>
+    Promise.reject(new Error("provider unavailable"))
+  );
+  act(() => {
+    document.dispatchEvent(new globalThis.Event("visibilitychange"));
+  });
+
+  await waitFor(() => {
+    expect(result.current.runtime.trackingHealth).not.toBe("live");
+  });
+
+  // The frozen 120 seconds must not still be on show.
+  expect(result.current.runtime.etaSec).not.toBe(120);
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+});
