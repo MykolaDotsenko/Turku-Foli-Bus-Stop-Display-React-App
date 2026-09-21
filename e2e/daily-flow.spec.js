@@ -471,6 +471,140 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+function rideArrival(now, overrides = {}) {
+  return {
+    lineref: "1",
+    destinationdisplay: "Satama",
+    monitored: true,
+    vehicleatstop: false,
+    vehicleref: "bus-ride-1",
+    datedvehiclejourneyref: "journey-ride-1",
+    __tripref: "trip-164-1",
+    originaimeddeparturetime: now - 180,
+    recordedattime: now - 5,
+    expectedarrivaltime: now + 70,
+    expecteddeparturetime: now + 85,
+    aimedarrivaltime: now + 90,
+    ...overrides,
+  };
+}
+
+async function routeTargetStop(page, overrides = {}) {
+  await page.route("https://data.foli.fi/siri/sm/32", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "OK",
+        stopname: "Puistokatu",
+        servertime: now,
+        result: [rideArrival(now, overrides)],
+      }),
+    });
+  });
+}
+
+async function startRide(page, { gps }) {
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+
+  await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
+
+  const gpsToggle = page.getByRole("checkbox", {
+    name: /Use GPS ride tracking/i,
+  });
+  if (gps) {
+    await gpsToggle.check();
+  } else {
+    await gpsToggle.uncheck();
+  }
+  await page
+    .getByRole("checkbox", { name: /Use system notifications/i })
+    .uncheck();
+
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+}
+
+test("Ride Mode says get off now once the bus is standing at the stop", async ({
+  page,
+}) => {
+  // The vehicle being listed at the target stop is the strongest evidence
+  // there is, and it is the only one that can raise the alarm without GPS.
+  await routeTargetStop(page, { vehicleatstop: true, expectedarrivaltime: 0 });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: false });
+
+  await expect(page.getByRole("heading", { name: "Get off now" })).toBeVisible();
+  await expect(page.locator('[data-stage="now"]')).toBeVisible();
+
+  // The confirmation only exists at this stage, and it has to end the ride
+  // so the repeating alert stops for someone already on the pavement.
+  await page.getByRole("button", { name: "I'm getting off" }).click();
+  await expect(page.getByRole("heading", { name: "Get off now" })).toHaveCount(
+    0
+  );
+});
+
+test("Ride Mode offers recovery after the passenger rides past the stop", async ({
+  page,
+  context,
+}) => {
+  await routeTargetStop(page);
+  // No usable shape, so the ride falls back to straight-line GPS.
+  await page.route(
+    /https:\/\/data\.foli\.fi\/gtfs\/v0\/[^/]+\/shapes\/.*/,
+    async (route) => {
+      await route.fulfill({ contentType: "application/json", body: "[]" });
+    }
+  );
+
+  await context.grantPermissions(["geolocation"]);
+  // Still a few stops away when the ride starts.
+  await context.setGeolocation({
+    latitude: 60.4518,
+    longitude: 22.2666,
+    accuracy: 25,
+  });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: true });
+
+  await expect(
+    page.getByRole("heading", { name: "Your stop is next" })
+  ).toBeVisible();
+
+  // Close enough to count as an approach, but not close enough to claim the
+  // passenger is at the door: that band is what arms the missed-stop check.
+  await context.setGeolocation({
+    latitude: 60.44945,
+    longitude: 22.255,
+    accuracy: 25,
+  });
+  await expect(page.getByText(/7[0-9] m straight-line fallback/)).toBeVisible();
+
+  // The bus carried on without them.
+  await context.setGeolocation({
+    latitude: 60.4533,
+    longitude: 22.255,
+    accuracy: 25,
+  });
+
+  await expect(
+    page.getByRole("heading", { name: "Your stop may be behind you" })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Next planned stop: Turun linna")
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Open next stop" }).click();
+  await expect(page).toHaveURL(/stop=4/);
+});
+
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
