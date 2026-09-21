@@ -406,3 +406,49 @@
     font-size: 1rem;
   }
 }
+
+
+.rideButton {
+  min-height: 40px;
+  margin-top: 8px;
+  padding: 0.48rem 0.72rem;
+  border: 1px solid #9bc6ca;
+  border-radius: 10px;
+  background: #eef8f8;
+  color: #006b74;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.rideButton:hover:not(:disabled) {
+  border-color: #69aeb4;
+  background: #e2f4f5;
+}
+
+.rideButton:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.rideSetupRow > td {
+  padding: 0 14px 14px;
+  background: #fbfdfd;
+}
+
+.rideSetupRow:hover {
+  background: #fbfdfd !important;
+}
+
+@media (max-width: 620px) {
+  .rideButton {
+    min-height: 44px;
+    width: 100%;
+    margin-top: 7px;
+    font-size: 0.8125rem;
+  }
+
+  .rideSetupRow > td {
+    padding: 0 10px 12px;
+  }
+}
