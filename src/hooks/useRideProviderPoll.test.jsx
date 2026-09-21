@@ -39,11 +39,16 @@ function harness(overrides = {}) {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // The backoff adds jitter from Math.random so a city's phones do not retry
+  // in lockstep. Counting rounds in a fixed window is only meaningful with
+  // that pinned: otherwise an unlucky draw fails a correct implementation.
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
   mocks.fetchStopMonitor.mockReset();
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 // A throw used to leave nothing scheduled, so live tracking ended for the
@@ -76,13 +81,13 @@ test("slows down while the provider is failing and speeds back up after it answe
 
   const { unmount } = renderHook(() => useRideProviderPoll(props));
 
+  // Gaps grow 20s, 40s, 80s, 80s…, so polls land at 0, 20, 60 and 140
+  // seconds: four rounds where a flat 20s cadence would have made ten.
   await vi.advanceTimersByTimeAsync(200_000);
-  // A flat 20s cadence would be ten rounds; backoff has to be well under it
-  // while still staying inside the 120s window the panel gives up at.
   const failingRounds = mocks.fetchStopMonitor.mock.calls.length / 2;
-  expect(failingRounds).toBeGreaterThanOrEqual(3);
-  expect(failingRounds).toBeLessThanOrEqual(6);
+  expect(failingRounds).toBe(4);
 
+  // One success resets the cadence, so the next 100s is back to 20s steps.
   mocks.fetchStopMonitor.mockResolvedValue(okResponse());
   await vi.advanceTimersByTimeAsync(100_000);
   const recoveredRounds =

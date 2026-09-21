@@ -180,9 +180,12 @@ function App() {
         <div>
           <p className="eyebrow">Independent companion · Föli open data</p>
           <p className="brand">Föli departures</p>
-          <p className="context">
-            Find a stop, save Home, School or Work without remembering an
-            address, and get back to the right journey in one tap.
+          <p
+            className="context"
+            data-firstrun={placesById.size === 0 ? "true" : "false"}
+          >
+            Find a stop, save the places you travel to, and get told when to
+            get off.
           </p>
         </div>
         <span
@@ -191,7 +194,7 @@ function App() {
           aria-live="polite"
         >
           <span className="live-dot" aria-hidden="true" />
-          {online ? "Föli SIRI" : "Offline mode"}
+          {online ? "Live Föli data" : "Offline mode"}
         </span>
       </header>
 

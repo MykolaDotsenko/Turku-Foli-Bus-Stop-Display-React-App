@@ -449,11 +449,20 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
 
   await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
+  // The panel is mounted in the departure table's last cell, which is
+  // right-aligned for the "4 min" column. A form that inherits that reads as
+  // broken, and nothing else would catch it.
+  await expect(
+    page
+      .locator('section[aria-label="Set up get-off alerts"]')
+      .evaluate((node) => globalThis.getComputedStyle(node).textAlign)
+  ).resolves.toBe("left");
+
   await page
-    .getByRole("checkbox", { name: /Use GPS ride tracking/i })
+    .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: /Use system notifications/i })
+    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -513,7 +522,7 @@ async function startRide(page, { gps }) {
   await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
   const gpsToggle = page.getByRole("checkbox", {
-    name: /Use GPS ride tracking/i,
+    name: /Follow my location/i,
   });
   if (gps) {
     await gpsToggle.check();
@@ -521,11 +530,68 @@ async function startRide(page, { gps }) {
     await gpsToggle.uncheck();
   }
   await page
-    .getByRole("checkbox", { name: /Use system notifications/i })
+    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 }
+
+// Measured before this: the open form made the page 3.9 screens on a 375px
+// phone and left "Start Ride Mode" 684px below the fold — a full screen of
+// scrolling, one-handed, on a moving bus, before the one committing tap.
+test("the ride can be started without scrolling for the button", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  await routeTargetStop(page);
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+
+  const start = page.getByRole("button", { name: "Start Ride Mode" });
+  await expect(start).toBeInViewport();
+
+  // Pinned low, where a thumb reaches, not floating mid-screen.
+  const box = await start.boundingBox();
+  expect(box.y + box.height).toBeGreaterThan(640 * 0.75);
+  expect(box.y + box.height).toBeLessThanOrEqual(640);
+});
+
+// Measured at 735px against a 640px screen, which put the confirm button
+// below the fold at the exact moment the alarm was going off.
+test("the get-off panel fits a small phone with its button in reach", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  await routeTargetStop(page, { vehicleatstop: true, expectedarrivaltime: 0 });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: false });
+  await expect(page.getByRole("heading", { name: "Get off now" })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  const panel = await page
+    .locator('section[aria-labelledby="ride-mode-title"]')
+    .boundingBox();
+  expect(panel.height).toBeLessThanOrEqual(640);
+
+  await expect(page.getByRole("button", { name: "I'm getting off" })).toBeInViewport();
+  // The stop name and the instruction have to be on screen with it.
+  await expect(page.getByText("Puistokatu").first()).toBeInViewport();
+  await expect(
+    page.getByText("Move to the doors and step off here.")
+  ).toBeInViewport();
+});
 
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
   page,
@@ -585,7 +651,7 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
     longitude: 22.255,
     accuracy: 25,
   });
-  await expect(page.getByText(/7[0-9] m straight-line fallback/)).toBeVisible();
+  await expect(page.getByText(/roughly 7[0-9] m away/)).toBeVisible();
 
   // The bus carried on without them.
   await context.setGeolocation({
@@ -603,6 +669,42 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
 
   await page.getByRole("button", { name: "Open next stop" }).click();
   await expect(page).toHaveURL(/stop=4/);
+});
+
+// A phone screen is tight, so the explanatory copy was hidden below 620px —
+// including the line that says what the app is, to the one person who does
+// not know. It is back, but only while it still earns the space.
+test("a phone is told what the app is until it no longer needs telling", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const intro = page.locator(".context");
+  await expect(intro).toBeVisible();
+  await expect(intro).toContainText("get told when to get off");
+
+  // These two sections are three bare rows and a lone button on a phone;
+  // nothing else ever says what they are for.
+  await expect(
+    page.getByText("Save Home, School or Work as public stops", {
+      exact: false,
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Find the closest stop with a one-time location check")
+  ).toBeVisible();
+  await expect(page.getByText("Search by stop name or number.")).toBeVisible();
+
+  // The departure board still has to win the top of the screen.
+  await expect(page.getByText("Bus at stop · board now")).toBeInViewport();
+
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  // Its job is done, and the recovery card now needs that space.
+  await expect(page.locator(".context")).not.toBeVisible();
 });
 
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
@@ -722,7 +824,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Set up Home where I am now" }).click();
+  await page.getByRole("button", { name: "Set up Home from my current location" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Choose safe stops for Home" })
@@ -833,7 +935,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   expect(homeUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(homeUrl.searchParams.has("origin")).toBe(false);
 
-  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  const moreHomeOptions = recovery.getByRole("button", { name: "Home options" });
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
@@ -996,7 +1098,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  const recoveryMore = recovery.getByRole("button", { name: "More" });
+  const recoveryMore = recovery.getByRole("button", { name: "Home options" });
   if (await recoveryMore.isVisible()) {
     await recoveryMore.click();
   }
@@ -1024,7 +1126,7 @@ test("mobile layout does not create horizontal page overflow", async ({
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  const moreHomeOptions = recovery.getByRole("button", { name: "Home options" });
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }

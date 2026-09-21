@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { rideExitInstruction } from "../utils/rideInstructions";
-import { RIDE_STAGE } from "../utils/rideProgress";
+import { RIDE_STAGE, rideStageRank } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
 
 const STAGE_COPY = {
@@ -21,7 +22,7 @@ const STAGE_COPY = {
   [RIDE_STAGE.NOW]: {
     eyebrow: "This is your stop",
     title: "Get off now",
-    instruction: "The alert repeats until the ride is finished or tracking moves on.",
+    instruction: "Move to the doors and step off here.",
   },
   [RIDE_STAGE.MISSED]: {
     eyebrow: "Recovery",
@@ -30,7 +31,9 @@ const STAGE_COPY = {
   },
 };
 
-function etaLabel(seconds) {
+function etaLabel(seconds, stage) {
+  if (stage === RIDE_STAGE.NOW) return "now";
+  if (stage === RIDE_STAGE.MISSED) return "";
   if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
@@ -39,18 +42,20 @@ function etaLabel(seconds) {
   return `~${minutes} min`;
 }
 
-function remainingLabel(value) {
+function remainingLabel(value, stage) {
+  if (stage === RIDE_STAGE.NOW) return "you are here";
+  if (stage === RIDE_STAGE.MISSED) return "behind you";
   if (value === null || value === undefined || value === "") return "";
   const count = Number(value);
   if (!Number.isFinite(count)) return "";
-  if (count <= 0) return "target stop";
+  if (count <= 0) return "almost there";
   return `${count} ${count === 1 ? "stop" : "stops"}`;
 }
 
 function trackingLabel(health) {
-  if (health === "live") return "Live tracking";
-  if (health === "delayed") return "Live tracking delayed";
-  return "Schedule fallback";
+  if (health === "live") return "Following your bus";
+  if (health === "delayed") return "Your bus is lagging behind";
+  return "Going by the timetable";
 }
 
 // The same window the stage logic uses to decide a fix is still evidence.
@@ -66,11 +71,13 @@ function gpsIsStale(ageSec) {
 
 function staleLabel(ageSec) {
   const minutes = Math.round(Number(ageSec) / 60);
-  return minutes >= 2 ? `last fix ${minutes} min ago` : "last fix over a minute ago";
+  return minutes >= 2
+    ? `last seen ${minutes} min ago`
+    : "last seen over a minute ago";
 }
 
 function gpsDetail(gps, enabled, ageSec) {
-  if (!enabled) return "Föli realtime only";
+  if (!enabled) return "using arrival data only";
   if (gpsIsStale(ageSec)) return staleLabel(ageSec);
 
   if (
@@ -80,32 +87,32 @@ function gpsDetail(gps, enabled, ageSec) {
   ) {
     const along = Math.round(Number(gps.routeDistanceM));
     return along < 0
-      ? `~${Math.abs(along)} m past your stop`
-      : `~${along} m along route`;
+      ? `about ${Math.abs(along)} m past your stop`
+      : `about ${along} m to go`;
   }
   if (
     gps.distanceM !== null &&
     gps.distanceM !== undefined &&
     Number.isFinite(Number(gps.distanceM))
   ) {
-    return `~${Math.round(gps.distanceM)} m straight-line fallback`;
+    return `roughly ${Math.round(gps.distanceM)} m away`;
   }
-  return "no location fix yet";
+  return "waiting for a location";
 }
 
 function locationLabel(gps, enabled, ageSec) {
-  if (!enabled) return "GPS ride tracking off";
-  if (gpsIsStale(ageSec)) return "GPS fix is out of date";
-  if (gps.status === "off-route") return "GPS no longer matches this trip";
+  if (!enabled) return "Not using your location";
+  if (gpsIsStale(ageSec)) return "Lost track of your location";
+  if (gps.status === "off-route") return "You may not be on this route";
   if (gps.status === "active" && gps.shapeUsable && gps.onRoute) {
-    return "GPS matched to trip path";
+    return "Following you along the route";
   }
-  if (gps.status === "active") return "GPS fallback active";
-  if (gps.status === "weak") return "GPS accuracy is weak";
-  if (gps.status === "starting") return "Starting GPS ride tracking";
-  if (gps.status === "error") return "GPS ride tracking unavailable";
-  if (gps.status === "unavailable") return "GPS unsupported";
-  return "GPS waiting";
+  if (gps.status === "active") return "Following you, roughly";
+  if (gps.status === "weak") return "Weak location signal";
+  if (gps.status === "starting") return "Finding your location";
+  if (gps.status === "error") return "Cannot use your location";
+  if (gps.status === "unavailable") return "This phone cannot share location";
+  return "Waiting for your location";
 }
 
 export default function RideMode({
@@ -117,6 +124,17 @@ export default function RideMode({
   onEndRide,
   onOpenStop,
 }) {
+  // Declared before the early return: hooks cannot sit behind a condition.
+  // Keyed by ride id so a "yes, I'm on this bus" never carries into the next
+  // journey, while the same journey stops nagging once answered.
+  const [offRouteAnsweredFor, setOffRouteAnsweredFor] = useState("");
+
+  // The whole promise is "you will hear me". Nothing in a web page can see a
+  // silent switch, a muted volume, or sound routed to headphones left at
+  // home — so the only honest check is to ask. It runs during BOARDED, while
+  // the stop is still far off, rather than blocking the start of tracking.
+  const [alertHeard, setAlertHeard] = useState("unasked");
+
   if (!session) return null;
 
   const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
@@ -129,8 +147,21 @@ export default function RideMode({
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
   const afterName = session.previousStop?.name || session.boardingStop?.name;
-  const eta = etaLabel(runtime.etaSec);
-  const remaining = remainingLabel(runtime.remainingStops);
+  // Measured at 735px on a 360x640 phone, which puts the one button that
+  // matters below the fold at the exact moment the alarm is going. The three
+  // status rows are 185px of diagnostics — what is being tracked, whether
+  // the screen is held awake — and none of it is a decision the passenger
+  // makes while standing up to leave. The health badge stays in the corner,
+  // and a genuine problem still raises its own banner below.
+  const gettingOffNow = session.stage === RIDE_STAGE.NOW;
+  // A short hop across town reaches SOON within a stop or two, so tying the
+  // sound check to BOARDED alone would hide it on exactly the rides where
+  // there is least time to notice a muted phone. It runs until the approach
+  // begins, and never during it.
+  const beforeTheApproach =
+    rideStageRank(session.stage) < rideStageRank(RIDE_STAGE.NEXT);
+  const eta = etaLabel(runtime.etaSec, session.stage);
+  const remaining = remainingLabel(runtime.remainingStops, session.stage);
 
   const recoverAtNextStop = () => {
     const nextStopId = session.nextStop?.id;
@@ -167,6 +198,45 @@ export default function RideMode({
         </small>
       </div>
 
+      {beforeTheApproach && alertHeard !== "yes" && (
+        <div className={styles.soundCheck} role="group" aria-label="Alert sound check">
+          {alertHeard !== "no" ? (
+            <>
+              <strong>Did you hear the test alert?</strong>
+              <div className={styles.soundCheckActions}>
+                <button type="button" onClick={() => setAlertHeard("yes")}>
+                  Yes
+                </button>
+                <button type="button" onClick={() => setAlertHeard("no")}>
+                  No
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <strong>Let&apos;s get the sound working</strong>
+              <ul>
+                <li>Turn the media volume up.</li>
+                <li>Switch off silent or focus mode.</li>
+                <li>Check the sound is not going to other headphones.</li>
+              </ul>
+              <div className={styles.soundCheckActions}>
+                <button type="button" onClick={onTestAlert}>
+                  Play it again
+                </button>
+                <button type="button" onClick={() => setAlertHeard("yes")}>
+                  I can hear it now
+                </button>
+              </div>
+              <small>
+                Tracking is already running. Your phone will also vibrate and
+                show a notification.
+              </small>
+            </>
+          )}
+        </div>
+      )}
+
       <p
         className={styles.instruction}
         role={urgent ? "alert" : "status"}
@@ -190,21 +260,22 @@ export default function RideMode({
         </div>
       </div>
 
-      <div className={styles.statusGrid}>
-        <span>
-          <strong>{trackingLabel(runtime.trackingHealth)}</strong>
-          <small>
-            {runtime.targetMatchBy
-              ? `matched by ${runtime.targetMatchBy.replaceAll("-", " ")}`
-              : "waiting for a matching realtime row"}
-          </small>
-        </span>
-        <span>
-          <strong>
-            {locationLabel(
-              gps,
-              session.options?.locationBackup === true,
-              runtime.gpsAgeSec
+      {!gettingOffNow && (
+        <div className={styles.statusGrid}>
+          <span>
+            <strong>
+              {runtime.targetMatchBy
+                ? "Your bus is confirmed"
+                : "Looking for your bus"}
+            </strong>
+            <small>in Föli&apos;s live arrival data</small>
+          </span>
+          <span>
+            <strong>
+              {locationLabel(
+                gps,
+                session.options?.locationBackup === true,
+                runtime.gpsAgeSec
             )}
           </strong>
           <small>
@@ -218,20 +289,21 @@ export default function RideMode({
         <span>
           <strong>
             {wakeLockState === "active"
-              ? "Screen wake lock active"
+              ? "Keeping your screen on"
               : wakeLockState === "unsupported"
-                ? "Wake lock unsupported"
-                : "Wake lock not active"}
+                ? "Cannot keep your screen on"
+                : "Your screen may switch off"}
           </strong>
           <small>Most reliable while this page stays open and visible</small>
         </span>
       </div>
+      )}
 
       {scheduleOnly && (
         <p className={styles.degraded} role="status">
-          Live ride matching is unavailable right now. Early warnings continue
-          from the anchored timetable, but Ride Mode will not claim “get off
-          now” from schedule alone.
+          We cannot see your bus in the live data right now, so we are going by
+          the timetable. You will still get the early warnings, but we will not
+          say “get off now” on the timetable alone.
         </p>
       )}
 
@@ -241,18 +313,34 @@ export default function RideMode({
         </p>
       )}
 
-      {gps.offRouteSuspected && (
-        <p className={styles.degraded} role="alert">
-          Your movement has not matched this trip&apos;s planned path for about
-          two minutes. Check that you are on the intended vehicle or route.
-        </p>
+      {gps.offRouteSuspected && offRouteAnsweredFor !== session.id && (
+        <div className={styles.offRoute} role="alert">
+          <strong>Check your bus</strong>
+          {/* Telling someone their movement does not match a planned path
+              leaves them holding a fact and no move to make. There are only
+              two answers, so offer both. */}
+          <span>
+            For two minutes you have not been moving along
+            {session.lineRef ? ` line ${session.lineRef}` : " this route"}
+            {session.destination ? ` to ${session.destination}` : ""}. Are you
+            still on this bus?
+          </span>
+          <div className={styles.offRouteActions}>
+            <button type="button" onClick={() => setOffRouteAnsweredFor(session.id)}>
+              Yes, keep tracking
+            </button>
+            <button type="button" onClick={onEndRide}>
+              End ride
+            </button>
+          </div>
+        </div>
       )}
 
       {gps.shapeStatus === "unavailable" &&
         session.options?.locationBackup && (
           <p className={styles.degraded} role="status">
-            Route-shape matching is unavailable. Föli realtime and conservative
-            straight-line GPS fallback remain active.
+            We could not load this route&apos;s path, so we are following your
+            distance to the stop instead. Live arrival data still applies.
           </p>
         )}
 
@@ -266,9 +354,11 @@ export default function RideMode({
       )}
 
       <div className={styles.actions}>
-        <button type="button" className={styles.test} onClick={onTestAlert}>
-          Test alert
-        </button>
+        {!gettingOffNow && (
+          <button type="button" className={styles.test} onClick={onTestAlert}>
+            Test alert
+          </button>
+        )}
         {session.stage === RIDE_STAGE.NOW && (
           <button
             type="button"
@@ -284,9 +374,9 @@ export default function RideMode({
       </div>
 
       <p className={styles.boundary}>
-        Client-only Ride Mode is travel assistance, not a guaranteed alarm.
-        Browsers can suspend background pages. For the best reliability, keep
-        this screen open and sound enabled.
+        Ride Mode is travel help, not a guaranteed alarm. A browser can pause
+        a page it thinks you have left, so keep this screen open with the
+        sound on.
       </p>
     </section>
   );

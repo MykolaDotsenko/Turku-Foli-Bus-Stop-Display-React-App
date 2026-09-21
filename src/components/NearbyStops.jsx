@@ -216,8 +216,7 @@ function NearbyStops({
             Near you
           </h2>
           <p className={styles.description}>
-            Find the closest Föli stop with a one-time location check. Your
-            coordinates are not stored.
+            Find the closest stop with a one-time location check.
           </p>
         </div>
 

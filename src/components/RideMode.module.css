@@ -293,3 +293,99 @@
     forced-color-adjust: auto;
   }
 }
+
+/* A warning that offers the two answers it is asking about, rather than
+   leaving the passenger holding a fact with no move to make. */
+.offRoute {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 11px 12px;
+  border: 1px solid #8a5a2a;
+  border-radius: 12px;
+  background: rgba(150, 82, 22, 0.22);
+  color: #ffe3c2;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.offRoute strong {
+  font-size: 0.95rem;
+}
+
+.offRouteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.offRouteActions button {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #c58a54;
+  border-radius: 10px;
+  background: transparent;
+  color: #ffe3c2;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.offRouteActions button:first-child {
+  border-color: #ffd7ac;
+  background: #ffe3c2;
+  color: #40220a;
+}
+
+/* Asked once, early, while the stop is still far away. */
+.soundCheck {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid #2f6f74;
+  border-radius: 12px;
+  background: rgba(34, 211, 238, 0.09);
+}
+
+.soundCheck strong {
+  font-size: 0.95rem;
+}
+
+.soundCheck ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.soundCheck small {
+  color: #a8c4c9;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.soundCheckActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.soundCheckActions button {
+  flex: 1 1 auto;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #47c3cf;
+  border-radius: 10px;
+  background: transparent;
+  color: #d8f7fb;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.soundCheckActions button:first-child {
+  background: #47c3cf;
+  color: #06282c;
+}

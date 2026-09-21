@@ -401,9 +401,17 @@
     border-radius: 15px;
   }
 
-  .kicker,
-  .description {
+  /* The kicker is decoration and can go, but the one line saying what a
+     Place is has to survive: on a phone this section is three rows reading
+     "Not set", and nothing else ever explains them. */
+  .kicker {
     display: none;
+  }
+
+  .description {
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
   }
 
   .header h2 {

@@ -155,9 +155,22 @@ input:focus-visible,
     flex: 1 1 180px;
   }
 
-  .eyebrow,
+  .eyebrow {
+    display: none;
+  }
+
+  /* The line that says what this app is only earns its space while nobody
+     has set anything up. Hiding it from everyone meant a first-time phone
+     user — the main way this gets used — was never told at all. */
   .context {
     display: none;
+  }
+
+  .context[data-firstrun="true"] {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.82rem;
+    line-height: 1.35;
   }
 
   .brand {
