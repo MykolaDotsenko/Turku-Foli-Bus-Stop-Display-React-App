@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { findNearestStops, hasCoordinates } from "../utils/geo";
+import {
+  locationErrorMessage,
+  requestOneTimePosition,
+} from "../utils/location";
 import styles from "./BusStopForm.module.css";
 
 const MAX_SUGGESTIONS = 6;
@@ -41,7 +46,12 @@ function findMatches(stops, query) {
     .map(({ stop }) => stop);
 }
 
-function BusStopForm({ activeStopId, stops, onSubmit }) {
+function BusStopForm({
+  activeStopId,
+  stops,
+  coordinatesStatus = "idle",
+  onSubmit,
+}) {
   // The field accepts a name or a number equally, so it should give back
   // whichever one the person thinks in. It used to answer every entry with
   // the number: type "Kauppatori", get "164". Names are what people
@@ -57,6 +67,7 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
   const [validationError, setValidationError] = useState("");
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [locating, setLocating] = useState(false);
 
   // The catalogue loads after the first paint and again when coordinates
   // merge, so `stops` changes identity mid-session. Resetting the field on
@@ -138,6 +149,50 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
     );
   };
 
+  const locateNearestStop = async () => {
+    setValidationError("");
+    setActiveIndex(-1);
+
+    if (!navigator.geolocation) {
+      setValidationError("This browser does not support location access.");
+      return;
+    }
+
+    if (!stops.some(hasCoordinates)) {
+      setValidationError(
+        coordinatesStatus === "loading"
+          ? "Stop locations are still loading. Try again in a moment."
+          : "Stop locations are temporarily unavailable. Search manually instead."
+      );
+      return;
+    }
+
+    setLocating(true);
+
+    try {
+      const position = await requestOneTimePosition(navigator.geolocation);
+      const [nearest] = findNearestStops(stops, position, 1);
+
+      if (!nearest) {
+        setValidationError(
+          "No nearby Föli stop could be resolved from your location. Search manually instead."
+        );
+        return;
+      }
+
+      // Location is a suggestion, not a navigation command. Fill the field
+      // with the resolved public stop name and let the passenger confirm by
+      // pressing "Show departures".
+      setValue(nearest.name);
+      setResolved(nearest);
+      setFocused(false);
+    } catch (error) {
+      setValidationError(locationErrorMessage(error));
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleKeyDown = (event) => {
     if (!showSuggestions) return;
 
@@ -192,8 +247,19 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
             aria-describedby={
               validationError ? "stop-error" : "stop-search-help"
             }
-            placeholder="Kauppatori or 164"
+            placeholder="Stop name or number"
           />
+          <button
+            className={styles.locateButton}
+            type="button"
+            onClick={locateNearestStop}
+            disabled={locating}
+            aria-busy={locating}
+            aria-label="Use current location"
+            title="Find nearest stop"
+          >
+            <span aria-hidden="true">{locating ? "…" : "⌖"}</span>
+          </button>
           <button
             className={styles.button}
             type="submit"
