@@ -20,6 +20,7 @@ import {
   fetchStopMonitor,
   fetchStopServedRouteIds,
   fetchTripDetails,
+  fetchTripShape,
   fetchTripStopTimes,
   resetGtfsDatasetForTests,
 } from "./foliApi";
@@ -188,6 +189,74 @@ test("normalizes route identity and official Föli colors", async () => {
       color: null,
       textColor: null,
     },
+  ]);
+});
+
+test("normalizes trip shape geometry and keeps GTFS traveled distance", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url === `${datasetBase}/shapes/shape-1`) {
+      return Promise.resolve({
+        data: [
+          { lat: 60.4518, lon: 22.2666, traveled: 0 },
+          { lat: 60.45, lon: 22.26, traveled: 420.5 },
+          { lat: null, lon: 22.2, traveled: 500 },
+        ],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  await expect(fetchTripShape("shape-1")).resolves.toEqual([
+    { lat: 60.4518, lon: 22.2666, traveled: 0 },
+    { lat: 60.45, lon: 22.26, traveled: 420.5 },
+  ]);
+
+  // Dataset-scoped shape data is cached like trip metadata.
+  await fetchTripShape("shape-1");
+  expect(
+    mocks.get.mock.calls.filter(([url]) => url === `${datasetBase}/shapes/shape-1`)
+  ).toHaveLength(1);
+});
+
+test("normalizes stop_times shape_dist_traveled for route-distance tracking", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url === `${datasetBase}/stop_times/trip/trip-shape`) {
+      return Promise.resolve({
+        data: [
+          {
+            stop_id: "164",
+            arrival_time: "17:40:00",
+            departure_time: "17:41:00",
+            stop_sequence: 1,
+            shape_dist_traveled: 125.25,
+          },
+          {
+            stop_id: "32",
+            arrival_time: "17:46:00",
+            departure_time: "17:46:00",
+            stop_sequence: 2,
+            shape_dist_traveled: 987.75,
+          },
+        ],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const stopTimes = await fetchTripStopTimes("trip-shape");
+  expect(stopTimes.map((item) => item.shapeDistTraveled)).toEqual([
+    125.25,
+    987.75,
   ]);
 });
 
