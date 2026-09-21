@@ -35,6 +35,7 @@ const stopBoardingTripsCache = createBoundedCache(20);
 const routeTripsCache = createBoundedCache(60);
 const tripShapeCache = createBoundedCache(40);
 const stopTimetableCache = createBoundedCache(30);
+const calendarCache = createBoundedCache(1);
 const calendarDatesCache = createBoundedCache(1);
 const routeCatalogCache = createBoundedCache(1);
 
@@ -49,6 +50,7 @@ function clearGtfsResourceCaches() {
   routeTripsCache.clear();
   tripShapeCache.clear();
   stopTimetableCache.clear();
+  calendarCache.clear();
   calendarDatesCache.clear();
   routeCatalogCache.clear();
 }
@@ -458,6 +460,50 @@ async function fetchStopTimetable(stopId, signal) {
   return normalized;
 }
 
+async function fetchCalendar(signal) {
+  invalidateExpiredGtfsDataset();
+  const cacheKey = "calendar";
+  if (calendarCache.has(cacheKey)) {
+    return calendarCache.get(cacheKey);
+  }
+
+  const response = await client.get(
+    await gtfsResourceUrl("calendar"),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    throw new Error("Invalid Föli GTFS calendar.");
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(payload).map(([serviceId, entry]) => [
+      String(serviceId),
+      {
+        monday: optionalNumber(entry?.monday),
+        tuesday: optionalNumber(entry?.tuesday),
+        wednesday: optionalNumber(entry?.wednesday),
+        thursday: optionalNumber(entry?.thursday),
+        friday: optionalNumber(entry?.friday),
+        saturday: optionalNumber(entry?.saturday),
+        sunday: optionalNumber(entry?.sunday),
+        startDate:
+          entry?.start_date === null || entry?.start_date === undefined
+            ? ""
+            : String(entry.start_date),
+        endDate:
+          entry?.end_date === null || entry?.end_date === undefined
+            ? ""
+            : String(entry.end_date),
+      },
+    ])
+  );
+
+  calendarCache.set(cacheKey, normalized);
+  return normalized;
+}
+
 async function fetchCalendarDates(signal) {
   invalidateExpiredGtfsDataset();
   const cacheKey = "calendar_dates";
@@ -522,8 +568,9 @@ export async function fetchScheduledStopDepartures(
   const reference =
     positiveNumber(referenceTimeSec) ?? Math.floor(Date.now() / 1000);
 
-  const [rows, calendarDates, routes] = await Promise.all([
+  const [rows, calendar, calendarDates, routes] = await Promise.all([
     fetchStopTimetable(stopId, signal),
+    fetchCalendar(signal),
     fetchCalendarDates(signal),
     fetchRouteCatalog(signal),
   ]);
@@ -548,6 +595,7 @@ export async function fetchScheduledStopDepartures(
       if (
         !details?.serviceId ||
         !serviceRunsOnDate(
+          calendar,
           calendarDates,
           details.serviceId,
           candidate.serviceDate
