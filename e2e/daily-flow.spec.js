@@ -399,6 +399,76 @@ test.beforeEach(async ({ page }) => {
   await mockFoli(page);
 });
 
+test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
+  await page.route(
+    "https://data.foli.fi/siri/sm/32",
+    async (route) => {
+      const now = Math.floor(Date.now() / 1000);
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "OK",
+          stopname: "Puistokatu",
+          servertime: now,
+          result: [
+            {
+              lineref: "1",
+              destinationdisplay: "Satama",
+              monitored: true,
+              vehicleatstop: false,
+              vehicleref: "bus-ride-1",
+              datedvehiclejourneyref: "journey-ride-1",
+              __tripref: "trip-164-1",
+              originaimeddeparturetime: now - 180,
+              recordedattime: now - 5,
+              latitude: 60.447,
+              longitude: 22.257,
+              expectedarrivaltime: now + 70,
+              expecteddeparturetime: now + 85,
+              aimedarrivaltime: now + 90,
+            },
+          ],
+        }),
+      });
+    }
+  );
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+
+  await expect(page.getByRole("radio", { name: /Puistokatu/i })).toBeChecked();
+
+  await page
+    .getByRole("checkbox", { name: /Use location as a backup/i })
+    .uncheck();
+  await page
+    .getByRole("checkbox", { name: /Use system notifications/i })
+    .uncheck();
+
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Your stop is next" })
+  ).toBeVisible();
+  await expect(page.getByText("Press the STOP button now.")).toBeVisible();
+  await expect(page.getByText("Puistokatu").first()).toBeVisible();
+  await expect(page.getByText("Live tracking")).toBeVisible();
+
+  await page.getByRole("button", { name: "End ride" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your stop is next" })
+  ).toHaveCount(0);
+});
+
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 
