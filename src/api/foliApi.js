@@ -714,24 +714,9 @@ export async function fetchStopBoardingTripIds(stopId, signal) {
   if (stopBoardingTripsCache.has(id)) {
     return new Set(stopBoardingTripsCache.get(id));
   }
-  const response = await client.get(
-    await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
-    { signal }
-  );
-  const payload = response.data;
 
-  if (!Array.isArray(payload)) {
-    throw new Error("Invalid Föli GTFS stop timetable.");
-  }
-
-  const tripIds = payload
-      .filter((item) => optionalNumber(item?.pickup_type) !== 1)
-      .map((item) =>
-        item?.trip_id === null || item?.trip_id === undefined
-          ? ""
-          : String(item.trip_id)
-      )
-      .filter(Boolean);
+  const rows = await fetchStopTimetable(id, signal);
+  const tripIds = rows.map((item) => item.tripId).filter(Boolean);
 
   stopBoardingTripsCache.set(id, tripIds);
   return new Set(tripIds);
