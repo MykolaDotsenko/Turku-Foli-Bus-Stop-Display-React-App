@@ -637,8 +637,8 @@ function MyPlaces({
           <p className={styles.kicker}>No address to remember</p>
           <h2 id="my-places-title">My Places</h2>
           <p className={styles.description}>
-            Save Home, School or Work as a small set of safe public stops.
-            Exact private addresses are not stored.
+            Save Home, School or Work as public stops — no address to type or
+            remember.
           </p>
         </div>
       </div>

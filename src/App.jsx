@@ -180,9 +180,12 @@ function App() {
         <div>
           <p className="eyebrow">Independent companion · Föli open data</p>
           <p className="brand">Föli departures</p>
-          <p className="context">
-            Find a stop, save Home, School or Work without remembering an
-            address, and get back to the right journey in one tap.
+          <p
+            className="context"
+            data-firstrun={placesById.size === 0 ? "true" : "false"}
+          >
+            Find a stop, save the places you travel to, and get told when to
+            get off.
           </p>
         </div>
         <span

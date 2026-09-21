@@ -614,6 +614,42 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
   await expect(page).toHaveURL(/stop=4/);
 });
 
+// A phone screen is tight, so the explanatory copy was hidden below 620px —
+// including the line that says what the app is, to the one person who does
+// not know. It is back, but only while it still earns the space.
+test("a phone is told what the app is until it no longer needs telling", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const intro = page.locator(".context");
+  await expect(intro).toBeVisible();
+  await expect(intro).toContainText("get told when to get off");
+
+  // These two sections are three bare rows and a lone button on a phone;
+  // nothing else ever says what they are for.
+  await expect(
+    page.getByText("Save Home, School or Work as public stops", {
+      exact: false,
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByText("Find the closest stop with a one-time location check")
+  ).toBeVisible();
+  await expect(page.getByText("Search by stop name or number.")).toBeVisible();
+
+  // The departure board still has to win the top of the screen.
+  await expect(page.getByText("Bus at stop · board now")).toBeInViewport();
+
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  // Its job is done, and the recovery card now needs that space.
+  await expect(page.locator(".context")).not.toBeVisible();
+});
+
 test("daily flow: search, save, navigate and restore with Back", async ({ page }) => {
   await page.goto("/?stop=164");
 

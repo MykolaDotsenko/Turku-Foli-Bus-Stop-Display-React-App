@@ -178,7 +178,10 @@
 
 
 @media (max-width: 620px) {
+  /* Four words, and without them the field looks like it only takes the
+     number it is prefilled with. */
   .help {
-    display: none;
+    margin: 4px 0 0;
+    font-size: 0.78rem;
   }
 }

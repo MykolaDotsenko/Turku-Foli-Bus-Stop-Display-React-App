@@ -287,7 +287,9 @@
   }
 
   .description {
-    display: none;
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.35;
   }
 
   .locateButton {
