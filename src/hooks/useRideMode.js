@@ -233,8 +233,14 @@ export default function useRideMode() {
         nextRuntime.targetWasAtStop === true &&
         nextRuntime.targetMissingCount >= 2;
 
+      const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
+      const liveEtaUsable =
+        Number.isFinite(lastLiveMatchAt) &&
+        lastLiveMatchAt > 0 &&
+        Date.now() - lastLiveMatchAt <= 120_000;
+
       const evaluated = evaluateRideStage(current.stage, {
-        liveEtaSec: nextRuntime.liveEtaSec,
+        liveEtaSec: liveEtaUsable ? nextRuntime.liveEtaSec : null,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
         providerDistanceM: nextRuntime.providerDistanceM,
