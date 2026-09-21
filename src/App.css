@@ -47,6 +47,28 @@ input:focus-visible,
   margin-bottom: 16px;
 }
 
+.brandLockup {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.brandText {
+  min-width: 0;
+}
+
+.brandMark {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  /* Drops the mark to the wordmark's cap line rather than the eyebrow's,
+     so the two read as one lockup instead of a badge floating above text. */
+  margin-top: 10px;
+  border-radius: 22%;
+  box-shadow: 0 8px 20px rgba(0, 121, 133, 0.2);
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: #007985;
@@ -155,6 +177,20 @@ input:focus-visible,
     flex: 1 1 180px;
   }
 
+  /* A phone column is about 170px once the status pill has its share, and
+     the wordmark alone is almost that wide. The mark must take as little as
+     still reads, and the wordmark gives up a couple of points, or the name
+     breaks in two beside a small square and the lockup falls apart. */
+  .brandLockup {
+    gap: 8px;
+  }
+
+  .brandMark {
+    width: 32px;
+    height: 32px;
+    margin-top: 9px;
+  }
+
   /* Kept on a phone: the person who does not know what "Föli" means is
      most likely to be holding one, standing at a stop in a strange city. */
   .eyebrow {
@@ -177,7 +213,7 @@ input:focus-visible,
   }
 
   .brand {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     line-height: 1.1;
     letter-spacing: -0.035em;
   }
