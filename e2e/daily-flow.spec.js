@@ -1949,9 +1949,9 @@ test("release gate: shared-place dismiss and service-update expansion controls w
 
   const firstAlert = alertDetails.first();
   await firstAlert.locator("summary").click();
-  await expect(firstAlert.locator(".alertBody")).toBeVisible();
+  await expect(firstAlert.locator(":scope > div").first()).toBeVisible();
   await firstAlert.locator("summary").click();
-  await expect(firstAlert.locator(".alertBody")).not.toBeVisible();
+  await expect(firstAlert.locator(":scope > div").first()).not.toBeVisible();
 });
 
 
