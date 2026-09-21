@@ -97,7 +97,7 @@ test("prefers a saved Home stop and builds an exact trip/shape ride plan", async
   });
 
   fireEvent.click(
-    screen.getByRole("checkbox", { name: /Use location as a backup/i })
+    screen.getByRole("checkbox", { name: /Use GPS ride tracking/i })
   );
   fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
 

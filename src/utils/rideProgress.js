@@ -15,7 +15,11 @@ const STAGE_RANK = {
 };
 
 function finiteNumber(value) {
+  // `Number(null)` is 0, so without this guard every "no data yet" signal
+  // reads as zero metres and zero seconds away: a ride with no provider match
+  // and no location fix would announce "get off now" seconds after starting.
   if (value === null || value === undefined || value === "") return null;
+
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }

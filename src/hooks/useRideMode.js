@@ -233,6 +233,9 @@ export default function useRideMode() {
         nextRuntime.targetWasAtStop === true &&
         nextRuntime.targetMissingCount >= 2;
 
+      // A failed poll keeps the previous prediction in runtime. Past this age
+      // it is no longer a live answer, so the stage logic must fall back to
+      // the timetable instead of trusting a frozen number.
       const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
       const liveEtaUsable =
         Number.isFinite(lastLiveMatchAt) &&

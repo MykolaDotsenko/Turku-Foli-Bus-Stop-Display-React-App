@@ -292,4 +292,97 @@ describe("ride progress", () => {
       remainingStops: 2,
     });
   });
+
+  it("announces nothing at all before any evidence has arrived", () => {
+    // Every signal is "not known yet", exactly as a ride begins. Coercing
+    // those to zero would read as zero metres and zero seconds to go.
+    const noEvidence = {
+      liveEtaSec: null,
+      scheduleEtaSec: null,
+      remainingStops: null,
+      providerDistanceM: null,
+      providerPositionAgeSec: null,
+      gpsDistanceM: null,
+      gpsAccuracyM: null,
+    };
+
+    let stage = RIDE_STAGE.BOARDED;
+    for (let tick = 0; tick < 3; tick += 1) {
+      stage = evaluateRideStage(stage, noEvidence).stage;
+    }
+
+    expect(stage).toBe(RIDE_STAGE.BOARDED);
+  });
+
+  it("lets a live prediction override a timetable that has silently slipped", () => {
+    // Bus is five minutes late: the anchored schedule says the stop is due,
+    // the provider says it is still 400 seconds out. Announcing now would
+    // put the passenger at the door five minutes early.
+    const signals = {
+      liveEtaSec: 250,
+      scheduleEtaSec: 60,
+      remainingStops: 0,
+    };
+
+    const evaluated = evaluateRideStage(RIDE_STAGE.BOARDED, signals);
+    expect(evaluated.stage).toBe(RIDE_STAGE.SOON);
+    expect(evaluated.confidence).toBe("live");
+  });
+
+  it("still uses the timetable once the provider stops answering", () => {
+    const signals = {
+      liveEtaSec: null,
+      scheduleEtaSec: 60,
+      remainingStops: 0,
+    };
+
+    const evaluated = evaluateRideStage(RIDE_STAGE.BOARDED, signals);
+    expect(evaluated.stage).toBe(RIDE_STAGE.NEXT);
+    expect(evaluated.confidence).toBe("schedule");
+  });
+
+  it("does not let a slipped timetable pull the ride forward to SOON either", () => {
+    const signals = {
+      liveEtaSec: 900,
+      scheduleEtaSec: 120,
+      remainingStops: 1,
+    };
+
+    expect(evaluateRideStage(RIDE_STAGE.BOARDED, signals).stage).toBe(
+      RIDE_STAGE.BOARDED
+    );
+  });
+
+  it("reaches NOW in the same evaluation that first proves the ride is ending", () => {
+    // Arriving evidence and proximity can land in one poll; holding the
+    // get-off alert back a tick is a tick at the worst possible moment.
+    const evaluated = evaluateRideStage(RIDE_STAGE.SOON, {
+      previousPassedConfirmed: true,
+      gpsDistanceM: 40,
+      gpsAccuracyM: 20,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.NOW);
+    expect(evaluated.reason).toBe("device-near-target");
+  });
+
+  it("declares the stop missed from NEXT when live tracking died on approach", () => {
+    // The tunnel case: the stage never reached NOW, the bus passed the stop,
+    // and only the device knows. The panel must not keep saying "next".
+    const evaluated = evaluateRideStage(RIDE_STAGE.NEXT, {
+      gpsMovedAwayAfterNear: true,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.MISSED);
+    expect(evaluated.reason).toBe("device-moved-away");
+  });
+
+  it("never declares a miss before the ride is anywhere near its end", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.SOON, {
+      gpsMovedAwayAfterNear: true,
+      targetPassedConfirmed: true,
+    });
+
+    expect(evaluated.stage).not.toBe(RIDE_STAGE.MISSED);
+  });
 });
