@@ -394,6 +394,103 @@ test("fills an empty SIRI board from the active GTFS timetable", async () => {
   );
 });
 
+test("shows the next scheduled bus even when it is tomorrow morning", async () => {
+  const reference = Date.parse("2026-09-21T12:45:00Z") / 1000; // 15:45 Helsinki
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: reference,
+          stopname: "Takakirves",
+          result: [],
+        },
+      });
+    }
+
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: [
+          {
+            trip_id: "trip-tomorrow",
+            arrival_time: "06:30:00",
+            departure_time: "06:30:00",
+            stop_sequence: 7,
+            pickup_type: 0,
+            drop_off_type: 0,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/calendar`) {
+      return Promise.resolve({
+        data: {
+          weekday: {
+            monday: 1,
+            tuesday: 1,
+            wednesday: 1,
+            thursday: 1,
+            friday: 1,
+            saturday: 0,
+            sunday: 0,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
+        },
+      });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
+    }
+
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            route_short_name: "32",
+            route_long_name: "Pansio–Varissuo",
+            route_type: 3,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/trips/trip/trip-tomorrow`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            service_id: "weekday",
+            trip_headsign: "Varissuo",
+          },
+        ],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.arrivals[0]).toEqual(
+    expect.objectContaining({
+      lineref: "32",
+      destinationdisplay: "Varissuo",
+      monitored: false,
+      aimeddeparturetime: Date.parse("2026-09-22T03:30:00Z") / 1000,
+    })
+  );
+});
+
 test("falls back to GTFS when SIRI itself is temporarily unavailable", async () => {
   const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
 
