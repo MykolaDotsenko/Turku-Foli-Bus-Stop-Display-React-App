@@ -311,22 +311,30 @@ function candidateStage(signals) {
   const providerAge = finiteNumber(signals.providerPositionAgeSec);
   const gpsDistance = finiteNumber(signals.gpsDistanceM);
   const gpsAccuracy = finiteNumber(signals.gpsAccuracyM);
+  const gpsAge = finiteNumber(signals.gpsAgeSec);
   const gpsRouteDistance = finiteNumber(signals.gpsRouteDistanceM);
   const gpsRouteEta = finiteNumber(signals.gpsRouteEtaSec);
 
   const freshProviderPosition =
     providerDistance !== null &&
     (providerAge === null || providerAge <= 120);
+  // A fix is only evidence about where the passenger is now. Once the phone
+  // stops reporting — tunnel, revoked permission, sleeping device — the last
+  // known distance stays in state forever, and without this it could still
+  // announce "get off now" many minutes and several kilometres later.
+  const gpsFresh = gpsAge === null || gpsAge <= 60;
   const reliableGps =
     gpsDistance !== null &&
     gpsAccuracy !== null &&
-    gpsAccuracy <= 120;
+    gpsAccuracy <= 120 &&
+    gpsFresh;
   const reliableShapeGps =
     signals.gpsShapeUsable === true &&
     signals.gpsOnRoute === true &&
     gpsRouteDistance !== null &&
     gpsAccuracy !== null &&
-    gpsAccuracy <= 120;
+    gpsAccuracy <= 120 &&
+    gpsFresh;
 
   const scheduleIsAuthoritative = liveEta === null;
   const scheduleSaysNext =

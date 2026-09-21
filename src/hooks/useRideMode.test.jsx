@@ -279,3 +279,89 @@ test("falls back to the timetable once the live prediction has gone stale", asyn
   });
   unmount();
 });
+
+test("an early pass near the target cannot later fake a missed stop", async () => {
+  // Fifteen minutes before the target, the route drives a block from it. That
+  // old fix must neither announce arrival later nor arm the "gone past it"
+  // latch, or the passenger is told to get off while still approaching.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 9, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  let deliverGps = null;
+  watchPosition.mockImplementation((success) => {
+    deliverGps = success;
+    return 91;
+  });
+
+  let etaOffsetSec = 900;
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: Math.floor(Date.now() / 1000),
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              {
+                datedvehiclejourneyref: "journey-1",
+                expectedarrivaltime:
+                  Math.floor(Date.now() / 1000) + etaOffsetSec,
+                vehicleatstop: false,
+                recordedattime: Math.floor(Date.now() / 1000),
+              },
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      plan: {
+        targetPredictedEpochSec: nowSec + 900,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 300 },
+          { id: "12", name: "Two", predictedEpochSec: nowSec + 600 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 900 },
+        ],
+      },
+    });
+  });
+
+  await waitFor(() => expect(deliverGps).not.toBeNull());
+  await waitFor(() => expect(result.current.runtime.liveEtaSec).toBe(900));
+
+  // The early pass, fifty metres from a stop that is still fifteen minutes out.
+  act(() => {
+    deliverGps({
+      coords: { latitude: 60.4492, longitude: 22.2555, accuracy: 15 },
+    });
+  });
+  expect(result.current.session?.stage).toBe("boarded");
+
+  // Fifteen minutes later the provider puts the stop one minute away. The old
+  // fix is far too stale to mean "you are at the stop".
+  vi.setSystemTime(startMs + 15 * 60_000);
+  etaOffsetSec = 60;
+  act(() => {
+    document.dispatchEvent(new globalThis.Event("visibilitychange"));
+  });
+  await waitFor(() => expect(result.current.session?.stage).toBe("next"));
+
+  // A fresh sample from the real approach, still several hundred metres short.
+  act(() => {
+    deliverGps({
+      coords: { latitude: 60.4455, longitude: 22.261, accuracy: 15 },
+    });
+  });
+
+  expect(result.current.session?.stage).toBe("next");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+});

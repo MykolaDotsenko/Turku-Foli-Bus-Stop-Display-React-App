@@ -14,6 +14,7 @@ import {
 import {
   RIDE_STAGE,
   arrivalEtaSeconds,
+  rideStageRank,
   evaluateRideStage,
   matchRideArrival,
   plannedRideProgress,
@@ -252,6 +253,9 @@ export default function useRideMode() {
         providerPositionAgeSec: nextRuntime.providerPositionAgeSec,
         gpsDistanceM: nextGps.distanceM,
         gpsAccuracyM: nextGps.accuracyM,
+        gpsAgeSec: Number.isFinite(Number(nextGps.updatedAt))
+          ? Math.max(0, (Date.now() - Number(nextGps.updatedAt)) / 1000)
+          : null,
         gpsShapeAvailable: nextGps.shapeStatus === "ready",
         gpsShapeUsable: nextGps.shapeUsable,
         gpsOnRoute: nextGps.onRoute,
@@ -432,15 +436,25 @@ export default function useRideMode() {
           ? distanceInMeters(point, current.targetStop)
           : null;
         const previous = gpsRef.current;
+
+        // Loop and doubling-back routes drive close to the target long before
+        // serving it. Arming the "gone past it" latch on that early pass would
+        // let a sample taken while still approaching look like a miss, so the
+        // approach is only tracked once the ride is actually near its end.
+        const onApproach =
+          rideStageRank(sessionRef.current?.stage) >=
+          rideStageRank(RIDE_STAGE.NEXT);
         const minimumDistance =
-          Number.isFinite(straightDistance)
+          onApproach && Number.isFinite(straightDistance)
             ? previous.minimumDistanceM === null
               ? straightDistance
               : Math.min(previous.minimumDistanceM, straightDistance)
             : previous.minimumDistanceM;
         const wasNearTarget =
           previous.wasNearTarget === true ||
-          (Number.isFinite(minimumDistance) && minimumDistance <= 80);
+          (onApproach &&
+            Number.isFinite(minimumDistance) &&
+            minimumDistance <= 80);
         const movedAwayAfterNear =
           wasNearTarget &&
           Number.isFinite(straightDistance) &&
