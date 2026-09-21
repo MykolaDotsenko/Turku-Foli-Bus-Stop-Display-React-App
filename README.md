@@ -21,7 +21,7 @@ Live departures, disruptions, nearest stops, Safe Places and resilient **Get me 
 
 <p align="center">
   <img
-    src="docs/assets/foli-desktop.webp"
+    src="docs/assets/foli-desktop.png"
     alt="Föli Live Departures showing realtime departures, service updates and daily travel actions"
     width="920"
   >
@@ -29,7 +29,7 @@ Live departures, disruptions, nearest stops, Safe Places and resilient **Get me 
 
 <p align="center">
   <img
-    src="docs/assets/foli-mobile.webp"
+    src="docs/assets/foli-mobile.png"
     alt="Föli Live Departures mobile experience with stop search and upcoming departures"
     width="320"
   >
