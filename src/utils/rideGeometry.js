@@ -5,6 +5,7 @@ const MAX_GPS_ACCURACY_METERS = 120;
 const OFF_ROUTE_CONFIRM_MS = 120_000;
 
 function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
