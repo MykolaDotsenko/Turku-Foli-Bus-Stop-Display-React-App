@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { rideExitInstruction } from "../utils/rideInstructions";
 import { RIDE_STAGE, rideStageRank } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
@@ -54,7 +54,7 @@ function remainingLabel(value, stage) {
 
 function trackingLabel(health) {
   if (health === "live") return "Following your bus";
-  if (health === "delayed") return "Your bus is lagging behind";
+  if (health === "delayed") return "Live updates are delayed";
   return "Going by the timetable";
 }
 
@@ -134,6 +134,11 @@ export default function RideMode({
   // home — so the only honest check is to ask. It runs during BOARDED, while
   // the stop is still far off, rather than blocking the start of tracking.
   const [alertHeard, setAlertHeard] = useState("unasked");
+
+  useEffect(() => {
+    setAlertHeard("unasked");
+    setOffRouteAnsweredFor("");
+  }, [session?.id]);
 
   if (!session) return null;
 

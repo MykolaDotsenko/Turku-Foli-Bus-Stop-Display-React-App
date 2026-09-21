@@ -148,7 +148,7 @@ function BusStopDisplay({
         getDepartureTime(a, referenceTime) - getDepartureTime(b, referenceTime)
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
-  const hasData = Boolean(stopName || arrivals.length);
+  const hasDepartureData = Boolean(arrivals.length || receivedAtMs);
   const realtimeCount = visibleArrivals.filter(
     (arrival) => arrival.monitored
   ).length;
@@ -219,7 +219,7 @@ function BusStopDisplay({
         </div>
       )}
 
-      {(error || dataIsStale) && hasData && (
+      {(error || dataIsStale) && hasDepartureData && (
         <p className={styles.staleNotice} role="status">
           {error ? "Live update failed" : "Live data is getting old"}
           {receiptAgeSeconds !== null
@@ -238,12 +238,12 @@ function BusStopDisplay({
           </p>
         )}
 
-      {loading && !hasData ? (
+      {loading && !hasDepartureData ? (
         <div className={styles.state} role="status">
           <span className={styles.stateKicker}>Connecting to Föli</span>
           <strong>Loading departures…</strong>
         </div>
-      ) : error && !hasData ? (
+      ) : error && !hasDepartureData ? (
         <div className={styles.state} role="alert">
           <strong>Couldn’t load departures.</strong>
           <span>Check the stop number or connection and try again.</span>
@@ -388,6 +388,19 @@ function BusStopDisplay({
                           routesById={routesById}
                           onCancel={() => setRideCandidateKey("")}
                           onStart={(config) => {
+                            const replacingAnotherRide =
+                              Boolean(activeRideTripRef) &&
+                              activeRideTripRef !== arrival.tripref;
+
+                            if (
+                              replacingAnotherRide &&
+                              !globalThis.confirm(
+                                `Switch Ride Mode to line ${arrival.lineref || "this trip"}? Your current Ride Mode will end.`
+                              )
+                            ) {
+                              return;
+                            }
+
                             onStartRide?.(config);
                             setRideCandidateKey("");
                           }}

@@ -224,7 +224,7 @@ export default function RideSetup({
           <p className={styles.kicker}>Ride Mode</p>
           <h4>Where do you want to get off?</h4>
           <p>
-            Pick where you get off and put your phone away. We will tell you
+            Pick where you get off and keep Ride Mode open. We will tell you
             when to get ready, when to press STOP, and when to step off.
           </p>
         </div>
@@ -338,10 +338,11 @@ export default function RideSetup({
                   onChange={(event) => setNotifications(event.target.checked)}
                 />
                 <span>
-                  <strong>Alert me on the lock screen</strong>
+                  <strong>Show system notifications</strong>
                   <small>
-                    Useful with the phone in a pocket. Keep this page open —
-                    a browser can pause a tab it thinks you have left.
+                    They may appear on the lock screen when your browser allows
+                    it. Keep this page open — a browser can pause a tab it
+                    thinks you have left.
                   </small>
                 </span>
               </label>
