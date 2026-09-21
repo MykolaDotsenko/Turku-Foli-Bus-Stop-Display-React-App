@@ -425,7 +425,7 @@ test("bare URL starts without a default stop and location only fills the search 
   ).toHaveCount(0);
 
   await page
-    .getByRole("button", { name: "Use my location to find nearest stop" })
+    .getByRole("button", { name: "Use current location" })
     .click();
 
   await expect(input).toHaveValue("Kauppatori");
