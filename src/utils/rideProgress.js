@@ -50,6 +50,24 @@ export function gtfsTimeToSeconds(value) {
   return hour * 3600 + minute * 60 + second;
 }
 
+// A trip that runs past midnight can be written in next-day clock time
+// ("00:10" where GTFS asks for "24:10"). Read literally that is a jump
+// backwards, and clamping it to zero put the target stop at the moment of
+// boarding — so the schedule announced "your stop is next" the second the
+// passenger sat down. Roll the day over instead, and refuse anything that
+// still makes no sense rather than inventing a number.
+const MAX_TRIP_SECONDS = 6 * 3600;
+
+function tripOffsetSeconds(scheduleSec, boardingScheduleSec) {
+  if (scheduleSec === null || boardingScheduleSec === null) return null;
+
+  const raw = scheduleSec - boardingScheduleSec;
+  if (raw >= 0) return raw <= MAX_TRIP_SECONDS ? raw : null;
+
+  const rolled = raw + 24 * 3600;
+  return rolled > 0 && rolled <= MAX_TRIP_SECONDS ? rolled : null;
+}
+
 function stopTimeSeconds(item) {
   return (
     gtfsTimeToSeconds(item?.departureTime) ??
@@ -182,10 +200,7 @@ export function buildRidePlan({
 
   const routeStops = throughRecovery.map((item) => {
     const scheduleSec = stopTimeSeconds(item);
-    const offsetSec =
-      scheduleSec === null
-        ? null
-        : Math.max(0, scheduleSec - boardingScheduleSec);
+    const offsetSec = tripOffsetSeconds(scheduleSec, boardingScheduleSec);
 
     return {
       ...stopDetails(item.stopId, stopsById),

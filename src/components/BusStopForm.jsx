@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./BusStopForm.module.css";
 
 const MAX_SUGGESTIONS = 6;
@@ -58,10 +58,26 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
+  // The catalogue loads after the first paint and again when coordinates
+  // merge, so `stops` changes identity mid-session. Resetting the field on
+  // every one of those wiped whatever was being typed at that moment.
+  const syncedStopIdRef = useRef(activeStopId);
+
   useEffect(() => {
-    const stop = stops.find((item) => String(item.id) === String(activeStopId));
-    setResolved(stop || null);
-    setValue(stop?.name || activeStopId);
+    const stop =
+      stops.find((item) => String(item.id) === String(activeStopId)) || null;
+    const navigated = syncedStopIdRef.current !== activeStopId;
+    syncedStopIdRef.current = activeStopId;
+
+    setResolved(stop);
+    setValue((current) => {
+      // A different stop is on screen now, so the field belongs to it.
+      if (navigated) return stop?.name || activeStopId;
+      // The catalogue arrived late and can finally name the stop we are
+      // showing as a bare number — but only if nobody is mid-word.
+      if (stop && current === activeStopId) return stop.name;
+      return current;
+    });
   }, [activeStopId, stops]);
 
   const matches = useMemo(() => findMatches(stops, value), [stops, value]);

@@ -174,3 +174,45 @@ test("still refuses to guess when a freshly typed name is ambiguous", () => {
   expect(onSubmit).not.toHaveBeenCalled();
   expect(screen.getByText(/More than one stop/i)).toBeInTheDocument();
 });
+
+// The catalogue loads after the first paint and again when coordinates
+// merge, so `stops` changes identity mid-session. Resetting the field on
+// each of those wiped whatever was being typed at that moment.
+test("typing survives the stop catalogue arriving late", () => {
+  const { rerender } = render(
+    <BusStopForm activeStopId="164" stops={[]} onSubmit={vi.fn()} />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "Runos" } });
+
+  rerender(<BusStopForm activeStopId="164" stops={stops} onSubmit={vi.fn()} />);
+
+  expect(input).toHaveValue("Runos");
+});
+
+test("a stop shown as a bare number gains its name once the catalogue lands", () => {
+  const { rerender } = render(
+    <BusStopForm activeStopId="164" stops={[]} onSubmit={vi.fn()} />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  expect(input).toHaveValue("164");
+
+  rerender(<BusStopForm activeStopId="164" stops={stops} onSubmit={vi.fn()} />);
+
+  expect(input).toHaveValue("Kauppatori");
+});
+
+test("moving to another stop replaces the field whatever was in it", () => {
+  const { rerender } = render(
+    <BusStopForm activeStopId="164" stops={stops} onSubmit={vi.fn()} />
+  );
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "half typed" } });
+
+  rerender(<BusStopForm activeStopId="4" stops={stops} onSubmit={vi.fn()} />);
+
+  expect(input).toHaveValue("Turun linna");
+});
