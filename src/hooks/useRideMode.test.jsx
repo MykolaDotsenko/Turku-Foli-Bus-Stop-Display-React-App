@@ -92,7 +92,7 @@ afterEach(() => {
 });
 
 test("persists the ride but never persists the device GPS sample", async () => {
-  const { result } = renderHook(() => useRideMode());
+  const { result, unmount } = renderHook(() => useRideMode());
 
   act(() => {
     result.current.startRide(rideConfig);
@@ -111,12 +111,14 @@ test("persists the ride but never persists the device GPS sample", async () => {
 
   expect(clearWatch).toHaveBeenCalledWith(77);
   expect(localStorage.getItem("foli-active-ride-v1")).toBeNull();
+  unmount();
 });
 
 test("restores a non-expired active ride", () => {
   const stored = {
     id: "ride-restored",
     ...rideConfig,
+    options: { locationBackup: false, notifications: false },
     stage: "next",
     stageReason: "schedule-fallback",
     stageConfidence: "schedule",
