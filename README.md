@@ -109,13 +109,15 @@ A passenger can choose **Alert me when to get off** on a concrete departure, sel
 
 Ride Mode combines three independent signals:
 
-- **Föli SIRI at the target and previous stop** to match the selected trip and detect live progression
+- **GPS map-matched to the exact GTFS trip shape** for on-device route progress and remaining distance
+- **Föli SIRI at the target and previous stop** as an independent realtime confirmation
 - **GTFS stop order + anchored timetable** as a degraded fallback when realtime disappears
-- optional **device location backup**, calculated locally and never persisted or transmitted
 
-The state machine is deliberately asymmetric: weak evidence may warn **SOON** or **NEXT** early, while **NOW** requires stronger provider/location evidence. Timetable-only data is never allowed to claim “get off now”.
+The selected exit is identified by exact `stop_sequence`, so loop routes do not collapse repeated stops into one ambiguous stop ID. GPS coordinates stay in memory only during the active ride and are never persisted or transmitted.
 
-Alerts escalate from a gentle preparation cue to **Press STOP now** and finally **This is your stop**, using sound, vibration, speech and system notifications where the browser supports them. Active rides survive a reload, and missed-stop evidence exposes the next planned stop as a recovery action.
+The state machine is deliberately asymmetric: accurate on-route GPS can warn **SOON** at roughly 1.2 km, **NEXT** at roughly 600 m and **NOW** near 110 m, while SIRI can independently advance the same stages. Weak or off-route GPS is ignored as get-off evidence. Timetable-only data is never allowed to claim “get off now”.
+
+Alerts escalate from a gentle preparation cue to **Press STOP now** on bus-like trips (or a generic next-stop instruction on other transit modes) and finally **This is your stop**, using sound, vibration, speech and system notifications where the browser supports them. Active rides survive a reload, and missed-stop evidence exposes the next planned stop as a recovery action.
 
 Client-only Ride Mode is explicit about its boundary: browsers may suspend background pages, so it does not claim guaranteed lock-screen tracking. The reliability model and the backend + Web Push Phase 2 are documented in **[Ride Mode design](docs/RIDE_MODE_SPEC.md)**.
 
