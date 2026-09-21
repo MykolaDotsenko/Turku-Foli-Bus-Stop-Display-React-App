@@ -52,13 +52,17 @@ function trackingLabel(health) {
 }
 
 function locationLabel(gps, enabled) {
-  if (!enabled) return "Location backup off";
-  if (gps.status === "active") return "Location backup active";
-  if (gps.status === "weak") return "Location accuracy is weak";
-  if (gps.status === "starting") return "Starting location backup";
-  if (gps.status === "error") return "Location backup unavailable";
-  if (gps.status === "unavailable") return "Location backup unsupported";
-  return "Location backup waiting";
+  if (!enabled) return "GPS ride tracking off";
+  if (gps.status === "off-route") return "GPS no longer matches this trip";
+  if (gps.status === "active" && gps.shapeUsable && gps.onRoute) {
+    return "GPS matched to trip path";
+  }
+  if (gps.status === "active") return "GPS fallback active";
+  if (gps.status === "weak") return "GPS accuracy is weak";
+  if (gps.status === "starting") return "Starting GPS ride tracking";
+  if (gps.status === "error") return "GPS ride tracking unavailable";
+  if (gps.status === "unavailable") return "GPS unsupported";
+  return "GPS waiting";
 }
 
 export default function RideMode({
