@@ -97,7 +97,7 @@ test("prefers a saved Home stop and builds an exact trip/shape ride plan", async
   });
 
   fireEvent.click(
-    screen.getByRole("checkbox", { name: /Use GPS ride tracking/i })
+    screen.getByRole("checkbox", { name: /Follow my location/i })
   );
   fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
 
@@ -113,6 +113,48 @@ test("prefers a saved Home stop and builds an exact trip/shape ride plan", async
   expect(config.targetStop.stopSequence).toBe(2);
   expect(config.targetStop.shapeDistTraveled).toBe(900);
   expect(config.plan.targetPredictedEpochSec).toBe(2_000_000_300);
+});
+
+// "route point 900 m" was shape_dist_traveled shown to a passenger. What is
+// useful from a list of stop names is how far along the ride each one is.
+test("describes each stop by where it falls in the ride, not by GTFS fields", async () => {
+  mocks.fetchTripDetails.mockResolvedValue(null);
+  mocks.fetchTripStopTimes.mockResolvedValue([
+    { stopId: "164", departureTime: "17:41:00", stopSequence: 1, dropOffType: 0 },
+    // The bus stops here but nobody may get off, so it is not offered as a
+    // choice — yet it still counts towards "after" and "stops away".
+    { stopId: "99", departureTime: "17:43:00", stopSequence: 2, dropOffType: 1 },
+    { stopId: "32", departureTime: "17:46:00", stopSequence: 3, dropOffType: 0 },
+  ]);
+
+  render(
+    <RideSetup
+      arrival={{
+        lineref: "1",
+        tripref: "trip-164-1",
+        expecteddeparturetime: 2_000_000_000,
+      }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={
+        new Map([
+          ["99", { id: "99", name: "Portsa" }],
+          ["32", { id: "32", name: "Puistokatu" }],
+        ])
+      }
+      placesById={new Map()}
+      routesById={new Map()}
+      onStart={() => {}}
+      onCancel={() => {}}
+    />
+  );
+
+  const option = await screen.findByText(/stops away/);
+  expect(option).toHaveTextContent("2 stops away");
+  expect(option).toHaveTextContent("around 17:46");
+  // Counted against the real trip, so the skipped stop is still the one before.
+  expect(option).toHaveTextContent("after Portsa");
+  expect(screen.queryByText(/route point/i)).not.toBeInTheDocument();
 });
 
 function renderSetup(overrides = {}) {
@@ -170,7 +212,7 @@ test("says why the ride cannot start instead of ignoring the button", async () =
   expect(onStart).not.toHaveBeenCalled();
   expect(
     await screen.findByRole("alert")
-  ).toHaveTextContent(/cannot build a reliable plan/i);
+  ).toHaveTextContent(/cannot work out a reliable plan/i);
 });
 
 test("explains a departure with no usable time", async () => {
@@ -203,7 +245,7 @@ test("explains a departure with no usable time", async () => {
 
   expect(onStart).not.toHaveBeenCalled();
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    /no usable time yet/i
+    /do not have a departure time/i
   );
 });
 
@@ -247,7 +289,7 @@ test("refuses to guess when the trip passes the boarding stop twice", async () =
   renderSetup({ arrival: { aimeddeparturetime: null } });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    /passes the current stop more than once/i
+    /comes back to this stop later/i
   );
   expect(
     screen.queryByRole("button", { name: "Start Ride Mode" })

@@ -1,4 +1,9 @@
 .panel {
+  /* The panel is mounted inside the departure table's last cell, which is
+     right-aligned so the "4 min" column lines up. A form is not a number
+     column: own the alignment here so the component reads correctly wherever
+     it is placed. */
+  text-align: left;
   margin-top: 0.75rem;
   padding: 1rem;
   border: 1px solid color-mix(in srgb, #007985 24%, transparent);
@@ -12,7 +17,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+/* The question is the point of the panel, so it gets the room. */
+.headingText {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .heading h4 {
@@ -36,10 +47,16 @@
 }
 
 .close {
+  /* An escape hatch, not a call to action: it keeps a 44px tap target but
+     stops taking width from the question and stops out-sizing it. */
+  flex: 0 0 auto;
+  align-self: flex-start;
   min-height: 44px;
+  padding: 0 0.15rem;
   border: 0;
   background: transparent;
   color: #60747d;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
 }

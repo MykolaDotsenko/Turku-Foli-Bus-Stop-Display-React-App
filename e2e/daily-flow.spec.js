@@ -449,11 +449,20 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
 
   await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
+  // The panel is mounted in the departure table's last cell, which is
+  // right-aligned for the "4 min" column. A form that inherits that reads as
+  // broken, and nothing else would catch it.
+  await expect(
+    page
+      .locator('section[aria-label="Set up get-off alerts"]')
+      .evaluate((node) => globalThis.getComputedStyle(node).textAlign)
+  ).resolves.toBe("left");
+
   await page
-    .getByRole("checkbox", { name: /Use GPS ride tracking/i })
+    .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: /Use system notifications/i })
+    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -513,7 +522,7 @@ async function startRide(page, { gps }) {
   await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
   const gpsToggle = page.getByRole("checkbox", {
-    name: /Use GPS ride tracking/i,
+    name: /Follow my location/i,
   });
   if (gps) {
     await gpsToggle.check();
@@ -521,7 +530,7 @@ async function startRide(page, { gps }) {
     await gpsToggle.uncheck();
   }
   await page
-    .getByRole("checkbox", { name: /Use system notifications/i })
+    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -585,7 +594,7 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
     longitude: 22.255,
     accuracy: 25,
   });
-  await expect(page.getByText(/7[0-9] m straight-line fallback/)).toBeVisible();
+  await expect(page.getByText(/roughly 7[0-9] m away/)).toBeVisible();
 
   // The bus carried on without them.
   await context.setGeolocation({

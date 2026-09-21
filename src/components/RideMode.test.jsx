@@ -84,7 +84,7 @@ test("uses generic NEXT wording for non-bus modes", () => {
     screen.getByText("Get ready to exit at the next stop.")
   ).toBeInTheDocument();
   expect(screen.queryByText("Press the STOP button now.")).not.toBeInTheDocument();
-  expect(screen.getByText(/480 m along route/i)).toBeInTheDocument();
+  expect(screen.getByText(/about 480 m to go/i)).toBeInTheDocument();
 });
 
 // The hook already decides which source is fresh enough to trust. If the
@@ -149,10 +149,10 @@ test("stops presenting a stale fix as where the passenger is now", () => {
     />
   );
 
-  expect(screen.getByText("GPS fix is out of date")).toBeInTheDocument();
-  expect(screen.getByText("last fix 5 min ago")).toBeInTheDocument();
-  expect(screen.queryByText(/420 m along route/i)).not.toBeInTheDocument();
-  expect(screen.queryByText("GPS matched to trip path")).not.toBeInTheDocument();
+  expect(screen.getByText("Lost track of your location")).toBeInTheDocument();
+  expect(screen.getByText("last seen 5 min ago")).toBeInTheDocument();
+  expect(screen.queryByText(/about 420 m to go/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("Following you along the route")).not.toBeInTheDocument();
 });
 
 test("says the stop is behind you instead of showing zero metres", () => {
@@ -180,8 +180,8 @@ test("says the stop is behind you instead of showing zero metres", () => {
     />
   );
 
-  expect(screen.getByText("~180 m past your stop")).toBeInTheDocument();
-  expect(screen.queryByText("~0 m along route")).not.toBeInTheDocument();
+  expect(screen.getByText("about 180 m past your stop")).toBeInTheDocument();
+  expect(screen.queryByText("about 0 m to go")).not.toBeInTheDocument();
 });
 
 test("offers recovery at the next stop after a missed-stop signal", () => {

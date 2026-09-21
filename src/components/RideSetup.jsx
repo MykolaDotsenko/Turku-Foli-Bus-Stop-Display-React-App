@@ -24,6 +24,21 @@ function plannedClock(value) {
   )}`;
 }
 
+// "route point 900 m" was `shape_dist_traveled` straight out of GTFS. What a
+// passenger actually wants from a list of stop names is how far along the
+// ride each one is, so that is what this says instead.
+function stopsAwayLabel(count) {
+  const stops = Number(count);
+  if (!Number.isFinite(stops) || stops <= 1) return "Next stop";
+  return `${stops} stops away`;
+}
+
+function stopName(stopsById, stopId) {
+  return (
+    stopsById?.get?.(String(stopId))?.name || `Stop ${stopId}`
+  );
+}
+
 function savedPlaceLabels(placesById, stopId) {
   if (!(placesById instanceof Map)) return [];
 
@@ -92,18 +107,30 @@ export default function RideSetup({
   const downstream = useMemo(() => {
     if (boardingIndex < 0) return [];
 
+    // Counted against the unfiltered trip, because the bus stops at every
+    // row whether or not passengers may alight there. Counting the filtered
+    // list would put "after X" one stop out whenever a no-drop-off stop sits
+    // between two choices, and disagree with the panel shown during the ride.
     return stopTimes
-      .slice(boardingIndex + 1)
-      .filter((item) => Number(item.dropOffType) !== 1)
-      .map((item) => ({
+      .map((item, index) => ({ item, index }))
+      .filter(
+        ({ item, index }) =>
+          index > boardingIndex && Number(item.dropOffType) !== 1
+      )
+      .map(({ item, index }) => ({
         ...item,
         stop: stopsById.get(String(item.stopId)) || {
           id: String(item.stopId),
           name: `Stop ${item.stopId}`,
         },
         places: savedPlaceLabels(placesById, item.stopId),
+        stopsAway: index - boardingIndex,
+        previousStopName:
+          index - 1 === boardingIndex
+            ? currentStopName
+            : stopName(stopsById, stopTimes[index - 1]?.stopId),
       }));
-  }, [boardingIndex, placesById, stopTimes, stopsById]);
+  }, [boardingIndex, currentStopName, placesById, stopTimes, stopsById]);
 
   useEffect(() => {
     if (targetStopSequence || downstream.length === 0) return;
@@ -129,7 +156,7 @@ export default function RideSetup({
 
     if (!departureEpochSec) {
       setStartError(
-        "This departure has no usable time yet, so the ride cannot be anchored to the timetable. Wait for the next realtime update and try again."
+        "We do not have a departure time for this bus yet. Wait for the board to refresh and try again."
       );
       return;
     }
@@ -145,7 +172,7 @@ export default function RideSetup({
     });
     if (!plan) {
       setStartError(
-        "This trip's planned stop times do not line up with the selected stop, so Ride Mode cannot build a reliable plan. Pick another stop or start from the departure board."
+        "We cannot work out a reliable plan for that stop on this trip. Try another stop, or start the ride from a different departure."
       );
       return;
     }
@@ -193,13 +220,12 @@ export default function RideSetup({
   return (
     <section className={styles.panel} aria-label="Set up get-off alerts">
       <div className={styles.heading}>
-        <div>
+        <div className={styles.headingText}>
           <p className={styles.kicker}>Ride Mode</p>
           <h4>Where do you want to get off?</h4>
           <p>
-            Choose the exact stop on this trip. GPS follows your movement along
-            this trip&apos;s planned path while Föli realtime independently
-            confirms progress.
+            Pick where you get off and put your phone away. We will tell you
+            when to get ready, when to press STOP, and when to step off.
           </p>
         </div>
         <button type="button" className={styles.close} onClick={onCancel}>
@@ -222,8 +248,8 @@ export default function RideSetup({
 
       {ambiguousBoarding && (
         <p className={styles.status} role="alert">
-          This trip passes the current stop more than once and its planned time
-          does not identify the boarding pass safely. Ride Mode will not guess.
+          This bus comes back to this stop later on its route, and we cannot
+          tell which pass you are boarding. We will not guess about your stop.
         </p>
       )}
 
@@ -241,14 +267,10 @@ export default function RideSetup({
           <>
             <fieldset className={styles.stopList}>
               <legend className={styles.srOnly}>Choose your exit stop</legend>
-              {downstream.map((item, index) => {
+              {downstream.map((item) => {
                 const clock = plannedClock(
                   item.departureTime || item.arrivalTime
                 );
-                const previous =
-                  index === 0
-                    ? currentStopName
-                    : downstream[index - 1]?.stop?.name;
 
                 return (
                   <label
@@ -275,12 +297,10 @@ export default function RideSetup({
                     <span className={styles.stopCopy}>
                       <strong>{item.stop.name}</strong>
                       <small>
-                        {clock ? `planned ${clock}` : "planned stop"}
-                        {previous ? ` · after ${previous}` : ""}
-                        {Number.isFinite(Number(item.shapeDistTraveled))
-                          ? ` · route point ${Math.round(
-                              Number(item.shapeDistTraveled)
-                            )} m`
+                        {stopsAwayLabel(item.stopsAway)}
+                        {clock ? ` · around ${clock}` : ""}
+                        {item.previousStopName
+                          ? ` · after ${item.previousStopName}`
                           : ""}
                       </small>
                     </span>
@@ -302,11 +322,11 @@ export default function RideSetup({
                   onChange={(event) => setLocationBackup(event.target.checked)}
                 />
                 <span>
-                  <strong>Use GPS ride tracking (recommended)</strong>
+                  <strong>Follow my location (recommended)</strong>
                   <small>
-                    GPS is map-matched to this trip&apos;s GTFS path on this
-                    device. Coordinates stay in memory only and are discarded
-                    when the ride ends.
+                    Alerts you by where you actually are, not only by where the
+                    timetable expects the bus to be. Your location stays on this
+                    phone and is forgotten when the ride ends.
                   </small>
                 </span>
               </label>
@@ -318,10 +338,10 @@ export default function RideSetup({
                   onChange={(event) => setNotifications(event.target.checked)}
                 />
                 <span>
-                  <strong>Use system notifications when available</strong>
+                  <strong>Alert me on the lock screen</strong>
                   <small>
-                    Helpful on the lock screen, but browsers may still suspend a
-                    web app in the background.
+                    Useful with the phone in a pocket. Keep this page open —
+                    a browser can pause a tab it thinks you have left.
                   </small>
                 </span>
               </label>
@@ -330,9 +350,10 @@ export default function RideSetup({
             <div className={styles.safetyNote}>
               <strong>Before you rely on it</strong>
               <span>
-                Starting Ride Mode plays a test alert. GPS and Föli realtime
-                reinforce each other; schedule-only data never triggers a
-                definitive “get off now”.
+                Starting plays a test alert, so you can check your sound and
+                vibration now rather than when it matters. If live tracking
+                drops out you still get the early warnings — but we will never
+                say “get off now” unless we are sure.
               </span>
             </div>
 

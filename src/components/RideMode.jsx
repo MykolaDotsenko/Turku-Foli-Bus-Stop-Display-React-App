@@ -48,9 +48,9 @@ function remainingLabel(value) {
 }
 
 function trackingLabel(health) {
-  if (health === "live") return "Live tracking";
-  if (health === "delayed") return "Live tracking delayed";
-  return "Schedule fallback";
+  if (health === "live") return "Following your bus";
+  if (health === "delayed") return "Your bus is lagging behind";
+  return "Going by the timetable";
 }
 
 // The same window the stage logic uses to decide a fix is still evidence.
@@ -66,11 +66,13 @@ function gpsIsStale(ageSec) {
 
 function staleLabel(ageSec) {
   const minutes = Math.round(Number(ageSec) / 60);
-  return minutes >= 2 ? `last fix ${minutes} min ago` : "last fix over a minute ago";
+  return minutes >= 2
+    ? `last seen ${minutes} min ago`
+    : "last seen over a minute ago";
 }
 
 function gpsDetail(gps, enabled, ageSec) {
-  if (!enabled) return "Föli realtime only";
+  if (!enabled) return "using arrival data only";
   if (gpsIsStale(ageSec)) return staleLabel(ageSec);
 
   if (
@@ -80,32 +82,32 @@ function gpsDetail(gps, enabled, ageSec) {
   ) {
     const along = Math.round(Number(gps.routeDistanceM));
     return along < 0
-      ? `~${Math.abs(along)} m past your stop`
-      : `~${along} m along route`;
+      ? `about ${Math.abs(along)} m past your stop`
+      : `about ${along} m to go`;
   }
   if (
     gps.distanceM !== null &&
     gps.distanceM !== undefined &&
     Number.isFinite(Number(gps.distanceM))
   ) {
-    return `~${Math.round(gps.distanceM)} m straight-line fallback`;
+    return `roughly ${Math.round(gps.distanceM)} m away`;
   }
-  return "no location fix yet";
+  return "waiting for a location";
 }
 
 function locationLabel(gps, enabled, ageSec) {
-  if (!enabled) return "GPS ride tracking off";
-  if (gpsIsStale(ageSec)) return "GPS fix is out of date";
-  if (gps.status === "off-route") return "GPS no longer matches this trip";
+  if (!enabled) return "Not using your location";
+  if (gpsIsStale(ageSec)) return "Lost track of your location";
+  if (gps.status === "off-route") return "You may not be on this route";
   if (gps.status === "active" && gps.shapeUsable && gps.onRoute) {
-    return "GPS matched to trip path";
+    return "Following you along the route";
   }
-  if (gps.status === "active") return "GPS fallback active";
-  if (gps.status === "weak") return "GPS accuracy is weak";
-  if (gps.status === "starting") return "Starting GPS ride tracking";
-  if (gps.status === "error") return "GPS ride tracking unavailable";
-  if (gps.status === "unavailable") return "GPS unsupported";
-  return "GPS waiting";
+  if (gps.status === "active") return "Following you, roughly";
+  if (gps.status === "weak") return "Weak location signal";
+  if (gps.status === "starting") return "Finding your location";
+  if (gps.status === "error") return "Cannot use your location";
+  if (gps.status === "unavailable") return "This phone cannot share location";
+  return "Waiting for your location";
 }
 
 export default function RideMode({
@@ -192,12 +194,12 @@ export default function RideMode({
 
       <div className={styles.statusGrid}>
         <span>
-          <strong>{trackingLabel(runtime.trackingHealth)}</strong>
-          <small>
+          <strong>
             {runtime.targetMatchBy
-              ? `matched by ${runtime.targetMatchBy.replaceAll("-", " ")}`
-              : "waiting for a matching realtime row"}
-          </small>
+              ? "Your bus is confirmed"
+              : "Looking for your bus"}
+          </strong>
+          <small>in Föli&apos;s live arrival data</small>
         </span>
         <span>
           <strong>
@@ -218,10 +220,10 @@ export default function RideMode({
         <span>
           <strong>
             {wakeLockState === "active"
-              ? "Screen wake lock active"
+              ? "Keeping your screen on"
               : wakeLockState === "unsupported"
-                ? "Wake lock unsupported"
-                : "Wake lock not active"}
+                ? "Cannot keep your screen on"
+                : "Your screen may switch off"}
           </strong>
           <small>Most reliable while this page stays open and visible</small>
         </span>
@@ -229,9 +231,9 @@ export default function RideMode({
 
       {scheduleOnly && (
         <p className={styles.degraded} role="status">
-          Live ride matching is unavailable right now. Early warnings continue
-          from the anchored timetable, but Ride Mode will not claim “get off
-          now” from schedule alone.
+          We cannot see your bus in the live data right now, so we are going by
+          the timetable. You will still get the early warnings, but we will not
+          say “get off now” on the timetable alone.
         </p>
       )}
 
@@ -243,16 +245,16 @@ export default function RideMode({
 
       {gps.offRouteSuspected && (
         <p className={styles.degraded} role="alert">
-          Your movement has not matched this trip&apos;s planned path for about
-          two minutes. Check that you are on the intended vehicle or route.
+          You have been off this bus&apos;s route for about two minutes. Check
+          that you are on the right vehicle.
         </p>
       )}
 
       {gps.shapeStatus === "unavailable" &&
         session.options?.locationBackup && (
           <p className={styles.degraded} role="status">
-            Route-shape matching is unavailable. Föli realtime and conservative
-            straight-line GPS fallback remain active.
+            We could not load this route&apos;s path, so we are following your
+            distance to the stop instead. Live arrival data still applies.
           </p>
         )}
 
@@ -284,9 +286,9 @@ export default function RideMode({
       </div>
 
       <p className={styles.boundary}>
-        Client-only Ride Mode is travel assistance, not a guaranteed alarm.
-        Browsers can suspend background pages. For the best reliability, keep
-        this screen open and sound enabled.
+        Ride Mode is travel help, not a guaranteed alarm. A browser can pause
+        a page it thinks you have left, so keep this screen open with the
+        sound on.
       </p>
     </section>
   );
