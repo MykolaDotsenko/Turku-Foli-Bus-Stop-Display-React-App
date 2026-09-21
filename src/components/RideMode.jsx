@@ -1,3 +1,4 @@
+import { rideExitInstruction } from "../utils/rideInstructions";
 import { RIDE_STAGE } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
 
