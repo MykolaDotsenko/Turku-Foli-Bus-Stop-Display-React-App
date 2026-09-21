@@ -184,6 +184,73 @@ test("says the stop is behind you instead of showing zero metres", () => {
   expect(screen.queryByText("about 0 m to go")).not.toBeInTheDocument();
 });
 
+// The stage is the app's conclusion from every source it has. Tiles that
+// keep counting past it leave "1 stop · ~2 min" beside a headline saying to
+// get off, and the passenger cannot tell which half to believe.
+test("stops counting down once it is telling the passenger to get off", () => {
+  render(
+    <RideMode
+      session={session("now")}
+      runtime={{
+        trackingHealth: "live",
+        // The timetable still believes the stop is two minutes out; the
+        // vehicle is already standing at it.
+        etaSec: 120,
+        remainingStops: 1,
+        targetMatchBy: "trip",
+      }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("you are here")).toBeInTheDocument();
+  expect(screen.getByText("now")).toBeInTheDocument();
+  expect(screen.queryByText("1 stop")).not.toBeInTheDocument();
+  expect(screen.queryByText("~2 min")).not.toBeInTheDocument();
+});
+
+// At the one moment that matters the panel used to explain its own repeat
+// behaviour instead of saying what to do with your body.
+test("tells the passenger what to do at the moment of getting off", () => {
+  render(
+    <RideMode
+      session={session("now")}
+      runtime={{ trackingHealth: "live", etaSec: 0, remainingStops: 0 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  const instruction = screen.getByRole("alert");
+  expect(instruction).toHaveTextContent("Move to the doors and step off here.");
+  expect(instruction).not.toHaveTextContent(/alert repeats/i);
+});
+
+test("says the stop is behind you rather than counting stops to it", () => {
+  render(
+    <RideMode
+      session={session("missed")}
+      runtime={{ trackingHealth: "live", etaSec: 90, remainingStops: 2 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("behind you")).toBeInTheDocument();
+  expect(screen.queryByText("2 stops")).not.toBeInTheDocument();
+  expect(screen.queryByText("~2 min")).not.toBeInTheDocument();
+});
+
 test("offers recovery at the next stop after a missed-stop signal", () => {
   const onEndRide = vi.fn();
   const onOpenStop = vi.fn();

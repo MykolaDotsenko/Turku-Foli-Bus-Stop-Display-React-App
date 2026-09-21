@@ -21,7 +21,7 @@ const STAGE_COPY = {
   [RIDE_STAGE.NOW]: {
     eyebrow: "This is your stop",
     title: "Get off now",
-    instruction: "The alert repeats until the ride is finished or tracking moves on.",
+    instruction: "Move to the doors and step off here.",
   },
   [RIDE_STAGE.MISSED]: {
     eyebrow: "Recovery",
@@ -30,7 +30,9 @@ const STAGE_COPY = {
   },
 };
 
-function etaLabel(seconds) {
+function etaLabel(seconds, stage) {
+  if (stage === RIDE_STAGE.NOW) return "now";
+  if (stage === RIDE_STAGE.MISSED) return "";
   if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
@@ -39,11 +41,13 @@ function etaLabel(seconds) {
   return `~${minutes} min`;
 }
 
-function remainingLabel(value) {
+function remainingLabel(value, stage) {
+  if (stage === RIDE_STAGE.NOW) return "you are here";
+  if (stage === RIDE_STAGE.MISSED) return "behind you";
   if (value === null || value === undefined || value === "") return "";
   const count = Number(value);
   if (!Number.isFinite(count)) return "";
-  if (count <= 0) return "target stop";
+  if (count <= 0) return "almost there";
   return `${count} ${count === 1 ? "stop" : "stops"}`;
 }
 
@@ -131,8 +135,8 @@ export default function RideMode({
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
   const afterName = session.previousStop?.name || session.boardingStop?.name;
-  const eta = etaLabel(runtime.etaSec);
-  const remaining = remainingLabel(runtime.remainingStops);
+  const eta = etaLabel(runtime.etaSec, session.stage);
+  const remaining = remainingLabel(runtime.remainingStops, session.stage);
 
   const recoverAtNextStop = () => {
     const nextStopId = session.nextStop?.id;
