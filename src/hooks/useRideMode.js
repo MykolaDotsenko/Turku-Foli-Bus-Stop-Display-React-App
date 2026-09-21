@@ -442,6 +442,7 @@ export default function useRideMode() {
         }
         setWakeLockState("active");
         sentinel.addEventListener?.("release", () => {
+          sentinel = null;
           if (active) setWakeLockState("inactive");
         });
       } catch {
@@ -537,9 +538,12 @@ export default function useRideMode() {
             targetResult.value.serverTime
           );
         } else {
-          next.targetMissingCount = before.targetListed
-            ? before.targetMissingCount + 1
-            : before.targetMissingCount;
+          next.targetMissingCount =
+            before.targetListed ||
+            before.targetMissingCount > 0 ||
+            before.targetWasAtStop
+              ? before.targetMissingCount + 1
+              : 0;
           next.liveEtaSec = null;
           next.providerDistanceM = null;
           next.providerPositionAgeSec = null;
