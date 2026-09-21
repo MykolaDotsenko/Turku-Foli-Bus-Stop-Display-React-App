@@ -1,11 +1,11 @@
 .panel {
   margin-top: 0.75rem;
   padding: 1rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border: 1px solid color-mix(in srgb, #007985 24%, transparent);
   border-radius: 1rem;
   background:
-    linear-gradient(145deg, color-mix(in srgb, var(--accent) 7%, white), white);
-  color: var(--ink);
+    linear-gradient(145deg, color-mix(in srgb, #007985 7%, white), white);
+  color: #17212b;
 }
 
 .heading {
@@ -22,13 +22,13 @@
 
 .heading p {
   margin: 0;
-  color: var(--muted);
+  color: #60747d;
   font-size: 0.88rem;
   line-height: 1.45;
 }
 
 .kicker {
-  color: var(--accent) !important;
+  color: #007985 !important;
   font-size: 0.72rem !important;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -39,14 +39,14 @@
   min-height: 44px;
   border: 0;
   background: transparent;
-  color: var(--muted);
+  color: #60747d;
   font-weight: 700;
   cursor: pointer;
 }
 
 .status {
   margin: 0.9rem 0 0;
-  color: var(--muted);
+  color: #60747d;
 }
 
 .stopList {
@@ -66,21 +66,21 @@
   align-items: center;
   gap: 0.65rem;
   padding: 0.7rem;
-  border: 1px solid var(--line);
+  border: 1px solid #d5e2e5;
   border-radius: 0.85rem;
   background: white;
   cursor: pointer;
 }
 
 .stopOption[data-selected="true"] {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: #007985;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #007985 15%, transparent);
 }
 
 .stopOption input {
   width: 1.15rem;
   height: 1.15rem;
-  accent-color: var(--accent);
+  accent-color: #007985;
 }
 
 .stopCopy {
@@ -96,15 +96,15 @@
 }
 
 .stopCopy small {
-  color: var(--muted);
+  color: #60747d;
   line-height: 1.35;
 }
 
 .placeBadge {
   padding: 0.25rem 0.45rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--accent) 11%, white);
-  color: var(--accent);
+  background: color-mix(in srgb, #007985 11%, white);
+  color: #007985;
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -122,14 +122,14 @@
   align-items: flex-start;
   padding: 0.7rem;
   border-radius: 0.8rem;
-  background: var(--surface-soft);
+  background: #f6f9fa;
 }
 
 .options input {
   width: 1.15rem;
   height: 1.15rem;
   margin-top: 0.15rem;
-  accent-color: var(--accent);
+  accent-color: #007985;
 }
 
 .options span {
@@ -138,7 +138,7 @@
 }
 
 .options small {
-  color: var(--muted);
+  color: #60747d;
   line-height: 1.4;
 }
 
@@ -167,7 +167,7 @@
   padding: 0.65rem 0.95rem;
   border: 0;
   border-radius: 0.8rem;
-  background: var(--accent);
+  background: #007985;
   color: white;
   font-weight: 800;
   cursor: pointer;
@@ -179,7 +179,7 @@
 }
 
 .departureContext {
-  color: var(--muted);
+  color: #60747d;
   font-size: 0.8rem;
 }
 
@@ -209,4 +209,18 @@
   .start {
     width: 100%;
   }
+}
+
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
