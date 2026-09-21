@@ -368,6 +368,7 @@ function BusStopDisplay({
                           currentStopName={stopName}
                           stopsById={stopsById}
                           placesById={placesById}
+                          routeType={route?.type}
                           onCancel={() => setRideCandidateKey("")}
                           onStart={(config) => {
                             onStartRide?.(config);
