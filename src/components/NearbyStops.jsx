@@ -11,6 +11,7 @@ import { locationErrorMessage, requestOneTimePosition } from "../utils/location"
 import { buildWalkingDirectionsUrl } from "../utils/maps";
 import styles from "./NearbyStops.module.css";
 
+const NEARBY_STOP_LIMIT = 6;
 const AUTO_SELECT_MAX_DISTANCE_METERS = 2_000;
 const OUTSIDE_NETWORK_WARNING_METERS = 10_000;
 const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
@@ -90,7 +91,7 @@ function NearbyStops({
     typeof navigator !== "undefined" && "geolocation" in navigator;
 
   const nearbyStops = useMemo(
-    () => findNearestStops(stops, position, 3),
+    () => findNearestStops(stops, position, NEARBY_STOP_LIMIT),
     [position, stops]
   );
 
@@ -133,7 +134,7 @@ function NearbyStops({
         navigator.geolocation
       );
 
-      const nearest = findNearestStops(stops, nextPosition, 3);
+      const nearest = findNearestStops(stops, nextPosition, NEARBY_STOP_LIMIT);
       const ambiguousChoice = nearestChoiceIsAmbiguous(
         nearest,
         nextPosition.accuracy
