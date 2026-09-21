@@ -1,6 +1,6 @@
 {
-  "name": "Föli Live Departures",
-  "short_name": "Föli Departures",
+  "name": "Turku Departures — Föli live times",
+  "short_name": "Turku Föli",
   "description": "Privacy-first live Föli departures, disruptions, Safe Places and Get me Home travel help for the Turku region.",
   "start_url": "./",
   "scope": "./",

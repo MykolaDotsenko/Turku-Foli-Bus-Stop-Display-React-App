@@ -155,8 +155,11 @@ input:focus-visible,
     flex: 1 1 180px;
   }
 
+  /* Kept on a phone: the person who does not know what "Föli" means is
+     most likely to be holding one, standing at a stop in a strange city. */
   .eyebrow {
-    display: none;
+    margin-bottom: 1px;
+    font-size: 0.66rem;
   }
 
   /* The line that says what this app is only earns its space while nobody
