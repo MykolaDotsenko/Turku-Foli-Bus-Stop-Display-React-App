@@ -12,7 +12,7 @@ const BASE_PATH = baseWithLeadingSlash.endsWith("/")
   ? baseWithLeadingSlash
   : `${baseWithLeadingSlash}/`;
 const withBasePath = (relativePath = "") =>
-  `${BASE_PATH}${String(relativePath).replace(/^\\/+/, "")}`;
+  `${BASE_PATH}${String(relativePath).replace(/^\/+/, "")}`;
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
