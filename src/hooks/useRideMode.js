@@ -350,6 +350,31 @@ export default function useRideMode() {
 
   useEffect(() => {
     const current = sessionRef.current;
+    shapeRef.current = null;
+    if (!current?.options?.locationBackup || !current.shapeId) return undefined;
+
+    const controller = new AbortController();
+    fetchTripShape(current.shapeId, controller.signal)
+      .then((points) => {
+        if (controller.signal.aborted) return;
+        const prepared = prepareRideShape(points);
+        if (!prepared?.usesGtfsDistance) return;
+        shapeRef.current = prepared;
+        commitGps((value) => ({ ...value, shapeStatus: "ready" }));
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
+      });
+
+    return () => {
+      controller.abort();
+      shapeRef.current = null;
+    };
+  }, [commitGps, session?.id, session?.options?.locationBackup, session?.shapeId]);
+
+  useEffect(() => {
+    const current = sessionRef.current;
     if (!current?.options?.locationBackup) {
       commitGps(emptyGps());
       return undefined;
