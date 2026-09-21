@@ -3,12 +3,14 @@ import { fetchAlerts, fetchStopServedRouteIds } from "../api/foliApi";
 import { extractStopAlerts } from "../utils/alerts";
 
 const ALERT_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+// Reused so "no served routes" never produces a fresh identity on every run.
+const EMPTY_ROUTE_IDS = new Set();
 
 export default function useStopAlerts(stopId, lineRefs, routesById) {
   const [payload, setPayload] = useState(null);
   const [receivedAtMs, setReceivedAtMs] = useState(null);
   const [error, setError] = useState(false);
-  const [servedRouteIds, setServedRouteIds] = useState(() => new Set());
+  const [servedRouteIds, setServedRouteIds] = useState(EMPTY_ROUTE_IDS);
   const abortRef = useRef(null);
   const membershipAbortRef = useRef(null);
   const preferredLanguages = useMemo(() => {
@@ -75,7 +77,7 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     ];
 
     if (!stopId || candidateRouteIds.length === 0) {
-      setServedRouteIds(new Set());
+      setServedRouteIds(EMPTY_ROUTE_IDS);
       return () => controller.abort();
     }
 
@@ -86,7 +88,7 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
       .catch(() => {
         if (!controller.signal.aborted) {
           // Realtime line matching still provides a safe partial fallback.
-          setServedRouteIds(new Set());
+          setServedRouteIds(EMPTY_ROUTE_IDS);
         }
       });
 

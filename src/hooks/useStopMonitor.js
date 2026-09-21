@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
 
 const REFRESH_INTERVAL_MS = 30_000;
@@ -121,9 +121,13 @@ export default function useStopMonitor(stopId) {
   }, [refresh, stopId]);
 
   const isCurrentStop = data.stopId === stopId;
+  // Allocating this per render would give `arrivals` a new identity on every
+  // render while a newly selected stop loads, which re-triggers every consumer
+  // memo/effect keyed on it and can spin a synchronous re-render loop.
+  const pendingData = useMemo(() => emptyData(stopId), [stopId]);
 
   return {
-    ...(isCurrentStop ? data : emptyData(stopId)),
+    ...(isCurrentStop ? data : pendingData),
     loading: !isCurrentStop || loading,
     refreshing: isCurrentStop && refreshing,
     error: isCurrentStop && error,
