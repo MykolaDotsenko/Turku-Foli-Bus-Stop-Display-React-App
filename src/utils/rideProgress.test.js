@@ -205,6 +205,38 @@ describe("ride progress", () => {
     expect(stage.stage).toBe(RIDE_STAGE.BOARDED);
   });
 
+  it("lets a live prediction override a slipped timetable", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.BOARDED, {
+      liveEtaSec: 250,
+      scheduleEtaSec: 60,
+      remainingStops: 0,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.SOON);
+    expect(evaluated.confidence).toBe("live");
+  });
+
+  it("reaches NOW when NEXT evidence and proximity arrive together", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.SOON, {
+      previousPassedConfirmed: true,
+      gpsShapeAvailable: false,
+      gpsDistanceM: 40,
+      gpsAccuracyM: 20,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.NOW);
+    expect(evaluated.reason).toBe("device-near-target");
+  });
+
+  it("can declare a missed stop from NEXT using strong post-target evidence", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.NEXT, {
+      gpsPassedTarget: true,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.MISSED);
+    expect(evaluated.reason).toBe("gps-route-passed");
+  });
+
   it("never rolls a stage backwards", () => {
     expect(
       evaluateRideStage(RIDE_STAGE.NEXT, {
