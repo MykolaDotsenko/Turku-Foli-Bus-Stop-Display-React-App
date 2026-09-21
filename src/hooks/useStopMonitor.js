@@ -104,7 +104,7 @@ function startingData(stopId) {
 
 export default function useStopMonitor(stopId) {
   const [data, setData] = useState(() => startingData(stopId));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(stopId));
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
   const abortRef = useRef(null);
@@ -147,6 +147,16 @@ export default function useStopMonitor(stopId) {
   );
 
   useEffect(() => {
+    if (!stopId) {
+      abortRef.current?.abort();
+      consecutiveFailuresRef.current = 0;
+      setData(emptyData(""));
+      setLoading(false);
+      setRefreshing(false);
+      setError(false);
+      return undefined;
+    }
+
     let active = true;
     let timeoutId = null;
 
