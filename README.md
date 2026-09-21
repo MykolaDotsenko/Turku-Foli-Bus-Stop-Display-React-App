@@ -10,12 +10,14 @@
 Live departures, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
 
 <p>
-  <a href="https://nuppu-assignment.vercel.app"><strong>Live demo</strong></a>
+  <a href="#product-preview"><strong>Product preview</strong></a>
   ·
   <a href="docs/PRODUCT_AUDIT.md">Product audit</a>
   ·
   <a href="docs/FOLI_API_REFERENCE.md">Föli API contract</a>
 </p>
+
+<a id="product-preview"></a>
 
 <p align="center">
   <img
