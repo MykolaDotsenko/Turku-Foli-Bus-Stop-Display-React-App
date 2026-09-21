@@ -82,7 +82,7 @@ test("prefers a saved Home stop and builds an explicit ride plan", async () => {
   expect(screen.getByText("Home")).toBeInTheDocument();
 
   await waitFor(() => {
-    expect(screen.getByRole("radio", { name: /Puistokatu/i })).toBeChecked();
+    expect(screen.getByDisplayValue("32")).toBeChecked();
   });
 
   fireEvent.click(
