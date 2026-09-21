@@ -185,7 +185,10 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">Independent companion · Föli open data</p>
+          {/* Turku is officially bilingual, and the pairing is itself a
+              local signal. The independence disclaimer keeps its place in
+              the footer; this line has one job, which is "you are here". */}
+          <p className="eyebrow">Turku · Åbo</p>
           <p className="brand">Föli departures</p>
           <p
             className="context"
