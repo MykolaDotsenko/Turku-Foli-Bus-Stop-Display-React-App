@@ -257,6 +257,9 @@ function BusStopDisplay({
             <tbody>
               {visibleArrivals.map((arrival, index) => {
                 const departureTime = getDepartureTime(arrival);
+                const tripDetails = arrival.tripref
+                  ? tripDetailsById.get(arrival.tripref)
+                  : null;
                 const route = routesByShortName?.get(arrival.lineref);
                 const serviceStatus = formatServiceStatus(
                   arrival.monitored,
