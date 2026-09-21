@@ -3,6 +3,12 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   fetchStopMonitor: vi.fn(() => new Promise(() => {})),
+  fetchTripShape: vi.fn(() =>
+    Promise.resolve([
+      { lat: 60.4518, lon: 22.2666, traveled: 0 },
+      { lat: 60.4488, lon: 22.255, traveled: 1100 },
+    ])
+  ),
   runRideTestAlert: vi.fn(() => Promise.resolve()),
   stopRideAlerts: vi.fn(),
   requestRideNotificationPermission: vi.fn(() => Promise.resolve(false)),
@@ -12,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../api/foliApi", () => ({
   fetchStopMonitor: mocks.fetchStopMonitor,
+  fetchTripShape: mocks.fetchTripShape,
 }));
 
 vi.mock("../utils/rideAlerts", () => ({
@@ -28,14 +35,36 @@ const rideConfig = {
   lineRef: "1",
   destination: "Satama",
   tripRef: "trip-1",
+  routeType: 3,
+  shapeId: "shape-1",
   datedVehicleJourneyRef: "journey-1",
   vehicleRef: "bus-1",
   originAimedDepartureTime: 1000,
-  boardingStop: { id: "164", name: "Kauppatori" },
-  targetStop: { id: "32", name: "Puistokatu", lat: 60.44, lon: 22.25 },
+  boardingStop: {
+    id: "164",
+    name: "Kauppatori",
+    shapeDistTraveled: 0,
+  },
+  targetStop: {
+    id: "32",
+    name: "Puistokatu",
+    lat: 60.4488,
+    lon: 22.255,
+    shapeDistTraveled: 1100,
+  },
   previousStop: { id: "164", name: "Kauppatori" },
   nextStop: { id: "4", name: "Turun linna" },
   plan: {
+    boardingStop: {
+      id: "164",
+      name: "Kauppatori",
+      shapeDistTraveled: 0,
+    },
+    targetStop: {
+      id: "32",
+      name: "Puistokatu",
+      shapeDistTraveled: 1100,
+    },
     targetPredictedEpochSec: Math.floor(Date.now() / 1000) + 500,
     stopsToTarget: [
       {
@@ -58,6 +87,7 @@ let originalGeolocation;
 beforeEach(() => {
   localStorage.clear();
   mocks.fetchStopMonitor.mockClear();
+  mocks.fetchTripShape.mockClear();
   mocks.runRideTestAlert.mockClear();
   mocks.stopRideAlerts.mockClear();
 
