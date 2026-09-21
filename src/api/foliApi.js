@@ -226,21 +226,83 @@ export async function fetchStopMonitor(stopId, signal) {
     throw new Error("Invalid Föli response.");
   }
 
-  if (payload.status !== "OK") {
+  const status = optionalString(payload.status);
+  const serverTime =
+    positiveNumber(payload.servertime) ?? Math.floor(Date.now() / 1000);
+
+  if (
+    status === "OK" &&
+    !Array.isArray(payload.result)
+  ) {
+    throw new Error("Invalid Föli departures.");
+  }
+
+  if (!["OK", "NO_SIRI_DATA", "PENDING"].includes(status)) {
     throw new Error("Föli real-time data is unavailable.");
   }
 
-  if (!Array.isArray(payload.result)) {
-    throw new Error("Invalid Föli departures.");
+  const realtimeRows =
+    status === "OK"
+      ? payload.result.map(normalizeArrival).filter(Boolean)
+      : [];
+
+  let scheduledRows = [];
+  let scheduleAvailable = false;
+
+  // SIRI is a realtime feed, not the source of the published timetable.
+  // Always top up a short board from GTFS so an empty/partial realtime
+  // response cannot turn a busy stop into "No upcoming departures".
+  if (realtimeRows.length < 10) {
+    try {
+      scheduledRows = await fetchScheduledStopDepartures(
+        stopId,
+        serverTime,
+        signal
+      );
+      scheduleAvailable = true;
+    } catch (error) {
+      if (
+        error?.name === "CanceledError" ||
+        error?.name === "AbortError"
+      ) {
+        throw error;
+      }
+
+      // A healthy realtime response remains useful even if static GTFS is
+      // temporarily unavailable. If realtime is down too, surface failure.
+      if (status !== "OK") {
+        throw new Error("Föli departure data is unavailable.");
+      }
+    }
   }
+
+  const arrivals = mergeRealtimeAndScheduled(realtimeRows, scheduledRows)
+    .sort((a, b) => {
+      const left =
+        positiveNumber(a.expecteddeparturetime) ??
+        positiveNumber(a.expectedarrivaltime) ??
+        positiveNumber(a.aimeddeparturetime) ??
+        positiveNumber(a.aimedarrivaltime) ??
+        Number.POSITIVE_INFINITY;
+      const right =
+        positiveNumber(b.expecteddeparturetime) ??
+        positiveNumber(b.expectedarrivaltime) ??
+        positiveNumber(b.aimeddeparturetime) ??
+        positiveNumber(b.aimedarrivaltime) ??
+        Number.POSITIVE_INFINITY;
+      return left - right;
+    })
+    .slice(0, 24);
 
   return {
     stopName:
       typeof payload.stopname === "string" && payload.stopname.trim()
         ? payload.stopname.trim()
         : `Stop ${stopId}`,
-    arrivals: payload.result.map(normalizeArrival).filter(Boolean),
-    serverTime: positiveNumber(payload.servertime),
+    arrivals,
+    serverTime,
+    realtimeAvailable: status === "OK",
+    scheduleAvailable,
   };
 }
 
