@@ -163,3 +163,48 @@ test("restores a non-expired active ride", () => {
   expect(result.current.session?.id).toBe("ride-restored");
   expect(result.current.session?.stage).toBe("next");
 });
+
+
+test("map-matched GPS can advance Ride Mode to NEXT without SIRI proximity", async () => {
+  let deliverGps = null;
+  watchPosition.mockImplementation((success) => {
+    deliverGps = success;
+    return 88;
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide(rideConfig);
+  });
+
+  await waitFor(() => {
+    expect(result.current.gps.shapeStatus).toBe("ready");
+  });
+
+  act(() => {
+    deliverGps({
+      coords: {
+        latitude: 60.4493,
+        longitude: 22.2569,
+        accuracy: 18,
+        speed: 8,
+      },
+    });
+  });
+
+  await waitFor(() => {
+    expect(result.current.session?.stage).toBe("next");
+  });
+
+  expect(result.current.session?.stageReason).toBe("gps-route-distance");
+  expect(result.current.gps.onRoute).toBe(true);
+  expect(result.current.gps.routeDistanceM).toBeLessThan(600);
+  expect(result.current.gps.routeDistanceM).toBeGreaterThan(0);
+
+  act(() => {
+    result.current.endRide();
+  });
+  expect(clearWatch).toHaveBeenCalledWith(88);
+  unmount();
+});
