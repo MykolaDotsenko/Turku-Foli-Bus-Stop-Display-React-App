@@ -250,9 +250,9 @@ export async function fetchStopMonitor(stopId, signal) {
   let scheduleAvailable = false;
 
   // SIRI is a realtime feed, not the source of the published timetable.
-  // Always top up a short board from GTFS so an empty/partial realtime
-  // response cannot turn a busy stop into "No upcoming departures".
-  if (realtimeRows.length < 10) {
+  // If it has no rows at all, fall back to GTFS so a busy scheduled stop
+  // cannot turn into a false "No upcoming departures" state.
+  if (realtimeRows.length === 0) {
     try {
       scheduledRows = await fetchScheduledStopDepartures(
         stopId,
