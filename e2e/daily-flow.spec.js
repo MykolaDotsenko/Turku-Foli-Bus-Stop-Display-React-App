@@ -401,6 +401,42 @@ test.beforeEach(async ({ page }) => {
   await mockFoli(page);
 });
 
+test("bare URL starts without a default stop and location only fills the search field", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+  });
+
+  await page.goto("/");
+
+  const input = page.getByRole("combobox", { name: "Find your stop" });
+  await expect(input).toHaveValue("");
+  await expect(page).not.toHaveURL(/stop=/);
+  await expect(
+    page.locator('section[aria-labelledby="departures-title"]')
+  ).toHaveCount(0);
+
+  await page
+    .getByRole("button", { name: "Use my location to find nearest stop" })
+    .click();
+
+  await expect(input).toHaveValue("Kauppatori");
+  await expect(page).not.toHaveURL(/stop=/);
+
+  await page.getByRole("button", { name: "Show departures" }).click();
+
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+});
+
 test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await page.route(
     "https://data.foli.fi/siri/sm/32",
@@ -1209,8 +1245,13 @@ test("deep links survive reload and invalid stop links recover canonically", asy
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 
   await page.goto("/?stop=not-a-stop");
-  await expect(page).toHaveURL(/stop=164/);
-  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page).not.toHaveURL(/stop=/);
+  await expect(
+    page.getByRole("combobox", { name: "Find your stop" })
+  ).toHaveValue("");
+  await expect(
+    page.locator('section[aria-labelledby="departures-title"]')
+  ).toHaveCount(0);
 });
 
 test("ten departures remain scan-friendly without horizontal table scrolling", async ({
