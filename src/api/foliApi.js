@@ -362,6 +362,180 @@ function gtfsTime(value) {
   return "";
 }
 
+async function fetchStopTimetable(stopId, signal) {
+  const id = requiredId(stopId, "stop ID");
+  invalidateExpiredGtfsDataset();
+  if (stopTimetableCache.has(id)) return stopTimetableCache.get(id);
+
+  const response = await client.get(
+    await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS stop timetable.");
+  }
+
+  const normalized = payload
+    .map((item) => ({
+      tripId:
+        item?.trip_id === null || item?.trip_id === undefined
+          ? ""
+          : String(item.trip_id),
+      arrivalTime: gtfsTime(item?.arrival_time),
+      departureTime: gtfsTime(item?.departure_time),
+      stopSequence: optionalNumber(item?.stop_sequence),
+      pickupType: optionalNumber(item?.pickup_type),
+      dropOffType: optionalNumber(item?.drop_off_type),
+      shapeDistTraveled: optionalNumber(item?.shape_dist_traveled),
+    }))
+    .filter(
+      (item) =>
+        item.tripId &&
+        (item.departureTime || item.arrivalTime) &&
+        item.pickupType !== 1
+    );
+
+  stopTimetableCache.set(id, normalized);
+  return normalized;
+}
+
+async function fetchCalendarDates(signal) {
+  invalidateExpiredGtfsDataset();
+  const cacheKey = "calendar_dates";
+  if (calendarDatesCache.has(cacheKey)) {
+    return calendarDatesCache.get(cacheKey);
+  }
+
+  const response = await client.get(
+    await gtfsResourceUrl("calendar_dates"),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    throw new Error("Invalid Föli GTFS calendar dates.");
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(payload).map(([serviceId, entries]) => [
+      String(serviceId),
+      (Array.isArray(entries) ? entries : [])
+        .map((entry) => ({
+          date:
+            entry?.date === null || entry?.date === undefined
+              ? ""
+              : String(entry.date),
+          exceptionType: optionalNumber(entry?.exception_type),
+        }))
+        .filter((entry) => /^\d{8}$/.test(entry.date)),
+    ])
+  );
+
+  calendarDatesCache.set(cacheKey, normalized);
+  return normalized;
+}
+
+async function fetchTripDetailsInBatches(tripIds, signal) {
+  const ids = [...new Set(tripIds.filter(Boolean))];
+  const byId = new Map();
+
+  for (let index = 0; index < ids.length; index += 8) {
+    const batch = ids.slice(index, index + 8);
+    const results = await Promise.allSettled(
+      batch.map((tripId) => fetchTripDetails(tripId, signal))
+    );
+
+    results.forEach((result, resultIndex) => {
+      if (result.status === "fulfilled") {
+        byId.set(batch[resultIndex], result.value);
+      }
+    });
+  }
+
+  return byId;
+}
+
+export async function fetchScheduledStopDepartures(
+  stopId,
+  referenceTimeSec,
+  signal
+) {
+  const reference =
+    positiveNumber(referenceTimeSec) ?? Math.floor(Date.now() / 1000);
+
+  const [rows, calendarDates, routes] = await Promise.all([
+    fetchStopTimetable(stopId, signal),
+    fetchCalendarDates(signal),
+    fetchRouteCatalog(signal),
+  ]);
+
+  const clockCandidates = scheduledClockCandidates(rows, reference, {
+    lookaheadSeconds: 4 * 60 * 60,
+    graceSeconds: 30,
+    maxRows: 64,
+  });
+
+  if (clockCandidates.length === 0) return [];
+
+  const tripDetailsById = await fetchTripDetailsInBatches(
+    clockCandidates.map((candidate) => candidate.tripId),
+    signal
+  );
+  const routesById = new Map(routes.map((route) => [route.id, route]));
+
+  return clockCandidates
+    .map((candidate) => {
+      const details = tripDetailsById.get(candidate.tripId);
+      if (
+        !details?.serviceId ||
+        !serviceRunsOnDate(
+          calendarDates,
+          details.serviceId,
+          candidate.serviceDate
+        )
+      ) {
+        return null;
+      }
+
+      const route = routesById.get(details.routeId);
+
+      return {
+        lineref: route?.shortName || details.routeId || "",
+        destinationdisplay: details.headsign || "",
+        destinationdisplay_en: "",
+        destinationdisplay_sv: "",
+        monitored: false,
+        vehicleatstop: false,
+        vehicleref: "",
+        incongestion: false,
+        directionname: "",
+        destinationref: "",
+        originref: "",
+        visitnumber: candidate.row.stopSequence,
+        blockref: details.blockId || "",
+        dataframeref: "",
+        datedvehiclejourneyref: "",
+        tripref: candidate.tripId,
+        routeref: details.routeId || "",
+        delay: null,
+        recordedattime: null,
+        latitude: null,
+        longitude: null,
+        originaimeddeparturetime: null,
+        destinationaimedarrivaltime: null,
+        expecteddeparturetime: null,
+        expectedarrivaltime: null,
+        aimeddeparturetime: candidate.aimedDepartureTime,
+        aimedarrivaltime: candidate.aimedArrivalTime,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.aimeddeparturetime - b.aimeddeparturetime)
+    .slice(0, 24);
+}
+
 export async function fetchTripDetails(tripId, signal) {
   const id = requiredId(tripId, "trip ID");
   invalidateExpiredGtfsDataset();
