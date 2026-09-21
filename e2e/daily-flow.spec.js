@@ -308,6 +308,7 @@ async function mockFoli(page) {
             pickup_type: 0,
             drop_off_type: 0,
             timepoint: 1,
+            shape_dist_traveled: 0,
           },
           {
             stop_id: "32",
@@ -317,6 +318,7 @@ async function mockFoli(page) {
             pickup_type: 0,
             drop_off_type: 0,
             timepoint: 0,
+            shape_dist_traveled: 900,
           },
           {
             stop_id: "4",
@@ -445,10 +447,10 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
     page.getByRole("heading", { name: "Where do you want to get off?" })
   ).toBeVisible();
 
-  await expect(page.locator('input[type="radio"][value="32"]')).toBeChecked();
+  await expect(page.locator('input[type="radio"][value="2"]')).toBeChecked();
 
   await page
-    .getByRole("checkbox", { name: /Use location as a backup/i })
+    .getByRole("checkbox", { name: /Use GPS ride tracking/i })
     .uncheck();
   await page
     .getByRole("checkbox", { name: /Use system notifications/i })

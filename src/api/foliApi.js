@@ -28,6 +28,7 @@ const tripDetailsCache = createBoundedCache(200);
 const tripStopTimesCache = createBoundedCache(60);
 const stopBoardingTripsCache = createBoundedCache(20);
 const routeTripsCache = createBoundedCache(60);
+const tripShapeCache = createBoundedCache(40);
 
 let gtfsDatasetBasePromise = null;
 let gtfsDatasetBaseUrl = "";
@@ -38,6 +39,7 @@ function clearGtfsResourceCaches() {
   tripStopTimesCache.clear();
   stopBoardingTripsCache.clear();
   routeTripsCache.clear();
+  tripShapeCache.clear();
 }
 
 /**
@@ -410,11 +412,43 @@ export async function fetchTripStopTimes(tripId, signal) {
       pickupType: optionalNumber(item?.pickup_type),
       dropOffType: optionalNumber(item?.drop_off_type),
       timepoint: optionalNumber(item?.timepoint),
+      shapeDistTraveled: optionalNumber(item?.shape_dist_traveled),
     }))
     .filter((item) => item.stopId && item.stopSequence !== null)
     .sort((a, b) => a.stopSequence - b.stopSequence);
 
   tripStopTimesCache.set(id, normalized);
+  return normalized;
+}
+
+export async function fetchTripShape(shapeId, signal) {
+  const id = requiredId(shapeId, "shape ID");
+  invalidateExpiredGtfsDataset();
+  if (tripShapeCache.has(id)) return tripShapeCache.get(id);
+
+  const response = await client.get(
+    await gtfsResourceUrl(`shapes/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS trip shape.");
+  }
+
+  const normalized = payload
+    .map((point) => ({
+      lat: coordinateNumber(point?.lat, -90, 90),
+      lon: coordinateNumber(point?.lon, -180, 180),
+      traveled: optionalNumber(point?.traveled),
+    }))
+    .filter((point) => point.lat !== null && point.lon !== null);
+
+  if (normalized.length < 2) {
+    throw new Error("Föli GTFS trip shape is unavailable.");
+  }
+
+  tripShapeCache.set(id, normalized);
   return normalized;
 }
 

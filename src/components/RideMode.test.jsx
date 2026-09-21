@@ -7,6 +7,7 @@ function session(stage = "next") {
     id: "ride-1",
     lineRef: "1",
     tripRef: "trip-1",
+    routeType: 3,
     destination: "Satama",
     stage,
     targetStop: { id: "32", name: "Puistokatu" },
@@ -28,7 +29,15 @@ test("shows the action the passenger needs instead of a map", () => {
         remainingStops: 1,
         targetMatchBy: "trip",
       }}
-      gps={{ status: "active", distanceM: 420, error: "" }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 420,
+        routeEtaSec: 55,
+        distanceM: 300,
+        error: "",
+      }}
       wakeLockState="active"
       onTestAlert={() => {}}
       onEndRide={() => {}}
@@ -43,6 +52,136 @@ test("shows the action the passenger needs instead of a map", () => {
   expect(screen.getByText("Puistokatu")).toBeInTheDocument();
   expect(screen.getByText("after Kauppatori", { exact: false })).toBeInTheDocument();
   expect(screen.queryByText(/map/i)).not.toBeInTheDocument();
+});
+
+test("uses generic NEXT wording for non-bus modes", () => {
+  render(
+    <RideMode
+      session={{ ...session("next"), routeType: 4 }}
+      runtime={{
+        trackingHealth: "live",
+        liveEtaSec: 70,
+        scheduleEtaSec: 80,
+        remainingStops: 1,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 480,
+        routeEtaSec: 60,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText("Get ready to exit at the next stop.")
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Press the STOP button now.")).not.toBeInTheDocument();
+  expect(screen.getByText(/480 m along route/i)).toBeInTheDocument();
+});
+
+// The hook already decides which source is fresh enough to trust. If the
+// panel re-derives that order it can show a confident estimate from a stale
+// GPS fix while the badge next to it says tracking has degraded.
+test("shows the estimate the hook resolved rather than re-deriving one", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{
+        trackingHealth: "schedule",
+        liveEtaSec: 70,
+        scheduleEtaSec: 200,
+        etaSec: 200,
+        remainingStops: 2,
+        targetMatchBy: "",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 900,
+        routeEtaSec: 55,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("~4 min")).toBeInTheDocument();
+  expect(screen.queryByText("~1 min")).not.toBeInTheDocument();
+});
+
+// A distance reads as harder fact than an estimate, so a fix frozen by a
+// tunnel is the number a passenger will trust over the alert badge.
+test("stops presenting a stale fix as where the passenger is now", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{
+        trackingHealth: "delayed",
+        etaSec: 240,
+        remainingStops: 2,
+        gpsAgeSec: 300,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 420,
+        distanceM: 380,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("GPS fix is out of date")).toBeInTheDocument();
+  expect(screen.getByText("last fix 5 min ago")).toBeInTheDocument();
+  expect(screen.queryByText(/420 m along route/i)).not.toBeInTheDocument();
+  expect(screen.queryByText("GPS matched to trip path")).not.toBeInTheDocument();
+});
+
+test("says the stop is behind you instead of showing zero metres", () => {
+  render(
+    <RideMode
+      session={session("missed")}
+      runtime={{
+        trackingHealth: "live",
+        etaSec: -120,
+        remainingStops: 0,
+        gpsAgeSec: 4,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: -180,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("~180 m past your stop")).toBeInTheDocument();
+  expect(screen.queryByText("~0 m along route")).not.toBeInTheDocument();
 });
 
 test("offers recovery at the next stop after a missed-stop signal", () => {

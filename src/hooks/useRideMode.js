@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchStopMonitor } from "../api/foliApi";
+import { fetchStopMonitor, fetchTripShape } from "../api/foliApi";
 import { distanceInMeters, hasCoordinates } from "../utils/geo";
+import { analyzeRideGps, prepareRideShape } from "../utils/rideGeometry";
 import {
   announceRideStage,
   repeatNowRideSignal,
   requestRideNotificationPermission,
   runRideTestAlert,
+  primeRideVoices,
   stopRideAlerts,
+  unlockRideAudio,
 } from "../utils/rideAlerts";
 import {
   RIDE_STAGE,
   arrivalEtaSeconds,
+  rideStageRank,
   evaluateRideStage,
   matchRideArrival,
   plannedRideProgress,
@@ -39,6 +43,8 @@ function emptyRuntime() {
     providerPositionAgeSec: null,
     scheduleEtaSec: null,
     remainingStops: null,
+    etaSec: null,
+    gpsAgeSec: null,
     trackingHealth: "schedule",
     lastError: "",
     notificationPermission: "unknown",
@@ -50,9 +56,21 @@ function emptyGps() {
     status: "off",
     distanceM: null,
     accuracyM: null,
+    speedMps: null,
     minimumDistanceM: null,
     wasNearTarget: false,
     movedAwayAfterNear: false,
+    shapeStatus: "idle",
+    shapeError: "",
+    shapeUsable: false,
+    onRoute: false,
+    alongRouteM: null,
+    lateralDistanceM: null,
+    routeDistanceM: null,
+    routeEtaSec: null,
+    offRouteSinceMs: null,
+    offRouteSuspected: false,
+    passedTarget: false,
     updatedAt: null,
     error: "",
   };
@@ -154,6 +172,7 @@ export default function useRideMode() {
   const sessionRef = useRef(session);
   const runtimeRef = useRef(runtime);
   const gpsRef = useRef(gps);
+  const shapeRef = useRef(null);
 
   const commitSession = useCallback((updater) => {
     setSession((current) => {
@@ -185,6 +204,7 @@ export default function useRideMode() {
 
   const endRide = useCallback(() => {
     stopRideAlerts();
+    shapeRef.current = null;
     commitSession(null);
     commitRuntime(emptyRuntime());
     commitGps(emptyGps());
@@ -221,6 +241,10 @@ export default function useRideMode() {
       // A failed poll keeps the previous prediction in runtime. Past this age
       // it is no longer a live answer, so the stage logic must fall back to
       // the timetable instead of trusting a frozen number.
+      const gpsAgeSec = Number.isFinite(Number(nextGps.updatedAt))
+        ? Math.max(0, (Date.now() - Number(nextGps.updatedAt)) / 1000)
+        : null;
+
       const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
       const liveEtaUsable =
         Number.isFinite(lastLiveMatchAt) &&
@@ -235,6 +259,13 @@ export default function useRideMode() {
         providerPositionAgeSec: nextRuntime.providerPositionAgeSec,
         gpsDistanceM: nextGps.distanceM,
         gpsAccuracyM: nextGps.accuracyM,
+        gpsAgeSec,
+        gpsShapeAvailable: nextGps.shapeStatus === "ready",
+        gpsShapeUsable: nextGps.shapeUsable,
+        gpsOnRoute: nextGps.onRoute,
+        gpsRouteDistanceM: nextGps.routeDistanceM,
+        gpsRouteEtaSec: nextGps.routeEtaSec,
+        gpsPassedTarget: nextGps.passedTarget,
         previousPassedConfirmed,
         targetAtStop: nextRuntime.targetWasAtStop && nextRuntime.targetListed,
         targetPassedConfirmed,
@@ -244,10 +275,26 @@ export default function useRideMode() {
       });
 
       const health = trackingHealth(nextRuntime);
+      // The panel must not read a different source than the stage logic. A
+      // frozen prediction from a failed poll, or a fix from before a tunnel,
+      // would otherwise keep showing a confident "~2 min" next to a badge
+      // that already says tracking is degraded.
+      const gpsEtaUsable =
+        Number.isFinite(Number(nextGps.routeEtaSec)) &&
+        (gpsAgeSec === null || gpsAgeSec <= 60);
       const mergedRuntime = {
         ...nextRuntime,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
+        // Published so the panel can age out a fix on exactly the same clock
+        // the stage logic uses, instead of presenting a tunnel-old distance
+        // as where the passenger is now.
+        gpsAgeSec,
+        etaSec: gpsEtaUsable
+          ? Number(nextGps.routeEtaSec)
+          : liveEtaUsable && Number.isFinite(Number(nextRuntime.liveEtaSec))
+            ? Number(nextRuntime.liveEtaSec)
+            : planned.etaSec,
         trackingHealth: health,
       };
       runtimeRef.current = mergedRuntime;
@@ -276,7 +323,8 @@ export default function useRideMode() {
         announceRideStage(
           evaluated.stage,
           current.targetStop.name,
-          current.options?.notifications !== false
+          current.options?.notifications !== false,
+          current.routeType
         );
       }
     },
@@ -337,13 +385,42 @@ export default function useRideMode() {
 
   useEffect(() => {
     const current = sessionRef.current;
+    shapeRef.current = null;
+    if (!current?.options?.locationBackup || !current.shapeId) return undefined;
+
+    const controller = new AbortController();
+    fetchTripShape(current.shapeId, controller.signal)
+      .then((points) => {
+        if (controller.signal.aborted) return;
+        const prepared = prepareRideShape(points);
+        if (!prepared?.usesGtfsDistance) {
+          // Stop distances and shape distances would be on different scales,
+          // so map matching is refused. Say so instead of showing "idle".
+          commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
+          return;
+        }
+        shapeRef.current = prepared;
+        commitGps((value) => ({ ...value, shapeStatus: "ready" }));
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
+      });
+
+    return () => {
+      controller.abort();
+      shapeRef.current = null;
+    };
+  }, [commitGps, session?.id, session?.options?.locationBackup, session?.shapeId]);
+
+  useEffect(() => {
+    const current = sessionRef.current;
     if (!current?.options?.locationBackup) {
       commitGps(emptyGps());
       return undefined;
     }
 
     if (
-      !hasCoordinates(current.targetStop) ||
       typeof globalThis.navigator?.geolocation?.watchPosition !== "function"
     ) {
       commitGps((value) => ({
@@ -370,31 +447,92 @@ export default function useRideMode() {
           lon: Number(position?.coords?.longitude),
         };
         const accuracy = Number(position?.coords?.accuracy);
+        const speed = Number(position?.coords?.speed);
+        const nowMs = Date.now();
 
         if (!hasCoordinates(point)) return;
 
-        const distance = distanceInMeters(point, current.targetStop);
-        if (!Number.isFinite(distance)) return;
-
+        const straightDistance = hasCoordinates(current.targetStop)
+          ? distanceInMeters(point, current.targetStop)
+          : null;
         const previous = gpsRef.current;
+
+        // Loop and doubling-back routes drive close to the target long before
+        // serving it. Arming the "gone past it" latch on that early pass would
+        // let a sample taken while still approaching look like a miss, so the
+        // approach is only tracked once the ride is actually near its end.
+        const onApproach =
+          rideStageRank(sessionRef.current?.stage) >=
+          rideStageRank(RIDE_STAGE.NEXT);
         const minimumDistance =
-          previous.minimumDistanceM === null
-            ? distance
-            : Math.min(previous.minimumDistanceM, distance);
+          onApproach && Number.isFinite(straightDistance)
+            ? previous.minimumDistanceM === null
+              ? straightDistance
+              : Math.min(previous.minimumDistanceM, straightDistance)
+            : previous.minimumDistanceM;
         const wasNearTarget =
-          previous.wasNearTarget === true || minimumDistance <= 80;
+          previous.wasNearTarget === true ||
+          (onApproach &&
+            Number.isFinite(minimumDistance) &&
+            minimumDistance <= 80);
         const movedAwayAfterNear =
-          wasNearTarget && distance >= 250 && distance > minimumDistance + 120;
+          wasNearTarget &&
+          Number.isFinite(straightDistance) &&
+          straightDistance >= 250 &&
+          Number.isFinite(minimumDistance) &&
+          straightDistance > minimumDistance + 120;
+
+        const shapeAnalysis = shapeRef.current
+          ? analyzeRideGps({
+              position: point,
+              accuracyM: accuracy,
+              speedMps: speed,
+              shape: shapeRef.current,
+              boardingShapeDistM:
+                current.plan?.boardingStop?.shapeDistTraveled,
+              targetShapeDistM:
+                current.plan?.targetStop?.shapeDistTraveled,
+              previousAlongM: previous.alongRouteM,
+              offRouteSinceMs: previous.offRouteSinceMs,
+              nowMs,
+            })
+          : null;
 
         const next = {
+          ...previous,
           status:
-            Number.isFinite(accuracy) && accuracy > 120 ? "weak" : "active",
-          distanceM: distance,
+            Number.isFinite(accuracy) && accuracy > 120
+              ? "weak"
+              : shapeAnalysis?.offRouteSuspected
+                ? "off-route"
+                : "active",
+          distanceM: Number.isFinite(straightDistance)
+            ? straightDistance
+            : null,
           accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+          speedMps: Number.isFinite(speed) ? speed : null,
           minimumDistanceM: minimumDistance,
           wasNearTarget,
           movedAwayAfterNear,
-          updatedAt: Date.now(),
+          shapeStatus: shapeRef.current ? "ready" : previous.shapeStatus,
+          shapeUsable: shapeAnalysis?.usable === true,
+          onRoute: shapeAnalysis?.onRoute === true,
+          alongRouteM: Number.isFinite(shapeAnalysis?.alongM)
+            ? shapeAnalysis.alongM
+            : null,
+          lateralDistanceM: Number.isFinite(shapeAnalysis?.lateralDistanceM)
+            ? shapeAnalysis.lateralDistanceM
+            : null,
+          routeDistanceM: Number.isFinite(shapeAnalysis?.routeDistanceM)
+            ? shapeAnalysis.routeDistanceM
+            : null,
+          routeEtaSec: Number.isFinite(shapeAnalysis?.routeEtaSec)
+            ? shapeAnalysis.routeEtaSec
+            : null,
+          offRouteSinceMs: shapeAnalysis?.offRouteSinceMs ?? null,
+          offRouteSuspected: shapeAnalysis?.offRouteSuspected === true,
+          passedTarget: shapeAnalysis?.passedTarget === true,
+          updatedAt: nowMs,
           error: "",
         };
 
@@ -625,15 +763,54 @@ export default function useRideMode() {
     return () => window.clearInterval(id);
   }, [applyProgress, session?.id]);
 
+  // The vehicle leaving the target ends the alarm whether the passenger got
+  // off or not. Repeating "get off now" at someone already standing on the
+  // pavement is noise, and it cannot help anyone still aboard either.
+  const targetVehicleGone =
+    runtime.targetWasAtStop === true && runtime.targetMissingCount >= 2;
+
   useEffect(() => {
-    if (session?.stage !== RIDE_STAGE.NOW) return undefined;
+    if (session?.stage !== RIDE_STAGE.NOW || targetVehicleGone) {
+      return undefined;
+    }
 
     const id = window.setInterval(() => {
       repeatNowRideSignal();
     }, NOW_REPEAT_MS);
 
     return () => window.clearInterval(id);
-  }, [session?.stage]);
+  }, [session?.stage, targetVehicleGone]);
+
+  // Autoplay policy suspends the audio context on a fresh page load, and a
+  // ride restored after a reload never runs the start-up test alert. Without
+  // this the tones are silently dead for the rest of the ride.
+  const rideActive = Boolean(session);
+
+  useEffect(() => {
+    if (!rideActive) return undefined;
+
+    let active = true;
+
+    const detach = () => {
+      document.removeEventListener("pointerdown", tryUnlock);
+      document.removeEventListener("keydown", tryUnlock);
+    };
+
+    async function tryUnlock() {
+      const unlocked = await unlockRideAudio();
+      if (unlocked && active) detach();
+    }
+
+    primeRideVoices();
+    void tryUnlock();
+    document.addEventListener("pointerdown", tryUnlock);
+    document.addEventListener("keydown", tryUnlock);
+
+    return () => {
+      active = false;
+      detach();
+    };
+  }, [rideActive, session?.id]);
 
   useEffect(
     () => () => {

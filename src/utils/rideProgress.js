@@ -69,25 +69,103 @@ function stopDetails(stopId, stopsById) {
   };
 }
 
+function helsinkiClockSeconds(epochSec) {
+  const epoch = finiteNumber(epochSec);
+  if (epoch === null || epoch <= 0) return null;
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Helsinki",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(new Date(epoch * 1000));
+
+    const byType = Object.fromEntries(
+      parts.map((part) => [part.type, part.value])
+    );
+    const hour = Number(byType.hour) % 24;
+    const minute = Number(byType.minute);
+    const second = Number(byType.second);
+
+    if (![hour, minute, second].every(Number.isFinite)) return null;
+    return hour * 3600 + minute * 60 + second;
+  } catch {
+    return null;
+  }
+}
+
+function circularClockDeltaSeconds(a, b) {
+  const left = finiteNumber(a);
+  const right = finiteNumber(b);
+  if (left === null || right === null) return Number.POSITIVE_INFINITY;
+
+  const day = 24 * 60 * 60;
+  const diff = Math.abs((left % day) - (right % day));
+  return Math.min(diff, day - diff);
+}
+
+export function resolveRideBoardingIndex(
+  stopTimes,
+  currentStopId,
+  aimedDepartureEpochSec
+) {
+  const rows = Array.isArray(stopTimes) ? stopTimes : [];
+  const candidates = rows
+    .map((item, index) =>
+      String(item?.stopId) === String(currentStopId) ? index : -1
+    )
+    .filter((index) => index >= 0);
+
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 0) return -1;
+
+  const aimedClock = helsinkiClockSeconds(aimedDepartureEpochSec);
+  if (aimedClock === null) return -1;
+
+  const ranked = candidates
+    .map((index) => ({
+      index,
+      delta: circularClockDeltaSeconds(
+        stopTimeSeconds(rows[index]),
+        aimedClock
+      ),
+    }))
+    .sort((a, b) => a.delta - b.delta);
+
+  if (ranked[0].delta > 10 * 60) return -1;
+  if (ranked[1] && ranked[1].delta - ranked[0].delta < 30) return -1;
+
+  return ranked[0].index;
+}
+
 export function buildRidePlan({
   stopTimes,
   currentStopId,
+  currentStopAimedEpochSec,
   targetStopId,
+  targetStopSequence,
   stopsById,
   departureEpochSec,
 }) {
   if (!Array.isArray(stopTimes) || stopTimes.length < 2) return null;
 
-  const boardingIndex = stopTimes.findIndex(
-    (item) => String(item?.stopId) === String(currentStopId)
+  const boardingIndex = resolveRideBoardingIndex(
+    stopTimes,
+    currentStopId,
+    currentStopAimedEpochSec
   );
   if (boardingIndex < 0) return null;
 
+  const targetSequence = finiteNumber(targetStopSequence);
   const targetIndex = stopTimes.findIndex(
     (item, index) =>
       index > boardingIndex &&
-      String(item?.stopId) === String(targetStopId) &&
-      Number(item?.dropOffType) !== 1
+      Number(item?.dropOffType) !== 1 &&
+      (targetSequence !== null
+        ? finiteNumber(item?.stopSequence) === targetSequence
+        : String(item?.stopId) === String(targetStopId))
   );
   if (targetIndex < 0) return null;
 
@@ -105,7 +183,9 @@ export function buildRidePlan({
   const routeStops = throughRecovery.map((item) => {
     const scheduleSec = stopTimeSeconds(item);
     const offsetSec =
-      scheduleSec === null ? null : Math.max(0, scheduleSec - boardingScheduleSec);
+      scheduleSec === null
+        ? null
+        : Math.max(0, scheduleSec - boardingScheduleSec);
 
     return {
       ...stopDetails(item.stopId, stopsById),
@@ -114,6 +194,7 @@ export function buildRidePlan({
       departureTime: item.departureTime || "",
       timepoint: finiteNumber(item.timepoint),
       dropOffType: finiteNumber(item.dropOffType),
+      shapeDistTraveled: finiteNumber(item.shapeDistTraveled),
       offsetSec,
       predictedEpochSec:
         offsetSec === null ? null : Math.round(departure + offsetSec),
@@ -162,16 +243,46 @@ export function matchRideArrival(arrivals, identity) {
     if (arrival) return { arrival, matchedBy: "trip" };
   }
 
-  const vehicle = normalizedString(identity.vehicleRef);
-  if (vehicle) {
-    const arrival = rows.find(
-      (row) => normalizedString(row?.vehicleref) === vehicle
-    );
-    if (arrival) return { arrival, matchedBy: "vehicle" };
-  }
-
   const line = normalizedString(identity.lineRef);
   const originTime = finiteNumber(identity.originAimedDepartureTime);
+
+  const vehicle = normalizedString(identity.vehicleRef);
+  if (vehicle) {
+    // A registration is not a journey. A bus that reaches its terminus starts
+    // a new run, often under a different line number, so a stop served in
+    // both directions lists the same vehicle twice. Taking whichever row the
+    // feed happened to put first would track the wrong run and time the
+    // get-off alarm against it.
+    const sameVehicle = rows.filter(
+      (row) =>
+        normalizedString(row?.vehicleref) === vehicle &&
+        (line === "" || normalizedString(row?.lineref) === line)
+    );
+
+    if (sameVehicle.length === 1) {
+      return { arrival: sameVehicle[0], matchedBy: "vehicle" };
+    }
+
+    if (sameVehicle.length > 1 && originTime !== null) {
+      const ranked = sameVehicle
+        .map((arrival) => ({
+          arrival,
+          delta: Math.abs(
+            (finiteNumber(arrival?.originaimeddeparturetime) ??
+              Number.POSITIVE_INFINITY) - originTime
+          ),
+        }))
+        .sort((a, b) => a.delta - b.delta);
+
+      if (ranked[0].delta <= 90 && ranked[1].delta - ranked[0].delta >= 90) {
+        return {
+          arrival: ranked[0].arrival,
+          matchedBy: "vehicle-origin-time",
+        };
+      }
+    }
+  }
+
   if (line && originTime !== null) {
     const arrival = rows.find((row) => {
       const rowOrigin = finiteNumber(row?.originaimeddeparturetime);
@@ -230,21 +341,38 @@ function candidateStage(signals) {
   const providerAge = finiteNumber(signals.providerPositionAgeSec);
   const gpsDistance = finiteNumber(signals.gpsDistanceM);
   const gpsAccuracy = finiteNumber(signals.gpsAccuracyM);
+  const gpsAge = finiteNumber(signals.gpsAgeSec);
+  const gpsRouteDistance = finiteNumber(signals.gpsRouteDistanceM);
+  const gpsRouteEta = finiteNumber(signals.gpsRouteEtaSec);
 
   const freshProviderPosition =
     providerDistance !== null &&
     (providerAge === null || providerAge <= 120);
-
+  // A fix is only evidence about where the passenger is now. Once the phone
+  // stops reporting — tunnel, revoked permission, sleeping device — the last
+  // known distance stays in state forever, and without this it could still
+  // announce "get off now" many minutes and several kilometres later.
+  const gpsFresh = gpsAge === null || gpsAge <= 60;
   const reliableGps =
     gpsDistance !== null &&
-    (gpsAccuracy === null || gpsAccuracy <= 120);
+    gpsAccuracy !== null &&
+    gpsAccuracy <= 120 &&
+    gpsFresh;
+  const reliableShapeGps =
+    signals.gpsShapeUsable === true &&
+    signals.gpsOnRoute === true &&
+    gpsRouteDistance !== null &&
+    gpsAccuracy !== null &&
+    gpsAccuracy <= 120 &&
+    gpsFresh;
 
-  // The planned timetable is anchored to the departure the passenger boarded,
-  // so it drifts as the vehicle falls further behind. While the provider is
-  // still predicting this journey, that prediction wins: a schedule that has
-  // silently slipped five minutes must not announce the stop five minutes
-  // early and leave the passenger standing at the door.
-  const scheduleIsAuthoritative = liveEta === null;
+  // The timetable is anchored at boarding, so it drifts by every minute the
+  // bus loses in traffic. A fresh on-route fix is direct evidence about where
+  // the passenger is right now, so a drifted clock is not allowed to raise
+  // the alarm over it and send someone out a kilometre early. Straight-line
+  // GPS does not count: 300 metres as the crow flies can be three kilometres
+  // of one-way streets.
+  const scheduleIsAuthoritative = liveEta === null && !reliableShapeGps;
   const scheduleSaysNext =
     scheduleIsAuthoritative &&
     ((remaining !== null && remaining <= 1) ||
@@ -254,19 +382,24 @@ function candidateStage(signals) {
     ((remaining !== null && remaining <= 3) ||
       (scheduleEta !== null && scheduleEta <= 300));
 
+  const shapeSaysNext =
+    reliableShapeGps &&
+    ((gpsRouteDistance >= -50 && gpsRouteDistance <= 600) ||
+      (gpsRouteEta !== null && gpsRouteEta <= 90));
   const nextEvidence =
     signals.previousPassedConfirmed === true ||
+    shapeSaysNext ||
     (liveEta !== null && liveEta <= 90) ||
     scheduleSaysNext;
-
-  // Proximity may only mean "get off now" once the ride is plausibly at its
-  // end, so a loop route passing the target early cannot fire it. Evidence
-  // gathered in this same evaluation counts: otherwise reaching NEXT and NOW
-  // together would hold the alert back a whole tick.
-  const nearEndOfRide = signals.currentAtLeastNext === true || nextEvidence;
+  const nearEndOfRide =
+    signals.currentAtLeastNext === true || nextEvidence;
 
   if (signals.targetAtStop === true) {
-    return { stage: RIDE_STAGE.NOW, reason: "target-at-stop", confidence: "live" };
+    return {
+      stage: RIDE_STAGE.NOW,
+      reason: "target-at-stop",
+      confidence: "live",
+    };
   }
 
   if (nearEndOfRide && freshProviderPosition && providerDistance <= 60) {
@@ -277,7 +410,25 @@ function candidateStage(signals) {
     };
   }
 
-  if (nearEndOfRide && reliableGps && gpsDistance <= 60) {
+  if (
+    nearEndOfRide &&
+    reliableShapeGps &&
+    gpsRouteDistance >= -30 &&
+    gpsRouteDistance <= 110
+  ) {
+    return {
+      stage: RIDE_STAGE.NOW,
+      reason: "gps-route-arrival",
+      confidence: "location",
+    };
+  }
+
+  if (
+    nearEndOfRide &&
+    signals.gpsShapeAvailable !== true &&
+    reliableGps &&
+    gpsDistance <= 60
+  ) {
     return {
       stage: RIDE_STAGE.NOW,
       reason: "device-near-target",
@@ -286,33 +437,67 @@ function candidateStage(signals) {
   }
 
   if (nextEvidence) {
+    const gpsDistanceNext =
+      reliableShapeGps &&
+      gpsRouteDistance >= -50 &&
+      gpsRouteDistance <= 600;
     return {
       stage: RIDE_STAGE.NEXT,
       reason:
         signals.previousPassedConfirmed === true
           ? "previous-stop-passed"
-          : liveEta !== null && liveEta <= 90
-            ? "live-eta"
-            : remaining !== null && remaining <= 1
-              ? "planned-stop-count"
-              : "schedule-fallback",
+          : gpsDistanceNext
+            ? "gps-route-distance"
+            : reliableShapeGps &&
+                gpsRouteEta !== null &&
+                gpsRouteEta <= 90
+              ? "gps-route-eta"
+              : liveEta !== null && liveEta <= 90
+                ? "live-eta"
+                : remaining !== null && remaining <= 1
+                  ? "planned-stop-count"
+                  : "schedule-fallback",
       confidence:
         signals.previousPassedConfirmed === true || liveEta !== null
           ? "live"
-          : "schedule",
+          : reliableShapeGps
+            ? "location"
+            : "schedule",
     };
   }
 
-  if ((liveEta !== null && liveEta <= 300) || scheduleSaysSoon) {
+  const shapeSaysSoon =
+    reliableShapeGps &&
+    ((gpsRouteDistance >= 0 && gpsRouteDistance <= 1200) ||
+      (gpsRouteEta !== null && gpsRouteEta <= 300));
+
+  if (
+    shapeSaysSoon ||
+    (liveEta !== null && liveEta <= 300) ||
+    scheduleSaysSoon
+  ) {
+    const gpsDistanceSoon =
+      reliableShapeGps &&
+      gpsRouteDistance >= 0 &&
+      gpsRouteDistance <= 1200;
     return {
       stage: RIDE_STAGE.SOON,
-      reason:
-        liveEta !== null && liveEta <= 300
-          ? "live-eta"
-          : remaining !== null && remaining <= 3
-            ? "planned-stop-count"
-            : "schedule-fallback",
-      confidence: liveEta !== null ? "live" : "schedule",
+      reason: gpsDistanceSoon
+        ? "gps-route-distance"
+        : reliableShapeGps &&
+            gpsRouteEta !== null &&
+            gpsRouteEta <= 300
+          ? "gps-route-eta"
+          : liveEta !== null && liveEta <= 300
+            ? "live-eta"
+            : remaining !== null && remaining <= 3
+              ? "planned-stop-count"
+              : "schedule-fallback",
+      confidence: reliableShapeGps
+        ? "location"
+        : liveEta !== null
+          ? "live"
+          : "schedule",
     };
   }
 
@@ -325,32 +510,51 @@ function candidateStage(signals) {
 
 export function evaluateRideStage(currentStage, signals = {}) {
   if (currentStage === RIDE_STAGE.MISSED) {
-    return { stage: currentStage, reason: "already-missed", confidence: "live" };
+    return {
+      stage: currentStage,
+      reason: "already-missed",
+      confidence: "live",
+    };
   }
 
-  // Reachable from NEXT as well as NOW. If live tracking dies on the final
-  // approach the stage never reaches NOW, and requiring it would leave the
-  // panel insisting "your stop is next" while the bus drives away — the exact
-  // failure this feature exists to prevent. Below NEXT the evidence is not
-  // trusted: a route that merely passes near the target early in the trip
-  // must not be able to declare the stop missed.
+  // Before the get-off alert has fired, the vehicle leaving the target means
+  // the passenger is still aboard and has ridden past it.
+  //
+  // Once NOW has fired, the same evidence means the opposite. A passenger who
+  // stepped off leaves behind exactly this: the bus departs the stop, and the
+  // phone walks away from it. Treating that as a miss tells someone standing
+  // at their own destination to get off at the next stop — the worst possible
+  // advice for the person this feature exists for. After NOW, only positive
+  // evidence of still travelling along the route past the target counts.
+  const reachedNow =
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NOW);
+  const missedEvidence = reachedNow
+    ? signals.gpsPassedTarget === true
+    : signals.targetPassedConfirmed === true ||
+      signals.gpsPassedTarget === true ||
+      signals.gpsMovedAwayAfterNear === true;
+
   if (
     rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT) &&
-    (signals.targetPassedConfirmed === true ||
-      signals.gpsMovedAwayAfterNear === true)
+    missedEvidence
   ) {
     return {
       stage: RIDE_STAGE.MISSED,
       reason:
-        signals.targetPassedConfirmed === true
+        !reachedNow && signals.targetPassedConfirmed === true
           ? "target-passed"
-          : "device-moved-away",
+          : signals.gpsPassedTarget === true
+            ? "gps-route-passed"
+            : "device-moved-away",
       confidence:
-        signals.targetPassedConfirmed === true ? "live" : "location",
+        !reachedNow && signals.targetPassedConfirmed === true
+          ? "live"
+          : "location",
     };
   }
 
-  const currentAtLeastNext = rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT);
+  const currentAtLeastNext =
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT);
   const candidate = candidateStage({ ...signals, currentAtLeastNext });
 
   return rideStageRank(candidate.stage) > rideStageRank(currentStage)

@@ -1,3 +1,5 @@
+import { rideExitInstruction } from "./rideInstructions";
+
 const ALERT_PATTERNS = {
   test: {
     tones: [660, 880],
@@ -104,11 +106,50 @@ function speechSupported() {
   );
 }
 
+// `getVoices()` is empty until the engine has loaded its list, which lands
+// after a `voiceschanged` event. The start-up test alert fires immediately,
+// so without caching across that event the stop name is read by an English
+// voice at exactly the moment the passenger is checking the alert.
+let cachedVoices = [];
+let voicesListenerAttached = false;
+
+function refreshCachedVoices() {
+  try {
+    const voices = globalThis.speechSynthesis?.getVoices?.() || [];
+    if (voices.length > 0) cachedVoices = voices;
+  } catch {
+    // Voice discovery is best effort.
+  }
+}
+
+export function primeRideVoices() {
+  if (!speechSupported()) return false;
+
+  refreshCachedVoices();
+
+  if (!voicesListenerAttached) {
+    try {
+      globalThis.speechSynthesis.addEventListener?.(
+        "voiceschanged",
+        refreshCachedVoices
+      );
+      voicesListenerAttached = true;
+    } catch {
+      // Older engines expose no event; the direct read above still works.
+    }
+  }
+
+  return cachedVoices.length > 0;
+}
+
 function finnishVoice() {
-  const voices = globalThis.speechSynthesis?.getVoices?.() || [];
+  primeRideVoices();
+
   return (
-    voices.find((voice) => String(voice.lang || "").toLowerCase() === "fi-fi") ||
-    voices.find((voice) =>
+    cachedVoices.find(
+      (voice) => String(voice.lang || "").toLowerCase() === "fi-fi"
+    ) ||
+    cachedVoices.find((voice) =>
       String(voice.lang || "").toLowerCase().startsWith("fi")
     ) ||
     null
@@ -123,7 +164,7 @@ function speakUtterance(text, lang, voice = null) {
   globalThis.speechSynthesis.speak(utterance);
 }
 
-export function speakRideStage(stage, stopName) {
+export function speakRideStage(stage, stopName, routeType = null) {
   if (!speechSupported()) return false;
 
   const name = String(stopName || "your stop").trim();
@@ -147,7 +188,7 @@ export function speakRideStage(stage, stopName) {
     if (stage === "next") {
       speakUtterance("The next stop is yours.", "en-US");
       speakUtterance(name, "fi-FI", fiVoice);
-      speakUtterance("Press the stop button now.", "en-US");
+      speakUtterance(rideExitInstruction(routeType).nextVoice, "en-US");
       return true;
     }
 
@@ -186,7 +227,7 @@ export async function requestRideNotificationPermission() {
   }
 }
 
-function notificationCopy(stage, stopName) {
+function notificationCopy(stage, stopName, routeType = null) {
   const name = String(stopName || "your stop").trim();
 
   if (stage === "soon") {
@@ -198,7 +239,7 @@ function notificationCopy(stage, stopName) {
   if (stage === "next") {
     return {
       title: `Next stop: ${name}`,
-      body: "Press the STOP button now.",
+      body: rideExitInstruction(routeType).nextNotification,
     };
   }
   if (stage === "now") {
@@ -219,13 +260,13 @@ function notificationCopy(stage, stopName) {
   };
 }
 
-export async function showRideNotification(stage, stopName) {
+export async function showRideNotification(stage, stopName, routeType = null) {
   const NotificationApi = globalThis.Notification;
   if (!NotificationApi || NotificationApi.permission !== "granted") {
     return false;
   }
 
-  const copy = notificationCopy(stage, stopName);
+  const copy = notificationCopy(stage, stopName, routeType);
   const options = {
     body: copy.body,
     tag: "foli-active-ride",
@@ -246,7 +287,18 @@ export async function showRideNotification(stage, stopName) {
     }
 
     if (typeof NotificationApi === "function") {
-      new NotificationApi(copy.title, options);
+      // Without a service worker the tap lands on the page, and it has to be
+      // sent somewhere: a get-off alert that does nothing when pressed costs
+      // the passenger the seconds it was meant to buy them.
+      const notification = new NotificationApi(copy.title, options);
+      notification.onclick = () => {
+        try {
+          globalThis.focus?.();
+          notification.close?.();
+        } catch {
+          // Focusing is best effort; the alert has already been delivered.
+        }
+      };
       return true;
     }
   } catch {
@@ -256,13 +308,18 @@ export async function showRideNotification(stage, stopName) {
   return false;
 }
 
-export function announceRideStage(stage, stopName, notificationsEnabled = true) {
+export function announceRideStage(
+  stage,
+  stopName,
+  notificationsEnabled = true,
+  routeType = null
+) {
   playRideTone(stage);
   vibrateRideStage(stage);
-  speakRideStage(stage, stopName);
+  speakRideStage(stage, stopName, routeType);
 
   if (notificationsEnabled) {
-    void showRideNotification(stage, stopName);
+    void showRideNotification(stage, stopName, routeType);
   }
 }
 

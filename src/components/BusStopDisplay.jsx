@@ -109,6 +109,7 @@ function BusStopDisplay({
   stop,
   stops = [],
   arrivals,
+  routesById,
   routesByShortName,
   serverTime,
   receivedAtMs,
@@ -256,7 +257,14 @@ function BusStopDisplay({
             <tbody>
               {visibleArrivals.map((arrival, index) => {
                 const departureTime = getDepartureTime(arrival);
-                const route = routesByShortName?.get(arrival.lineref);
+                const tripDetails = arrival.tripref
+                  ? tripDetailsById.get(arrival.tripref)
+                  : null;
+                const route =
+                  (tripDetails?.routeId
+                    ? routesById?.get(tripDetails.routeId)
+                    : null) ||
+                  routesByShortName?.get(arrival.lineref);
                 const serviceStatus = formatServiceStatus(
                   arrival.monitored,
                   arrival.delay,
@@ -269,9 +277,6 @@ function BusStopDisplay({
                   route,
                   effectiveServerTime
                 );
-                const tripDetails = arrival.tripref
-                  ? tripDetailsById.get(arrival.tripref)
-                  : null;
                 const destination =
                   localizedDestination(arrival, preferredLanguages) ||
                   tripDetails?.headsign ||
@@ -368,6 +373,7 @@ function BusStopDisplay({
                           currentStopName={stopName}
                           stopsById={stopsById}
                           placesById={placesById}
+                          routesById={routesById}
                           onCancel={() => setRideCandidateKey("")}
                           onStart={(config) => {
                             onStartRide?.(config);

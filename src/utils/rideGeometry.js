@@ -1,0 +1,297 @@
+import { distanceInMeters, hasCoordinates } from "./geo";
+
+const EARTH_RADIUS_METERS = 6_371_008.8;
+const MAX_GPS_ACCURACY_METERS = 120;
+const OFF_ROUTE_CONFIRM_MS = 120_000;
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function localXY(point, origin) {
+  const latitude = finiteNumber(point?.lat);
+  const longitude = finiteNumber(point?.lon);
+  const originLat = finiteNumber(origin?.lat);
+  const originLon = finiteNumber(origin?.lon);
+
+  if (
+    latitude === null ||
+    longitude === null ||
+    originLat === null ||
+    originLon === null
+  ) {
+    return null;
+  }
+
+  const meanLat = toRadians((latitude + originLat) / 2);
+
+  return {
+    x:
+      toRadians(longitude - originLon) *
+      Math.cos(meanLat) *
+      EARTH_RADIUS_METERS,
+    y: toRadians(latitude - originLat) * EARTH_RADIUS_METERS,
+  };
+}
+
+export function prepareRideShape(points) {
+  const valid = (Array.isArray(points) ? points : []).filter(hasCoordinates);
+  if (valid.length < 2) return null;
+
+  const gtfsDistances = valid.map((point) => finiteNumber(point?.traveled));
+  const hasMonotonicGtfsDistances = gtfsDistances.every(
+    (value, index) =>
+      value !== null &&
+      value >= 0 &&
+      (index === 0 || value >= gtfsDistances[index - 1])
+  );
+
+  let cumulative = 0;
+  const normalized = valid.map((point, index) => {
+    if (index > 0) {
+      cumulative +=
+        distanceInMeters(valid[index - 1], point) || 0;
+    }
+
+    return {
+      lat: Number(point.lat),
+      lon: Number(point.lon),
+      alongM: hasMonotonicGtfsDistances
+        ? gtfsDistances[index]
+        : cumulative,
+    };
+  });
+
+  return {
+    points: normalized,
+    usesGtfsDistance: hasMonotonicGtfsDistances,
+    lengthM: normalized.at(-1).alongM,
+  };
+}
+
+function segmentProjection(position, start, end) {
+  const startXY = localXY(start, position);
+  const endXY = localXY(end, position);
+  if (!startXY || !endXY) return null;
+
+  const dx = endXY.x - startXY.x;
+  const dy = endXY.y - startXY.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const t =
+    lengthSquared <= 1e-6
+      ? 0
+      : Math.min(
+          1,
+          Math.max(
+            0,
+            -((startXY.x * dx + startXY.y * dy) / lengthSquared)
+          )
+        );
+
+  const x = startXY.x + t * dx;
+  const y = startXY.y + t * dy;
+
+  return {
+    t,
+    lateralDistanceM: Math.hypot(x, y),
+  };
+}
+
+export function projectPositionToRideShape(
+  position,
+  shape,
+  {
+    minAlongM = Number.NEGATIVE_INFINITY,
+    maxAlongM = Number.POSITIVE_INFINITY,
+    previousAlongM = null,
+  } = {}
+) {
+  if (!hasCoordinates(position) || !shape?.points?.length) return null;
+
+  const previous = finiteNumber(previousAlongM);
+  const candidates = [];
+
+  for (let index = 0; index < shape.points.length - 1; index += 1) {
+    const start = shape.points[index];
+    const end = shape.points[index + 1];
+
+    if (end.alongM < minAlongM || start.alongM > maxAlongM) {
+      continue;
+    }
+
+    const projection = segmentProjection(position, start, end);
+    if (!projection) continue;
+
+    const alongM =
+      start.alongM +
+      projection.t * Math.max(0, end.alongM - start.alongM);
+
+    if (alongM < minAlongM || alongM > maxAlongM) continue;
+
+    // GPS can sit near two legs of a loop. Prefer continuity instead of
+    // snapping hundreds of metres backwards to a geometrically close segment.
+    const backwardsM =
+      previous === null ? 0 : Math.max(0, previous - alongM - 80);
+    const score =
+      projection.lateralDistanceM + backwardsM * 4;
+
+    candidates.push({
+      score,
+      segmentIndex: index,
+      alongM,
+      lateralDistanceM: projection.lateralDistanceM,
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.score - b.score);
+
+  let best = candidates[0];
+  const nearAlternatives = candidates.filter(
+    (candidate) =>
+      candidate !== best &&
+      candidate.lateralDistanceM <= best.lateralDistanceM + 20 &&
+      Math.abs(candidate.alongM - best.alongM) >= 250
+  );
+
+  if (nearAlternatives.length > 0) {
+    if (previous === null) {
+      return {
+        segmentIndex: best.segmentIndex,
+        alongM: best.alongM,
+        lateralDistanceM: best.lateralDistanceM,
+        ambiguous: true,
+      };
+    }
+
+    const continuityRanked = [best, ...nearAlternatives]
+      .map((candidate) => ({
+        candidate,
+        delta: Math.abs(candidate.alongM - previous),
+      }))
+      .sort((a, b) => a.delta - b.delta);
+
+    best = continuityRanked[0].candidate;
+    if (
+      continuityRanked[1] &&
+      continuityRanked[1].delta - continuityRanked[0].delta < 250
+    ) {
+      return {
+        segmentIndex: best.segmentIndex,
+        alongM: best.alongM,
+        lateralDistanceM: best.lateralDistanceM,
+        ambiguous: true,
+      };
+    }
+  }
+
+  return {
+    segmentIndex: best.segmentIndex,
+    alongM: best.alongM,
+    lateralDistanceM: best.lateralDistanceM,
+    ambiguous: false,
+  };
+}
+
+export function analyzeRideGps({
+  position,
+  accuracyM,
+  speedMps,
+  shape,
+  boardingShapeDistM,
+  targetShapeDistM,
+  previousAlongM = null,
+  offRouteSinceMs = null,
+  nowMs = Date.now(),
+}) {
+  const accuracy = finiteNumber(accuracyM);
+  const speed = finiteNumber(speedMps);
+  const boarding = finiteNumber(boardingShapeDistM);
+  const target = finiteNumber(targetShapeDistM);
+
+  if (
+    !shape ||
+    boarding === null ||
+    target === null ||
+    target <= boarding ||
+    accuracy === null ||
+    accuracy < 0
+  ) {
+    return {
+      usable: false,
+      reason: "shape-or-accuracy-unavailable",
+    };
+  }
+
+  const projection = projectPositionToRideShape(position, shape, {
+    minAlongM: Math.max(0, boarding - 300),
+    maxAlongM: Math.min(shape.lengthM, target + 700),
+    previousAlongM,
+  });
+
+  if (!projection) {
+    return {
+      usable: false,
+      reason: "shape-match-unavailable",
+    };
+  }
+
+  if (projection.ambiguous) {
+    return {
+      usable: false,
+      reason: "shape-match-ambiguous",
+      alongM: projection.alongM,
+      lateralDistanceM: projection.lateralDistanceM,
+      offRouteSinceMs: null,
+      offRouteSuspected: false,
+      passedTarget: false,
+    };
+  }
+
+  const corridorM = Math.max(
+    100,
+    Math.min(220, accuracy * 1.5)
+  );
+  const accurateEnough = accuracy <= MAX_GPS_ACCURACY_METERS;
+  const onRoute =
+    accurateEnough && projection.lateralDistanceM <= corridorM;
+
+  const routeDistanceM = target - projection.alongM;
+  const routeEtaSec =
+    onRoute &&
+    speed !== null &&
+    speed >= 2 &&
+    speed <= 40 &&
+    routeDistanceM > 0
+      ? routeDistanceM / speed
+      : null;
+
+  let nextOffRouteSinceMs = null;
+  if (accurateEnough && !onRoute) {
+    nextOffRouteSinceMs =
+      finiteNumber(offRouteSinceMs) ?? Number(nowMs);
+  }
+
+  const offRouteSuspected =
+    nextOffRouteSinceMs !== null &&
+    Number(nowMs) - nextOffRouteSinceMs >= OFF_ROUTE_CONFIRM_MS;
+
+  return {
+    usable: accurateEnough,
+    accurateEnough,
+    onRoute,
+    alongM: projection.alongM,
+    lateralDistanceM: projection.lateralDistanceM,
+    routeDistanceM,
+    routeEtaSec,
+    passedTarget: onRoute && routeDistanceM < -200,
+    offRouteSinceMs: nextOffRouteSinceMs,
+    offRouteSuspected,
+  };
+}

@@ -1,0 +1,108 @@
+import { describe, expect, it } from "vitest";
+import {
+  analyzeRideGps,
+  prepareRideShape,
+  projectPositionToRideShape,
+} from "./rideGeometry";
+
+describe("Ride Mode shape matching", () => {
+  const shape = prepareRideShape([
+    { lat: 60.45, lon: 22.25, traveled: 0 },
+    { lat: 60.45, lon: 22.26, traveled: 550 },
+    { lat: 60.45, lon: 22.27, traveled: 1100 },
+    { lat: 60.45, lon: 22.28, traveled: 1650 },
+    { lat: 60.45, lon: 22.29, traveled: 2200 },
+  ]);
+
+  it("keeps provider traveled distances as the shared GTFS distance axis", () => {
+    expect(shape.usesGtfsDistance).toBe(true);
+    expect(shape.lengthM).toBe(2200);
+  });
+
+  it("projects a GPS point onto the trip path instead of target straight-line distance", () => {
+    const match = projectPositionToRideShape(
+      { lat: 60.45005, lon: 22.275 },
+      shape
+    );
+
+    expect(match.lateralDistanceM).toBeLessThan(10);
+    expect(match.alongM).toBeGreaterThan(1300);
+    expect(match.alongM).toBeLessThan(1450);
+  });
+
+  it("uses route distance and speed only when GPS is accurate and on-route", () => {
+    const sample = analyzeRideGps({
+      position: { lat: 60.45, lon: 22.278 },
+      accuracyM: 18,
+      speedMps: 9,
+      shape,
+      boardingShapeDistM: 0,
+      targetShapeDistM: 2200,
+      nowMs: 1_000_000,
+    });
+
+    expect(sample.usable).toBe(true);
+    expect(sample.onRoute).toBe(true);
+    expect(sample.routeDistanceM).toBeGreaterThan(500);
+    expect(sample.routeDistanceM).toBeLessThan(800);
+    expect(sample.routeEtaSec).toBeGreaterThan(50);
+    expect(sample.routeEtaSec).toBeLessThan(100);
+  });
+
+  it("does not trust poor-accuracy GPS as route evidence", () => {
+    const sample = analyzeRideGps({
+      position: { lat: 60.45, lon: 22.278 },
+      accuracyM: 180,
+      speedMps: 8,
+      shape,
+      boardingShapeDistM: 0,
+      targetShapeDistM: 2200,
+    });
+
+    expect(sample.usable).toBe(false);
+    expect(sample.onRoute).toBe(false);
+  });
+
+  it("requires two minutes of accurate off-route movement before warning", () => {
+    const first = analyzeRideGps({
+      position: { lat: 60.455, lon: 22.27 },
+      accuracyM: 20,
+      speedMps: 10,
+      shape,
+      boardingShapeDistM: 0,
+      targetShapeDistM: 2200,
+      nowMs: 1_000_000,
+    });
+
+    expect(first.onRoute).toBe(false);
+    expect(first.offRouteSuspected).toBe(false);
+
+    const later = analyzeRideGps({
+      position: { lat: 60.455, lon: 22.275 },
+      accuracyM: 20,
+      speedMps: 10,
+      shape,
+      boardingShapeDistM: 0,
+      targetShapeDistM: 2200,
+      offRouteSinceMs: first.offRouteSinceMs,
+      nowMs: 1_121_000,
+    });
+
+    expect(later.offRouteSuspected).toBe(true);
+  });
+
+  it("detects confirmed passage beyond the target along the route", () => {
+    const sample = analyzeRideGps({
+      position: { lat: 60.45, lon: 22.29 },
+      accuracyM: 15,
+      speedMps: 8,
+      shape,
+      boardingShapeDistM: 0,
+      targetShapeDistM: 1800,
+    });
+
+    expect(sample.onRoute).toBe(true);
+    expect(sample.routeDistanceM).toBeLessThan(-200);
+    expect(sample.passedTarget).toBe(true);
+  });
+});

@@ -1,3 +1,4 @@
+import { rideExitInstruction } from "../utils/rideInstructions";
 import { RIDE_STAGE } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
 
@@ -30,6 +31,7 @@ const STAGE_COPY = {
 };
 
 function etaLabel(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
   if (value <= 30) return "about now";
@@ -38,6 +40,7 @@ function etaLabel(seconds) {
 }
 
 function remainingLabel(value) {
+  if (value === null || value === undefined || value === "") return "";
   const count = Number(value);
   if (!Number.isFinite(count)) return "";
   if (count <= 0) return "target stop";
@@ -50,14 +53,59 @@ function trackingLabel(health) {
   return "Schedule fallback";
 }
 
-function locationLabel(gps, enabled) {
-  if (!enabled) return "Location backup off";
-  if (gps.status === "active") return "Location backup active";
-  if (gps.status === "weak") return "Location accuracy is weak";
-  if (gps.status === "starting") return "Starting location backup";
-  if (gps.status === "error") return "Location backup unavailable";
-  if (gps.status === "unavailable") return "Location backup unsupported";
-  return "Location backup waiting";
+// The same window the stage logic uses to decide a fix is still evidence.
+// Past it the panel must stop presenting the last distance as current: a
+// tunnel-old "420 m along route" reads more concrete than the alert badge
+// beside it, and a passenger will believe it over the alarm.
+const GPS_STALE_AFTER_SEC = 60;
+
+function gpsIsStale(ageSec) {
+  const age = Number(ageSec);
+  return Number.isFinite(age) && age > GPS_STALE_AFTER_SEC;
+}
+
+function staleLabel(ageSec) {
+  const minutes = Math.round(Number(ageSec) / 60);
+  return minutes >= 2 ? `last fix ${minutes} min ago` : "last fix over a minute ago";
+}
+
+function gpsDetail(gps, enabled, ageSec) {
+  if (!enabled) return "Föli realtime only";
+  if (gpsIsStale(ageSec)) return staleLabel(ageSec);
+
+  if (
+    gps.routeDistanceM !== null &&
+    gps.routeDistanceM !== undefined &&
+    Number.isFinite(Number(gps.routeDistanceM))
+  ) {
+    const along = Math.round(Number(gps.routeDistanceM));
+    return along < 0
+      ? `~${Math.abs(along)} m past your stop`
+      : `~${along} m along route`;
+  }
+  if (
+    gps.distanceM !== null &&
+    gps.distanceM !== undefined &&
+    Number.isFinite(Number(gps.distanceM))
+  ) {
+    return `~${Math.round(gps.distanceM)} m straight-line fallback`;
+  }
+  return "no location fix yet";
+}
+
+function locationLabel(gps, enabled, ageSec) {
+  if (!enabled) return "GPS ride tracking off";
+  if (gpsIsStale(ageSec)) return "GPS fix is out of date";
+  if (gps.status === "off-route") return "GPS no longer matches this trip";
+  if (gps.status === "active" && gps.shapeUsable && gps.onRoute) {
+    return "GPS matched to trip path";
+  }
+  if (gps.status === "active") return "GPS fallback active";
+  if (gps.status === "weak") return "GPS accuracy is weak";
+  if (gps.status === "starting") return "Starting GPS ride tracking";
+  if (gps.status === "error") return "GPS ride tracking unavailable";
+  if (gps.status === "unavailable") return "GPS unsupported";
+  return "GPS waiting";
 }
 
 export default function RideMode({
@@ -71,14 +119,17 @@ export default function RideMode({
 }) {
   if (!session) return null;
 
-  const stage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const stage = session.stage === RIDE_STAGE.NEXT
+    ? { ...baseStage, instruction: rideExitInstruction(session.routeType).nextText }
+    : baseStage;
   const urgent =
     session.stage === RIDE_STAGE.NEXT ||
     session.stage === RIDE_STAGE.NOW ||
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
   const afterName = session.previousStop?.name || session.boardingStop?.name;
-  const eta = etaLabel(runtime.liveEtaSec ?? runtime.scheduleEtaSec);
+  const eta = etaLabel(runtime.etaSec);
   const remaining = remainingLabel(runtime.remainingStops);
 
   const recoverAtNextStop = () => {
@@ -150,12 +201,18 @@ export default function RideMode({
         </span>
         <span>
           <strong>
-            {locationLabel(gps, session.options?.locationBackup === true)}
+            {locationLabel(
+              gps,
+              session.options?.locationBackup === true,
+              runtime.gpsAgeSec
+            )}
           </strong>
           <small>
-            {gps.distanceM !== null && Number.isFinite(Number(gps.distanceM))
-              ? `~${Math.round(gps.distanceM)} m from target on this device`
-              : "coordinates are never stored"}
+            {gpsDetail(
+              gps,
+              session.options?.locationBackup === true,
+              runtime.gpsAgeSec
+            )}
           </small>
         </span>
         <span>
@@ -183,6 +240,21 @@ export default function RideMode({
           {gps.error} Ride tracking continues without device location.
         </p>
       )}
+
+      {gps.offRouteSuspected && (
+        <p className={styles.degraded} role="alert">
+          Your movement has not matched this trip&apos;s planned path for about
+          two minutes. Check that you are on the intended vehicle or route.
+        </p>
+      )}
+
+      {gps.shapeStatus === "unavailable" &&
+        session.options?.locationBackup && (
+          <p className={styles.degraded} role="status">
+            Route-shape matching is unavailable. Föli realtime and conservative
+            straight-line GPS fallback remain active.
+          </p>
+        )}
 
       {session.stage === RIDE_STAGE.MISSED && session.nextStop && (
         <div className={styles.recovery}>
