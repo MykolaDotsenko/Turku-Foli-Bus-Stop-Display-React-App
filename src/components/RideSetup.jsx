@@ -38,6 +38,7 @@ export default function RideSetup({
   currentStopName,
   stopsById,
   placesById,
+  routeType,
   onStart,
   onCancel,
 }) {
@@ -69,29 +70,46 @@ export default function RideSetup({
     return () => controller.abort();
   }, [arrival?.tripref]);
 
-  const downstream = useMemo(() => {
-    const currentIndex = stopTimes.findIndex(
-      (item) => String(item.stopId) === String(currentStopId)
-    );
-    if (currentIndex < 0) return [];
+  const boardingIndexes = useMemo(
+    () =>
+      stopTimes
+        .map((item, index) =>
+          String(item.stopId) === String(currentStopId) ? index : -1
+        )
+        .filter((index) => index >= 0),
+    [currentStopId, stopTimes]
+  );
+  const ambiguousBoarding = boardingIndexes.length > 1;
 
-    return stopTimes
-      .slice(currentIndex + 1)
-      .filter((item) => Number(item.dropOffType) !== 1)
-      .map((item) => ({
-        ...item,
-        stop: stopsById.get(String(item.stopId)) || {
-          id: String(item.stopId),
-          name: `Stop ${item.stopId}`,
-        },
-        places: savedPlaceLabels(placesById, item.stopId),
-      }));
-  }, [currentStopId, placesById, stopTimes, stopsById]);
+  const downstream = useMemo(() => {
+    if (boardingIndexes.length !== 1) return [];
+
+    const raw = stopTimes
+      .slice(boardingIndexes[0] + 1)
+      .filter((item) => Number(item.dropOffType) !== 1);
+    const counts = raw.reduce((map, item) => {
+      const id = String(item.stopId);
+      map.set(id, (map.get(id) || 0) + 1);
+      return map;
+    }, new Map());
+
+    return raw.map((item) => ({
+      ...item,
+      stop: stopsById.get(String(item.stopId)) || {
+        id: String(item.stopId),
+        name: `Stop ${item.stopId}`,
+      },
+      places: savedPlaceLabels(placesById, item.stopId),
+      ambiguousTarget: (counts.get(String(item.stopId)) || 0) > 1,
+    }));
+  }, [boardingIndexes, placesById, stopTimes, stopsById]);
 
   useEffect(() => {
     if (targetStopId || downstream.length === 0) return;
 
-    const home = downstream.find((item) => item.places.includes("Home"));
+    const home = downstream.find(
+      (item) => !item.ambiguousTarget && item.places.includes("Home")
+    );
     if (home) setTargetStopId(String(home.stopId));
   }, [downstream, targetStopId]);
 
@@ -110,6 +128,7 @@ export default function RideSetup({
 
     onStart?.({
       lineRef: arrival.lineref || "",
+      routeType: Number.isFinite(Number(routeType)) ? Number(routeType) : null,
       destination:
         arrival.destinationdisplay ||
         arrival.destinationdisplay_en ||
@@ -163,13 +182,21 @@ export default function RideSetup({
         </p>
       )}
 
-      {status === "ready" && downstream.length === 0 && (
+      {status === "ready" && ambiguousBoarding && (
+        <p className={styles.status} role="alert">
+          This trip passes the current stop more than once. Ride Mode will not
+          guess which pass you boarded on, because that could trigger the wrong
+          get-off alert.
+        </p>
+      )}
+
+      {status === "ready" && !ambiguousBoarding && downstream.length === 0 && (
         <p className={styles.status}>
           No later drop-off stops are available for this trip.
         </p>
       )}
 
-      {status === "ready" && downstream.length > 0 && (
+      {status === "ready" && !ambiguousBoarding && downstream.length > 0 && (
         <>
           <fieldset className={styles.stopList}>
             <legend className={styles.srOnly}>Choose your exit stop</legend>
@@ -187,6 +214,7 @@ export default function RideSetup({
                   key={`${item.stopId}-${item.stopSequence}`}
                   className={styles.stopOption}
                   data-selected={
+                    !item.ambiguousTarget &&
                     String(targetStopId) === String(item.stopId)
                       ? "true"
                       : "false"
@@ -196,7 +224,11 @@ export default function RideSetup({
                     type="radio"
                     name={`ride-target-${arrival.tripref}`}
                     value={item.stopId}
-                    checked={String(targetStopId) === String(item.stopId)}
+                    disabled={item.ambiguousTarget}
+                    checked={
+                      !item.ambiguousTarget &&
+                      String(targetStopId) === String(item.stopId)
+                    }
                     onChange={() => setTargetStopId(String(item.stopId))}
                   />
                   <span className={styles.stopCopy}>
@@ -204,6 +236,9 @@ export default function RideSetup({
                     <small>
                       {clock ? `planned ${clock}` : "planned stop"}
                       {previous ? ` · after ${previous}` : ""}
+                      {item.ambiguousTarget
+                        ? " · repeated stop on this trip — choose another stop"
+                        : ""}
                     </small>
                   </span>
                   {item.places.length > 0 && (
