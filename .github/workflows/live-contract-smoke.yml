@@ -98,9 +98,11 @@ jobs:
             gtfs.latest
           )}`;
 
-          const [stops, routes] = await Promise.all([
+          const [stops, routes, calendar, calendarDates] = await Promise.all([
             getJson(`${gtfsBase}/stops`),
             getJson(`${gtfsBase}/routes`),
+            getJson(`${gtfsBase}/calendar`),
+            getJson(`${gtfsBase}/calendar_dates`),
           ]);
 
           if (!stops || Array.isArray(stops) || typeof stops !== "object") {
@@ -109,6 +111,18 @@ jobs:
 
           if (!Array.isArray(routes)) {
             throw new Error("Pinned GTFS routes payload is not an array.");
+          }
+
+          if (!calendar || Array.isArray(calendar) || typeof calendar !== "object") {
+            throw new Error("Pinned GTFS calendar payload is not an object.");
+          }
+
+          if (
+            !calendarDates ||
+            Array.isArray(calendarDates) ||
+            typeof calendarDates !== "object"
+          ) {
+            throw new Error("Pinned GTFS calendar_dates payload is not an object.");
           }
 
           const stopTimesAtStop = await getJson(
@@ -166,6 +180,8 @@ jobs:
                 gtfsDataset: gtfs.latest,
                 gtfsStops: Object.keys(stops).length,
                 gtfsRoutes: routes.length,
+                gtfsCalendarServices: Object.keys(calendar).length,
+                gtfsCalendarDateServices: Object.keys(calendarDates).length,
                 checkedRoute: routeId,
                 checkedTrip: tripId,
                 stopTimetableRows: stopTimesAtStop.length,

@@ -130,25 +130,68 @@ export function gtfsServiceEpoch(serviceDate, gtfsTime) {
   return Math.round(second / 1000);
 }
 
-export function serviceRunsOnDate(calendarDates, serviceId, dateKey) {
+const WEEKDAY_FIELDS = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
+
+function baseCalendarRunsOnDate(calendar, serviceId, dateKey) {
+  const service = calendar?.[String(serviceId)];
+  const key = String(dateKey || "");
+
+  if (!service || !/^\d{8}$/.test(key)) return false;
+
+  const startDate = String(service.startDate || "");
+  const endDate = String(service.endDate || "");
+
+  if (/^\d{8}$/.test(startDate) && key < startDate) return false;
+  if (/^\d{8}$/.test(endDate) && key > endDate) return false;
+
+  const year = Number(key.slice(0, 4));
+  const month = Number(key.slice(4, 6));
+  const day = Number(key.slice(6, 8));
+  const weekday = WEEKDAY_FIELDS[
+    new Date(Date.UTC(year, month - 1, day)).getUTCDay()
+  ];
+
+  return Number(service[weekday]) === 1;
+}
+
+export function serviceRunsOnDate(
+  calendar,
+  calendarDates,
+  serviceId,
+  dateKey
+) {
   const entries = calendarDates?.[String(serviceId)];
-  if (!Array.isArray(entries)) return false;
+  const matches = Array.isArray(entries)
+    ? entries.filter(
+        (entry) => String(entry?.date || "") === String(dateKey || "")
+      )
+    : [];
 
-  const matches = entries.filter(
-    (entry) => String(entry?.date || "") === String(dateKey || "")
-  );
-  if (matches.length === 0) return false;
-
-  // Föli historically publishes 0 for an active exception while standard
-  // GTFS commonly uses 1. Explicit removal (2) always wins.
+  // GTFS exception type 2 removes service even when the weekly calendar says
+  // it runs. Föli has also historically exposed type 0 as an active override,
+  // so accept both 0 and standard type 1 as explicit additions.
   if (matches.some((entry) => Number(entry?.exceptionType) === 2)) {
     return false;
   }
 
-  return matches.some((entry) => {
-    const type = Number(entry?.exceptionType);
-    return type === 0 || type === 1;
-  });
+  if (
+    matches.some((entry) => {
+      const type = Number(entry?.exceptionType);
+      return type === 0 || type === 1;
+    })
+  ) {
+    return true;
+  }
+
+  return baseCalendarRunsOnDate(calendar, serviceId, dateKey);
 }
 
 export function scheduledClockCandidates(

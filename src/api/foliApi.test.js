@@ -302,13 +302,37 @@ test("fills an empty SIRI board from the active GTFS timetable", async () => {
       });
     }
 
-    if (url === `${datasetBase}/calendar_dates`) {
+    if (url === `${datasetBase}/calendar`) {
       return Promise.resolve({
         data: {
-          weekday: [{ date: "20260921", exception_type: 0 }],
-          sunday: [{ date: "20260920", exception_type: 0 }],
+          weekday: {
+            monday: 1,
+            tuesday: 1,
+            wednesday: 1,
+            thursday: 1,
+            friday: 1,
+            saturday: 0,
+            sunday: 0,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
+          sunday: {
+            monday: 0,
+            tuesday: 0,
+            wednesday: 0,
+            thursday: 0,
+            friday: 0,
+            saturday: 0,
+            sunday: 1,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
         },
       });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
     }
 
     if (url === `${datasetBase}/routes`) {
@@ -403,12 +427,37 @@ test("falls back to GTFS when SIRI itself is temporarily unavailable", async () 
       });
     }
 
-    if (url === `${datasetBase}/calendar_dates`) {
+    if (url === `${datasetBase}/calendar`) {
       return Promise.resolve({
         data: {
-          weekday: [{ date: "20260921", exception_type: 0 }],
+          weekday: {
+            monday: 1,
+            tuesday: 1,
+            wednesday: 1,
+            thursday: 1,
+            friday: 1,
+            saturday: 0,
+            sunday: 0,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
+          sunday: {
+            monday: 0,
+            tuesday: 0,
+            wednesday: 0,
+            thursday: 0,
+            friday: 0,
+            saturday: 0,
+            sunday: 1,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
         },
       });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
     }
 
     if (url === `${datasetBase}/routes`) {
@@ -474,10 +523,37 @@ test("reuses pinned GTFS timetable data across realtime refreshes", async () => 
         ],
       });
     }
-    if (url === `${datasetBase}/calendar_dates`) {
+    if (url === `${datasetBase}/calendar`) {
       return Promise.resolve({
-        data: { weekday: [{ date: "20260921", exception_type: 0 }] },
+        data: {
+          weekday: {
+            monday: 1,
+            tuesday: 1,
+            wednesday: 1,
+            thursday: 1,
+            friday: 1,
+            saturday: 0,
+            sunday: 0,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
+          sunday: {
+            monday: 0,
+            tuesday: 0,
+            wednesday: 0,
+            thursday: 0,
+            friday: 0,
+            saturday: 0,
+            sunday: 1,
+            start_date: "20260901",
+            end_date: "20260930",
+          },
+        },
       });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
     }
     if (url === `${datasetBase}/routes`) {
       return Promise.resolve({
@@ -509,6 +585,11 @@ test("reuses pinned GTFS timetable data across realtime refreshes", async () => 
   expect(
     mocks.get.mock.calls.filter(
       ([url]) => url === `${datasetBase}/stop_times/stop/621`
+    )
+  ).toHaveLength(1);
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === `${datasetBase}/calendar`
     )
   ).toHaveLength(1);
   expect(
