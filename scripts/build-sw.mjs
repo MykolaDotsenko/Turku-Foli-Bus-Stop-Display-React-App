@@ -4,6 +4,15 @@ import path from "node:path";
 
 const DIST_DIR = path.resolve("dist");
 const SW_PATH = path.join(DIST_DIR, "sw.js");
+const configuredBasePath = String(process.env.VITE_BASE_PATH || "/").trim();
+const baseWithLeadingSlash = configuredBasePath.startsWith("/")
+  ? configuredBasePath
+  : `/${configuredBasePath}`;
+const BASE_PATH = baseWithLeadingSlash.endsWith("/")
+  ? baseWithLeadingSlash
+  : `${baseWithLeadingSlash}/`;
+const withBasePath = (relativePath = "") =>
+  `${BASE_PATH}${String(relativePath).replace(/^\/+/, "")}`;
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -35,17 +44,18 @@ for (const file of allFiles) {
 
 const cacheName = `foli-shell-${hash.digest("hex").slice(0, 12)}`;
 const precacheUrls = [
-  "/",
+  BASE_PATH,
   ...allFiles
     .map((file) => path.relative(DIST_DIR, file).replaceAll(path.sep, "/"))
     .filter((relative) => relative !== "index.html")
-    .map((relative) => `/${relative}`),
+    .map((relative) => withBasePath(relative)),
 ];
 
 const serviceWorker = `const CACHE_NAME = ${JSON.stringify(cacheName)};
 const CACHE_PREFIX = "foli-shell-";
-const SHELL_URL = "/";
-const OFFLINE_MARKER_URL = "/__foli_offline_shell__";
+const BASE_PATH = ${JSON.stringify(BASE_PATH)};
+const SHELL_URL = BASE_PATH;
+const OFFLINE_MARKER_URL = \`${BASE_PATH}__foli_offline_shell__\`;
 const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 
 self.addEventListener("install", (event) => {
@@ -156,7 +166,7 @@ self.addEventListener("notificationclick", (event) => {
         }
       }
 
-      await self.clients.openWindow("/");
+      await self.clients.openWindow(BASE_PATH);
     })()
   );
 });

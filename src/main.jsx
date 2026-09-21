@@ -14,7 +14,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
-      .register("/sw.js")
+      .register(`${import.meta.env.BASE_URL}sw.js`)
       .then(async () => {
         // A reload landing inside the first install leaves this document
         // uncontrolled for good: the worker claimed the page it replaced.

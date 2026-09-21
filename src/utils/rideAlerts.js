@@ -272,7 +272,7 @@ export async function showRideNotification(stage, stopName, routeType = null) {
     tag: "foli-active-ride",
     renotify: stage === "now" || stage === "missed",
     requireInteraction: stage === "now",
-    icon: "/foli-icon.svg",
+    icon: `${import.meta.env.BASE_URL}foli-icon.svg`,
   };
 
   try {
