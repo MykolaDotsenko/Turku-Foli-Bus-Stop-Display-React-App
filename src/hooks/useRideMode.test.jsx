@@ -114,6 +114,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   Object.defineProperty(navigator, "geolocation", {
     configurable: true,
     value: originalGeolocation,
