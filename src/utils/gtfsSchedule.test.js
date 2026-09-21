@@ -165,7 +165,8 @@ describe("GTFS scheduled departure helpers", () => {
           pickupType: 0,
         },
       ],
-      reference
+      reference,
+      { lookaheadSeconds: 4 * 60 * 60 }
     );
 
     expect(candidates.map((item) => item.tripId)).toEqual(["boardable"]);
