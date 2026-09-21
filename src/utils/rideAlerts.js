@@ -1,3 +1,5 @@
+import { rideExitInstruction } from "./rideInstructions";
+
 const ALERT_PATTERNS = {
   test: {
     tones: [660, 880],
