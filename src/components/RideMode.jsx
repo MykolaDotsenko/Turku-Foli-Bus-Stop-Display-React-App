@@ -92,8 +92,7 @@ export default function RideMode({
       className={styles.panel}
       data-stage={session.stage}
       aria-labelledby="ride-mode-title"
-      role={urgent ? "alert" : "region"}
-      aria-live={urgent ? "assertive" : "polite"}
+      role="region"
     >
       <div className={styles.topline}>
         <div>
@@ -117,7 +116,13 @@ export default function RideMode({
         </small>
       </div>
 
-      <p className={styles.instruction}>{stage.instruction}</p>
+      <p
+        className={styles.instruction}
+        role={urgent ? "alert" : "status"}
+        aria-live={urgent ? "assertive" : "polite"}
+      >
+        {stage.instruction}
+      </p>
 
       <div className={styles.metrics} aria-label="Ride progress">
         <div>
