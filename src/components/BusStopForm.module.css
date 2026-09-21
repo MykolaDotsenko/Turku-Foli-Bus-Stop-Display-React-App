@@ -15,11 +15,12 @@
 
 .controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 46px auto;
   gap: 8px;
 }
 
 .input,
+.locateButton,
 .button {
   min-height: 46px;
   border-radius: 12px;
@@ -57,6 +58,34 @@
 
 .button:hover {
   background: #00656f;
+}
+
+.locateButton {
+  width: 46px;
+  padding: 0;
+  border: 1px solid #9ebbc1;
+  background: #f6fbfb;
+  color: #006f79;
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.locateButton:hover:not(:disabled) {
+  border-color: #5f949c;
+  background: #eaf7f7;
+}
+
+.locateButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.locateButton:focus-visible,
+.button:focus-visible,
+.input:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
 }
 
 .suggestions {
@@ -136,10 +165,11 @@
   }
 
   .controls {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 46px auto;
   }
 
   .input,
+  .locateButton,
   .button {
     min-height: 46px;
   }
@@ -160,10 +190,11 @@
 
 @media (max-width: 350px) {
   .controls {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) 46px;
   }
 
   .button {
+    grid-column: 1 / -1;
     width: 100%;
   }
 
