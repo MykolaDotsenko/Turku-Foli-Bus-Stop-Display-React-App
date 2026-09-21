@@ -1,6 +1,6 @@
 # Föli Live Departures
 
-![CI](https://github.com/MykolaDotsenko/Turku-Foli-Bus-Stop-Display-React-App/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/MykolaDotsenko/foli-live-departures/actions/workflows/ci.yml/badge.svg)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 ![License](https://img.shields.io/badge/license-MIT-blue)
