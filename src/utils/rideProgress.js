@@ -473,22 +473,39 @@ export function evaluateRideStage(currentStage, signals = {}) {
     };
   }
 
+  // Before the get-off alert has fired, the vehicle leaving the target means
+  // the passenger is still aboard and has ridden past it.
+  //
+  // Once NOW has fired, the same evidence means the opposite. A passenger who
+  // stepped off leaves behind exactly this: the bus departs the stop, and the
+  // phone walks away from it. Treating that as a miss tells someone standing
+  // at their own destination to get off at the next stop — the worst possible
+  // advice for the person this feature exists for. After NOW, only positive
+  // evidence of still travelling along the route past the target counts.
+  const reachedNow =
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NOW);
+  const missedEvidence = reachedNow
+    ? signals.gpsPassedTarget === true
+    : signals.targetPassedConfirmed === true ||
+      signals.gpsPassedTarget === true ||
+      signals.gpsMovedAwayAfterNear === true;
+
   if (
     rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT) &&
-    (signals.targetPassedConfirmed === true ||
-      signals.gpsPassedTarget === true ||
-      signals.gpsMovedAwayAfterNear === true)
+    missedEvidence
   ) {
     return {
       stage: RIDE_STAGE.MISSED,
       reason:
-        signals.targetPassedConfirmed === true
+        !reachedNow && signals.targetPassedConfirmed === true
           ? "target-passed"
           : signals.gpsPassedTarget === true
             ? "gps-route-passed"
             : "device-moved-away",
       confidence:
-        signals.targetPassedConfirmed === true ? "live" : "location",
+        !reachedNow && signals.targetPassedConfirmed === true
+          ? "live"
+          : "location",
     };
   }
 

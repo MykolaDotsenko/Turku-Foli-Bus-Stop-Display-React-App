@@ -7,7 +7,9 @@ import {
   repeatNowRideSignal,
   requestRideNotificationPermission,
   runRideTestAlert,
+  primeRideVoices,
   stopRideAlerts,
+  unlockRideAudio,
 } from "../utils/rideAlerts";
 import {
   RIDE_STAGE,
@@ -367,7 +369,12 @@ export default function useRideMode() {
       .then((points) => {
         if (controller.signal.aborted) return;
         const prepared = prepareRideShape(points);
-        if (!prepared?.usesGtfsDistance) return;
+        if (!prepared?.usesGtfsDistance) {
+          // Stop distances and shape distances would be on different scales,
+          // so map matching is refused. Say so instead of showing "idle".
+          commitGps((value) => ({ ...value, shapeStatus: "unavailable" }));
+          return;
+        }
         shapeRef.current = prepared;
         commitGps((value) => ({ ...value, shapeStatus: "ready" }));
       })
@@ -722,15 +729,54 @@ export default function useRideMode() {
     return () => window.clearInterval(id);
   }, [applyProgress, session?.id]);
 
+  // The vehicle leaving the target ends the alarm whether the passenger got
+  // off or not. Repeating "get off now" at someone already standing on the
+  // pavement is noise, and it cannot help anyone still aboard either.
+  const targetVehicleGone =
+    runtime.targetWasAtStop === true && runtime.targetMissingCount >= 2;
+
   useEffect(() => {
-    if (session?.stage !== RIDE_STAGE.NOW) return undefined;
+    if (session?.stage !== RIDE_STAGE.NOW || targetVehicleGone) {
+      return undefined;
+    }
 
     const id = window.setInterval(() => {
       repeatNowRideSignal();
     }, NOW_REPEAT_MS);
 
     return () => window.clearInterval(id);
-  }, [session?.stage]);
+  }, [session?.stage, targetVehicleGone]);
+
+  // Autoplay policy suspends the audio context on a fresh page load, and a
+  // ride restored after a reload never runs the start-up test alert. Without
+  // this the tones are silently dead for the rest of the ride.
+  const rideActive = Boolean(session);
+
+  useEffect(() => {
+    if (!rideActive) return undefined;
+
+    let active = true;
+
+    const detach = () => {
+      document.removeEventListener("pointerdown", tryUnlock);
+      document.removeEventListener("keydown", tryUnlock);
+    };
+
+    async function tryUnlock() {
+      const unlocked = await unlockRideAudio();
+      if (unlocked && active) detach();
+    }
+
+    primeRideVoices();
+    void tryUnlock();
+    document.addEventListener("pointerdown", tryUnlock);
+    document.addEventListener("keydown", tryUnlock);
+
+    return () => {
+      active = false;
+      detach();
+    };
+  }, [rideActive, session?.id]);
 
   useEffect(
     () => () => {

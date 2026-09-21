@@ -264,15 +264,31 @@ describe("ride progress", () => {
 
     expect(
       evaluateRideStage(RIDE_STAGE.NOW, {
-        targetPassedConfirmed: true,
-      }).stage
-    ).toBe(RIDE_STAGE.MISSED);
-
-    expect(
-      evaluateRideStage(RIDE_STAGE.NOW, {
         gpsPassedTarget: true,
       }).stage
     ).toBe(RIDE_STAGE.MISSED);
+  });
+
+  it("treats the bus leaving as a miss only before the get-off alert fired", () => {
+    // Never alerted, vehicle gone: the passenger is still aboard.
+    expect(
+      evaluateRideStage(RIDE_STAGE.NEXT, {
+        targetPassedConfirmed: true,
+      }).stage
+    ).toBe(RIDE_STAGE.MISSED);
+  });
+
+  it("does not accuse a passenger who already got off of missing the stop", () => {
+    // A successful alight looks exactly like this: the get-off alert fired,
+    // the bus left the stop, and the phone walked away from it. Announcing
+    // "get off at the next stop" here would send someone standing at their
+    // own destination back onto a bus.
+    const afterGettingOff = evaluateRideStage(RIDE_STAGE.NOW, {
+      targetPassedConfirmed: true,
+      gpsMovedAwayAfterNear: true,
+    });
+
+    expect(afterGettingOff.stage).toBe(RIDE_STAGE.NOW);
   });
 
   it("computes live and planned ETA", () => {

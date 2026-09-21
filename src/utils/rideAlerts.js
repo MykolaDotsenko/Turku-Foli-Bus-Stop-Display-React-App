@@ -106,11 +106,50 @@ function speechSupported() {
   );
 }
 
+// `getVoices()` is empty until the engine has loaded its list, which lands
+// after a `voiceschanged` event. The start-up test alert fires immediately,
+// so without caching across that event the stop name is read by an English
+// voice at exactly the moment the passenger is checking the alert.
+let cachedVoices = [];
+let voicesListenerAttached = false;
+
+function refreshCachedVoices() {
+  try {
+    const voices = globalThis.speechSynthesis?.getVoices?.() || [];
+    if (voices.length > 0) cachedVoices = voices;
+  } catch {
+    // Voice discovery is best effort.
+  }
+}
+
+export function primeRideVoices() {
+  if (!speechSupported()) return false;
+
+  refreshCachedVoices();
+
+  if (!voicesListenerAttached) {
+    try {
+      globalThis.speechSynthesis.addEventListener?.(
+        "voiceschanged",
+        refreshCachedVoices
+      );
+      voicesListenerAttached = true;
+    } catch {
+      // Older engines expose no event; the direct read above still works.
+    }
+  }
+
+  return cachedVoices.length > 0;
+}
+
 function finnishVoice() {
-  const voices = globalThis.speechSynthesis?.getVoices?.() || [];
+  primeRideVoices();
+
   return (
-    voices.find((voice) => String(voice.lang || "").toLowerCase() === "fi-fi") ||
-    voices.find((voice) =>
+    cachedVoices.find(
+      (voice) => String(voice.lang || "").toLowerCase() === "fi-fi"
+    ) ||
+    cachedVoices.find((voice) =>
       String(voice.lang || "").toLowerCase().startsWith("fi")
     ) ||
     null

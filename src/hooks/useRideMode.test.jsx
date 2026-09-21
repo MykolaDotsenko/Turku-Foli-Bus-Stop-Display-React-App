@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   requestRideNotificationPermission: vi.fn(() => Promise.resolve(false)),
   announceRideStage: vi.fn(),
   repeatNowRideSignal: vi.fn(),
+  primeRideVoices: vi.fn(() => true),
+  unlockRideAudio: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock("../api/foliApi", () => ({
@@ -27,6 +29,8 @@ vi.mock("../utils/rideAlerts", () => ({
   requestRideNotificationPermission: mocks.requestRideNotificationPermission,
   runRideTestAlert: mocks.runRideTestAlert,
   stopRideAlerts: mocks.stopRideAlerts,
+  primeRideVoices: mocks.primeRideVoices,
+  unlockRideAudio: mocks.unlockRideAudio,
 }));
 
 import useRideMode from "./useRideMode";
