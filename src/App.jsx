@@ -186,19 +186,34 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          {/* Turku is officially bilingual, and the pairing is itself a
-              local signal. The independence disclaimer keeps its place in
-              the footer; this line has one job, which is "you are here". */}
-          <p className="eyebrow">Turku · Åbo</p>
-          <p className="brand">Föli departures</p>
-          <p
-            className="context"
-            data-firstrun={placesById.size === 0 ? "true" : "false"}
-          >
-            Find a stop, save the places you travel to, and get told when to
-            get off.
-          </p>
+        <div className="brandLockup">
+          {/* The same file as the favicon, the home-screen icon and the
+              get-off notification, so the mark someone tapped is the mark
+              that greets them. Decorative here: the wordmark beside it
+              already carries the name, so a second "Föli departures" for a
+              screen reader would only repeat it. */}
+          <img
+            className="brandMark"
+            src={`${import.meta.env.BASE_URL}foli-icon.svg`}
+            alt=""
+            width="48"
+            height="48"
+            decoding="async"
+          />
+          <div className="brandText">
+            {/* Turku is officially bilingual, and the pairing is itself a
+                local signal. The independence disclaimer keeps its place in
+                the footer; this line has one job, which is "you are here". */}
+            <p className="eyebrow">Turku · Åbo</p>
+            <p className="brand">Föli departures</p>
+            <p
+              className="context"
+              data-firstrun={placesById.size === 0 ? "true" : "false"}
+            >
+              Find a stop, save the places you travel to, and get told when to
+              get off.
+            </p>
+          </div>
         </div>
         <span
           className="live-pill"
