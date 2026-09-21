@@ -407,31 +407,82 @@ export default function useRideMode() {
           lon: Number(position?.coords?.longitude),
         };
         const accuracy = Number(position?.coords?.accuracy);
+        const speed = Number(position?.coords?.speed);
+        const nowMs = Date.now();
 
         if (!hasCoordinates(point)) return;
 
-        const distance = distanceInMeters(point, current.targetStop);
-        if (!Number.isFinite(distance)) return;
-
+        const straightDistance = hasCoordinates(current.targetStop)
+          ? distanceInMeters(point, current.targetStop)
+          : null;
         const previous = gpsRef.current;
         const minimumDistance =
-          previous.minimumDistanceM === null
-            ? distance
-            : Math.min(previous.minimumDistanceM, distance);
+          Number.isFinite(straightDistance)
+            ? previous.minimumDistanceM === null
+              ? straightDistance
+              : Math.min(previous.minimumDistanceM, straightDistance)
+            : previous.minimumDistanceM;
         const wasNearTarget =
-          previous.wasNearTarget === true || minimumDistance <= 80;
+          previous.wasNearTarget === true ||
+          (Number.isFinite(minimumDistance) && minimumDistance <= 80);
         const movedAwayAfterNear =
-          wasNearTarget && distance >= 250 && distance > minimumDistance + 120;
+          wasNearTarget &&
+          Number.isFinite(straightDistance) &&
+          straightDistance >= 250 &&
+          Number.isFinite(minimumDistance) &&
+          straightDistance > minimumDistance + 120;
+
+        const shapeAnalysis = shapeRef.current
+          ? analyzeRideGps({
+              position: point,
+              accuracyM: accuracy,
+              speedMps: speed,
+              shape: shapeRef.current,
+              boardingShapeDistM:
+                current.plan?.boardingStop?.shapeDistTraveled,
+              targetShapeDistM:
+                current.plan?.targetStop?.shapeDistTraveled,
+              previousAlongM: previous.alongRouteM,
+              offRouteSinceMs: previous.offRouteSinceMs,
+              nowMs,
+            })
+          : null;
 
         const next = {
+          ...previous,
           status:
-            Number.isFinite(accuracy) && accuracy > 120 ? "weak" : "active",
-          distanceM: distance,
+            Number.isFinite(accuracy) && accuracy > 120
+              ? "weak"
+              : shapeAnalysis?.offRouteSuspected
+                ? "off-route"
+                : "active",
+          distanceM: Number.isFinite(straightDistance)
+            ? straightDistance
+            : null,
           accuracyM: Number.isFinite(accuracy) ? accuracy : null,
+          speedMps: Number.isFinite(speed) ? speed : null,
           minimumDistanceM: minimumDistance,
           wasNearTarget,
           movedAwayAfterNear,
-          updatedAt: Date.now(),
+          shapeStatus: shapeRef.current ? "ready" : previous.shapeStatus,
+          shapeUsable: shapeAnalysis?.usable === true,
+          onRoute: shapeAnalysis?.onRoute === true,
+          alongRouteM: Number.isFinite(shapeAnalysis?.alongM)
+            ? shapeAnalysis.alongM
+            : null,
+          lateralDistanceM: Number.isFinite(shapeAnalysis?.lateralDistanceM)
+            ? shapeAnalysis.lateralDistanceM
+            : null,
+          routeDistanceM: Number.isFinite(shapeAnalysis?.routeDistanceM)
+            ? shapeAnalysis.routeDistanceM
+            : null,
+          routeEtaSec: Number.isFinite(shapeAnalysis?.routeEtaSec)
+            ? shapeAnalysis.routeEtaSec
+            : null,
+          offRouteSinceMs: shapeAnalysis?.offRouteSinceMs ?? null,
+          offRouteSuspected: shapeAnalysis?.offRouteSuspected === true,
+          passedTarget: shapeAnalysis?.passedTarget === true,
+          updatedAt: nowMs,
           error: "",
         };
 
