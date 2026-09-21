@@ -72,7 +72,10 @@ export default function RideMode({
 }) {
   if (!session) return null;
 
-  const stage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
+  const stage = session.stage === RIDE_STAGE.NEXT
+    ? { ...baseStage, instruction: rideExitInstruction(session.routeType).nextText }
+    : baseStage;
   const urgent =
     session.stage === RIDE_STAGE.NEXT ||
     session.stage === RIDE_STAGE.NOW ||
