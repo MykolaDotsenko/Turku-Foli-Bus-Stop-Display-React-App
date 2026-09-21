@@ -381,7 +381,6 @@ export default function useRideMode() {
     }
 
     if (
-      !hasCoordinates(current.targetStop) ||
       typeof globalThis.navigator?.geolocation?.watchPosition !== "function"
     ) {
       commitGps((value) => ({
