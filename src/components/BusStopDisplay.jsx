@@ -113,6 +113,8 @@ function BusStopDisplay({
   routesByShortName,
   serverTime,
   receivedAtMs,
+  realtimeAvailable,
+  scheduleAvailable,
   loading,
   refreshing,
   error,
@@ -225,6 +227,14 @@ function BusStopDisplay({
             : ""}
         </p>
       )}
+
+      {realtimeAvailable === false &&
+        scheduleAvailable &&
+        visibleArrivals.length > 0 && (
+          <p className={styles.staleNotice} role="status">
+            Live updates are unavailable · showing scheduled Föli times.
+          </p>
+        )}
 
       {loading && !hasData ? (
         <div className={styles.state} role="status">
