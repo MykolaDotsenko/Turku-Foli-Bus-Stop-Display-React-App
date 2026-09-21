@@ -31,6 +31,7 @@ const STAGE_COPY = {
 };
 
 function etaLabel(seconds) {
+  if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
   if (value <= 30) return "about now";
@@ -39,6 +40,7 @@ function etaLabel(seconds) {
 }
 
 function remainingLabel(value) {
+  if (value === null || value === undefined || value === "") return "";
   const count = Number(value);
   if (!Number.isFinite(count)) return "";
   if (count <= 0) return "target stop";
@@ -52,10 +54,18 @@ function trackingLabel(health) {
 }
 
 function gpsDetail(gps) {
-  if (Number.isFinite(Number(gps.routeDistanceM))) {
+  if (
+    gps.routeDistanceM !== null &&
+    gps.routeDistanceM !== undefined &&
+    Number.isFinite(Number(gps.routeDistanceM))
+  ) {
     return `~${Math.max(0, Math.round(gps.routeDistanceM))} m along route`;
   }
-  if (Number.isFinite(Number(gps.distanceM))) {
+  if (
+    gps.distanceM !== null &&
+    gps.distanceM !== undefined &&
+    Number.isFinite(Number(gps.distanceM))
+  ) {
     return `~${Math.round(gps.distanceM)} m straight-line fallback`;
   }
   return "coordinates are never stored";
