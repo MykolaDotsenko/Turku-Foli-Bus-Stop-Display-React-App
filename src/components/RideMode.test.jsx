@@ -7,6 +7,7 @@ function session(stage = "next") {
     id: "ride-1",
     lineRef: "1",
     tripRef: "trip-1",
+    routeType: 3,
     destination: "Satama",
     stage,
     targetStop: { id: "32", name: "Puistokatu" },
@@ -28,7 +29,15 @@ test("shows the action the passenger needs instead of a map", () => {
         remainingStops: 1,
         targetMatchBy: "trip",
       }}
-      gps={{ status: "active", distanceM: 420, error: "" }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 420,
+        routeEtaSec: 55,
+        distanceM: 300,
+        error: "",
+      }}
       wakeLockState="active"
       onTestAlert={() => {}}
       onEndRide={() => {}}
@@ -43,6 +52,39 @@ test("shows the action the passenger needs instead of a map", () => {
   expect(screen.getByText("Puistokatu")).toBeInTheDocument();
   expect(screen.getByText("after Kauppatori", { exact: false })).toBeInTheDocument();
   expect(screen.queryByText(/map/i)).not.toBeInTheDocument();
+});
+
+test("uses generic NEXT wording for non-bus modes", () => {
+  render(
+    <RideMode
+      session={{ ...session("next"), routeType: 4 }}
+      runtime={{
+        trackingHealth: "live",
+        liveEtaSec: 70,
+        scheduleEtaSec: 80,
+        remainingStops: 1,
+        targetMatchBy: "trip",
+      }}
+      gps={{
+        status: "active",
+        shapeUsable: true,
+        onRoute: true,
+        routeDistanceM: 480,
+        routeEtaSec: 60,
+        error: "",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText("Get ready to exit at the next stop.")
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Press the STOP button now.")).not.toBeInTheDocument();
+  expect(screen.getByText(/480 m along route/i)).toBeInTheDocument();
 });
 
 test("offers recovery at the next stop after a missed-stop signal", () => {
