@@ -65,7 +65,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   expect(getCurrentPosition).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("button", { name: "Set up Home where I am now" }));
+  fireEvent.click(screen.getByRole("button", { name: "Set up Home from my current location" }));
 
   expect(
     await screen.findByRole("heading", {
@@ -204,7 +204,7 @@ test("reviews and confirms the selected public stop when location is unavailable
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Review selected stop for Home" })
+    screen.getByRole("button", { name: "Set up Home using Puistokatu" })
   );
 
   expect(
@@ -391,7 +391,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home where I am now" })
+    screen.getByRole("button", { name: "Set up Home from my current location" })
   );
 
   await screen.findByRole("heading", {
@@ -487,7 +487,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home where I am now" })
+    screen.getByRole("button", { name: "Set up Home from my current location" })
   );
 
   await screen.findByRole("heading", {
@@ -551,7 +551,7 @@ test("does not create a location-based Safe Place outside the Föli boundary", a
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home where I am now" })
+    screen.getByRole("button", { name: "Set up Home from my current location" })
   );
 
   expect(

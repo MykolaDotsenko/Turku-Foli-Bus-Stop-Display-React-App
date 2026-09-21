@@ -110,3 +110,67 @@ test("does not silently choose between stops with the same name", () => {
   ).toBeInTheDocument();
   expect(screen.getAllByRole("option")).toHaveLength(2);
 });
+
+// The field takes a name or a number equally, so it should hand back
+// whichever one the person thinks in. It used to answer every entry with the
+// number: type "Kauppatori", get "164".
+test("keeps the stop name in the field instead of swapping it for a number", () => {
+  render(<BusStopForm activeStopId="164" stops={stops} onSubmit={vi.fn()} />);
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  expect(input).toHaveValue("Kauppatori");
+
+  fireEvent.change(input, { target: { value: "Turun" } });
+  fireEvent.focus(input);
+  fireEvent.click(screen.getByRole("option", { name: /Turun linna/i }));
+
+  expect(input).toHaveValue("Turun linna");
+});
+
+test("a stop number typed in comes back as that stop's name", () => {
+  const onSubmit = vi.fn();
+  render(<BusStopForm activeStopId="164" stops={stops} onSubmit={onSubmit} />);
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "32" } });
+  fireEvent.submit(input.closest("form"));
+
+  expect(onSubmit).toHaveBeenCalledWith("32");
+});
+
+// With the name showing, pressing Show again has to mean the same stop —
+// not send the text back through a name lookup that two stops could match.
+test("re-submitting a resolved name reopens that exact stop", () => {
+  const twins = [
+    { id: "164", name: "Kauppatori" },
+    { id: "999", name: "Kauppatori" },
+  ];
+  const onSubmit = vi.fn();
+
+  render(<BusStopForm activeStopId="999" stops={twins} onSubmit={onSubmit} />);
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  expect(input).toHaveValue("Kauppatori");
+
+  fireEvent.submit(input.closest("form"));
+
+  expect(onSubmit).toHaveBeenCalledWith("999");
+  expect(screen.queryByText(/More than one stop/i)).not.toBeInTheDocument();
+});
+
+test("still refuses to guess when a freshly typed name is ambiguous", () => {
+  const twins = [
+    { id: "164", name: "Kauppatori" },
+    { id: "999", name: "Kauppatori" },
+  ];
+  const onSubmit = vi.fn();
+
+  render(<BusStopForm activeStopId="4" stops={[...twins, { id: "4", name: "Turun linna" }]} onSubmit={onSubmit} />);
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.change(input, { target: { value: "Kauppatori" } });
+  fireEvent.submit(input.closest("form"));
+
+  expect(onSubmit).not.toHaveBeenCalled();
+  expect(screen.getByText(/More than one stop/i)).toBeInTheDocument();
+});

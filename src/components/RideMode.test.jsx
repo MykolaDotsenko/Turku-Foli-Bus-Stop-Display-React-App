@@ -251,6 +251,110 @@ test("says the stop is behind you rather than counting stops to it", () => {
   expect(screen.queryByText("~2 min")).not.toBeInTheDocument();
 });
 
+// Nothing in a web page can see a silent switch or a muted volume, so the
+// only honest check on "you will hear me" is to ask.
+test("asks whether the test alert was actually heard, and helps when it was not", () => {
+  const onTestAlert = vi.fn();
+  render(
+    <RideMode
+      session={session("boarded")}
+      runtime={{ trackingHealth: "live", etaSec: 900, remainingStops: 5 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={onTestAlert}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("Did you hear the test alert?")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "No" }));
+  expect(screen.getByText(/Turn the media volume up/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Play it again" }));
+  expect(onTestAlert).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "I can hear it now" }));
+  expect(screen.queryByText(/Turn the media volume up/)).not.toBeInTheDocument();
+});
+
+// A short hop reaches SOON within a stop or two, and that is exactly the
+// ride where there is least time to discover a muted phone.
+test("still offers the sound check on a short ride", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 240, remainingStops: 2 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("Did you hear the test alert?")).toBeInTheDocument();
+});
+
+test("does not interrupt the approach with a sound check", () => {
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.queryByText("Did you hear the test alert?")).not.toBeInTheDocument();
+});
+
+// A warning that only states a fact leaves the passenger with no move.
+test("turns the wrong-bus warning into the two answers it is asking for", () => {
+  const onEndRide = vi.fn();
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 240, remainingStops: 2 }}
+      gps={{ status: "off-route", distanceM: 900, offRouteSuspected: true, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={onEndRide}
+      onOpenStop={() => {}}
+    />
+  );
+
+  const warning = screen.getByRole("alert");
+  expect(warning).toHaveTextContent("Check your bus");
+  expect(warning).toHaveTextContent("line 1");
+  expect(warning).toHaveTextContent("Satama");
+
+  fireEvent.click(screen.getByRole("button", { name: "Yes, keep tracking" }));
+  expect(screen.queryByText("Check your bus")).not.toBeInTheDocument();
+  expect(onEndRide).not.toHaveBeenCalled();
+});
+
+test("a test alert is preparation, so it is gone once it is time to leave", () => {
+  render(
+    <RideMode
+      session={session("now")}
+      runtime={{ trackingHealth: "live", etaSec: 0, remainingStops: 0 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.queryByRole("button", { name: "Test alert" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "I'm getting off" })).toBeInTheDocument();
+});
+
 test("offers recovery at the next stop after a missed-stop signal", () => {
   const onEndRide = vi.fn();
   const onOpenStop = vi.fn();

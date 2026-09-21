@@ -500,18 +500,18 @@ function EmptyPlaceCard({
             onClick={() => onStartSetup(preset.id)}
             disabled={status === "locating"}
             aria-busy={status === "locating"}
-            aria-label={`Set up ${preset.label} where I am now`}
+            aria-label={`Set up ${preset.label} from my current location`}
           >
-            Set up here
+            Use my location
           </button>
           {activeStop && (
             <button
               type="button"
               className={styles.textButton}
               onClick={() => onStartFromSelectedStop(preset.id)}
-              aria-label={`Review selected stop for ${preset.label}`}
+              aria-label={`Set up ${preset.label} using ${activeStop.name}`}
             >
-              Review selected stop
+              Use {activeStop.name}
             </button>
           )}
         </div>

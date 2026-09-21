@@ -824,7 +824,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Set up Home where I am now" }).click();
+  await page.getByRole("button", { name: "Set up Home from my current location" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Choose safe stops for Home" })
@@ -935,7 +935,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   expect(homeUrl.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(homeUrl.searchParams.has("origin")).toBe(false);
 
-  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  const moreHomeOptions = recovery.getByRole("button", { name: "Home options" });
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
@@ -1098,7 +1098,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  const recoveryMore = recovery.getByRole("button", { name: "More" });
+  const recoveryMore = recovery.getByRole("button", { name: "Home options" });
   if (await recoveryMore.isVisible()) {
     await recoveryMore.click();
   }
@@ -1126,7 +1126,7 @@ test("mobile layout does not create horizontal page overflow", async ({
   const recovery = page.locator(
     'section[aria-labelledby="home-recovery-title"]'
   );
-  const moreHomeOptions = recovery.getByRole("button", { name: "More" });
+  const moreHomeOptions = recovery.getByRole("button", { name: "Home options" });
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }

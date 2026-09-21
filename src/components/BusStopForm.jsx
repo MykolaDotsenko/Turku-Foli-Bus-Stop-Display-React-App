@@ -42,18 +42,34 @@ function findMatches(stops, query) {
 }
 
 function BusStopForm({ activeStopId, stops, onSubmit }) {
-  const [value, setValue] = useState(activeStopId);
+  // The field accepts a name or a number equally, so it should give back
+  // whichever one the person thinks in. It used to answer every entry with
+  // the number: type "Kauppatori", get "164". Names are what people
+  // remember, so a resolved stop is shown by name and the id is kept
+  // alongside, ready for the next submit.
+  const resolveStop = (stopId) =>
+    stops.find((stop) => String(stop.id) === String(stopId)) || null;
+
+  const [resolved, setResolved] = useState(() => resolveStop(activeStopId));
+  const [value, setValue] = useState(
+    () => resolveStop(activeStopId)?.name || activeStopId
+  );
   const [validationError, setValidationError] = useState("");
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  useEffect(() => setValue(activeStopId), [activeStopId]);
+  useEffect(() => {
+    const stop = stops.find((item) => String(item.id) === String(activeStopId));
+    setResolved(stop || null);
+    setValue(stop?.name || activeStopId);
+  }, [activeStopId, stops]);
 
   const matches = useMemo(() => findMatches(stops, value), [stops, value]);
   const showSuggestions = focused && value.trim() && matches.length > 0;
 
   const chooseStop = (stop) => {
-    setValue(stop.id);
+    setValue(stop.name);
+    setResolved(stop);
     setValidationError("");
     setActiveIndex(-1);
     onSubmit(stop.id);
@@ -62,6 +78,15 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
   const handleSubmit = (event) => {
     event.preventDefault();
     const query = value.trim();
+
+    // The field is showing a stop we already resolved and nobody has edited
+    // it, so submitting again means that same stop — no need to re-run the
+    // name lookup, which would stumble on two stops sharing a name.
+    if (resolved && normalize(query) === normalize(resolved.name)) {
+      setValidationError("");
+      onSubmit(resolved.id);
+      return;
+    }
 
     if (/^\d+$/.test(query)) {
       setValidationError("");
@@ -131,6 +156,8 @@ function BusStopForm({ activeStopId, stops, onSubmit }) {
             value={value}
             onChange={(event) => {
               setValue(event.target.value);
+              // Editing the text means it is no longer the stop we resolved.
+              setResolved(null);
               setValidationError("");
               setActiveIndex(-1);
             }}

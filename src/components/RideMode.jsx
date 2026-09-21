@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { rideExitInstruction } from "../utils/rideInstructions";
-import { RIDE_STAGE } from "../utils/rideProgress";
+import { RIDE_STAGE, rideStageRank } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
 
 const STAGE_COPY = {
@@ -123,6 +124,17 @@ export default function RideMode({
   onEndRide,
   onOpenStop,
 }) {
+  // Declared before the early return: hooks cannot sit behind a condition.
+  // Keyed by ride id so a "yes, I'm on this bus" never carries into the next
+  // journey, while the same journey stops nagging once answered.
+  const [offRouteAnsweredFor, setOffRouteAnsweredFor] = useState("");
+
+  // The whole promise is "you will hear me". Nothing in a web page can see a
+  // silent switch, a muted volume, or sound routed to headphones left at
+  // home — so the only honest check is to ask. It runs during BOARDED, while
+  // the stop is still far off, rather than blocking the start of tracking.
+  const [alertHeard, setAlertHeard] = useState("unasked");
+
   if (!session) return null;
 
   const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
@@ -142,6 +154,12 @@ export default function RideMode({
   // makes while standing up to leave. The health badge stays in the corner,
   // and a genuine problem still raises its own banner below.
   const gettingOffNow = session.stage === RIDE_STAGE.NOW;
+  // A short hop across town reaches SOON within a stop or two, so tying the
+  // sound check to BOARDED alone would hide it on exactly the rides where
+  // there is least time to notice a muted phone. It runs until the approach
+  // begins, and never during it.
+  const beforeTheApproach =
+    rideStageRank(session.stage) < rideStageRank(RIDE_STAGE.NEXT);
   const eta = etaLabel(runtime.etaSec, session.stage);
   const remaining = remainingLabel(runtime.remainingStops, session.stage);
 
@@ -179,6 +197,45 @@ export default function RideMode({
           {afterName ? ` · after ${afterName}` : ""}
         </small>
       </div>
+
+      {beforeTheApproach && alertHeard !== "yes" && (
+        <div className={styles.soundCheck} role="group" aria-label="Alert sound check">
+          {alertHeard !== "no" ? (
+            <>
+              <strong>Did you hear the test alert?</strong>
+              <div className={styles.soundCheckActions}>
+                <button type="button" onClick={() => setAlertHeard("yes")}>
+                  Yes
+                </button>
+                <button type="button" onClick={() => setAlertHeard("no")}>
+                  No
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <strong>Let&apos;s get the sound working</strong>
+              <ul>
+                <li>Turn the media volume up.</li>
+                <li>Switch off silent or focus mode.</li>
+                <li>Check the sound is not going to other headphones.</li>
+              </ul>
+              <div className={styles.soundCheckActions}>
+                <button type="button" onClick={onTestAlert}>
+                  Play it again
+                </button>
+                <button type="button" onClick={() => setAlertHeard("yes")}>
+                  I can hear it now
+                </button>
+              </div>
+              <small>
+                Tracking is already running. Your phone will also vibrate and
+                show a notification.
+              </small>
+            </>
+          )}
+        </div>
+      )}
 
       <p
         className={styles.instruction}
@@ -256,11 +313,27 @@ export default function RideMode({
         </p>
       )}
 
-      {gps.offRouteSuspected && (
-        <p className={styles.degraded} role="alert">
-          You have been off this bus&apos;s route for about two minutes. Check
-          that you are on the right vehicle.
-        </p>
+      {gps.offRouteSuspected && offRouteAnsweredFor !== session.id && (
+        <div className={styles.offRoute} role="alert">
+          <strong>Check your bus</strong>
+          {/* Telling someone their movement does not match a planned path
+              leaves them holding a fact and no move to make. There are only
+              two answers, so offer both. */}
+          <span>
+            For two minutes you have not been moving along
+            {session.lineRef ? ` line ${session.lineRef}` : " this route"}
+            {session.destination ? ` to ${session.destination}` : ""}. Are you
+            still on this bus?
+          </span>
+          <div className={styles.offRouteActions}>
+            <button type="button" onClick={() => setOffRouteAnsweredFor(session.id)}>
+              Yes, keep tracking
+            </button>
+            <button type="button" onClick={onEndRide}>
+              End ride
+            </button>
+          </div>
+        </div>
       )}
 
       {gps.shapeStatus === "unavailable" &&
@@ -281,9 +354,11 @@ export default function RideMode({
       )}
 
       <div className={styles.actions}>
-        <button type="button" className={styles.test} onClick={onTestAlert}>
-          Test alert
-        </button>
+        {!gettingOffNow && (
+          <button type="button" className={styles.test} onClick={onTestAlert}>
+            Test alert
+          </button>
+        )}
         {session.stage === RIDE_STAGE.NOW && (
           <button
             type="button"

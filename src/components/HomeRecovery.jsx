@@ -97,7 +97,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
           aria-expanded={mobileOptionsOpen}
           onClick={() => setMobileOptionsOpen((current) => !current)}
         >
-          {mobileOptionsOpen ? "Less" : "More"}
+          {mobileOptionsOpen ? "Fewer options" : "Home options"}
         </button>
 
         <button

@@ -194,7 +194,7 @@ function App() {
           aria-live="polite"
         >
           <span className="live-dot" aria-hidden="true" />
-          {online ? "Föli SIRI" : "Offline mode"}
+          {online ? "Live Föli data" : "Offline mode"}
         </span>
       </header>
 
