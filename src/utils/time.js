@@ -5,10 +5,29 @@ const DEPARTURE_TIME_FIELDS = [
   "aimedarrivaltime",
 ];
 
-export function getDepartureTime(arrival = {}) {
+export function getDepartureTime(arrival = {}, referenceTimeSec = null) {
+  const values = Object.fromEntries(
+    DEPARTURE_TIME_FIELDS.map((field) => {
+      const value = Number(arrival[field]);
+      return [field, Number.isFinite(value) && value > 0 ? value : null];
+    })
+  );
+
+  const reference = Number(referenceTimeSec);
+  if (Number.isFinite(reference) && reference > 0) {
+    const earliestPlausible = reference - 30;
+    const expected =
+      values.expecteddeparturetime ?? values.expectedarrivaltime;
+    const aimed = values.aimeddeparturetime ?? values.aimedarrivaltime;
+
+    if (expected !== null && expected >= earliestPlausible) return expected;
+    if (aimed !== null && aimed >= earliestPlausible) return aimed;
+
+    return expected ?? aimed ?? null;
+  }
+
   for (const field of DEPARTURE_TIME_FIELDS) {
-    const value = Number(arrival[field]);
-    if (Number.isFinite(value) && value > 0) return value;
+    if (values[field] !== null) return values[field];
   }
 
   return null;
