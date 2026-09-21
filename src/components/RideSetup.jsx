@@ -172,7 +172,7 @@ export default function RideSetup({
       {status === "ready" && downstream.length > 0 && (
         <>
           <fieldset className={styles.stopList}>
-            <legend className="sr-only">Choose your exit stop</legend>
+            <legend className={styles.srOnly}>Choose your exit stop</legend>
             {downstream.map((item, index) => {
               const clock = plannedClock(
                 item.departureTime || item.arrivalTime
