@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import NearbyStops from "./NearbyStops";
 
@@ -77,6 +77,55 @@ test("requests location only after user action and selects a clear nearest stop"
   expect(url.searchParams.get("destination")).toBe("60.4518,22.2666");
   expect(url.searchParams.get("travelmode")).toBe("walking");
   expect(url.searchParams.has("origin")).toBe(false);
+});
+
+test("shows the six closest stops in distance order", async () => {
+  const expandedStops = [
+    { id: "1", name: "Stop one", lat: 60.45181, lon: 22.2666 },
+    { id: "2", name: "Stop two", lat: 60.4519, lon: 22.2666 },
+    { id: "3", name: "Stop three", lat: 60.4520, lon: 22.2666 },
+    { id: "4", name: "Stop four", lat: 60.4521, lon: 22.2666 },
+    { id: "5", name: "Stop five", lat: 60.4522, lon: 22.2666 },
+    { id: "6", name: "Stop six", lat: 60.4523, lon: 22.2666 },
+    { id: "7", name: "Stop seven", lat: 60.4535, lon: 22.2666 },
+  ];
+
+  setGeolocation(
+    vi.fn((success) =>
+      success({
+        coords: {
+          latitude: 60.4518,
+          longitude: 22.2666,
+          accuracy: 500,
+        },
+      })
+    )
+  );
+
+  render(
+    <NearbyStops
+      stops={expandedStops}
+      coordinatesStatus="ready"
+      activeStopId="999"
+      onSelect={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Find nearest stop" })
+  );
+
+  const group = await screen.findByRole("group", {
+    name: "Nearest Föli stops",
+  });
+  const stopButtons = within(group).getAllByRole("button");
+
+  expect(stopButtons).toHaveLength(6);
+  expect(stopButtons[0]).toHaveAccessibleName(/Stop one, stop 1,/i);
+  expect(stopButtons[5]).toHaveAccessibleName(/Stop six, stop 6,/i);
+  expect(
+    within(group).queryByRole("button", { name: /Stop seven, stop 7,/i })
+  ).not.toBeInTheDocument();
 });
 
 test("explains denied permission without changing the active stop", async () => {
