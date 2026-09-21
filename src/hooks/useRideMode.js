@@ -166,6 +166,7 @@ export default function useRideMode() {
   const sessionRef = useRef(session);
   const runtimeRef = useRef(runtime);
   const gpsRef = useRef(gps);
+  const shapeRef = useRef(null);
 
   const commitSession = useCallback((updater) => {
     setSession((current) => {
@@ -197,6 +198,7 @@ export default function useRideMode() {
 
   const endRide = useCallback(() => {
     stopRideAlerts();
+    shapeRef.current = null;
     commitSession(null);
     commitRuntime(emptyRuntime());
     commitGps(emptyGps());
