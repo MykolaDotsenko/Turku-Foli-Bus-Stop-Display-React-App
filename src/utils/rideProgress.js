@@ -64,25 +64,103 @@ function stopDetails(stopId, stopsById) {
   };
 }
 
+function helsinkiClockSeconds(epochSec) {
+  const epoch = finiteNumber(epochSec);
+  if (epoch === null || epoch <= 0) return null;
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Helsinki",
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(new Date(epoch * 1000));
+
+    const byType = Object.fromEntries(
+      parts.map((part) => [part.type, part.value])
+    );
+    const hour = Number(byType.hour) % 24;
+    const minute = Number(byType.minute);
+    const second = Number(byType.second);
+
+    if (![hour, minute, second].every(Number.isFinite)) return null;
+    return hour * 3600 + minute * 60 + second;
+  } catch {
+    return null;
+  }
+}
+
+function circularClockDeltaSeconds(a, b) {
+  const left = finiteNumber(a);
+  const right = finiteNumber(b);
+  if (left === null || right === null) return Number.POSITIVE_INFINITY;
+
+  const day = 24 * 60 * 60;
+  const diff = Math.abs((left % day) - (right % day));
+  return Math.min(diff, day - diff);
+}
+
+export function resolveRideBoardingIndex(
+  stopTimes,
+  currentStopId,
+  aimedDepartureEpochSec
+) {
+  const rows = Array.isArray(stopTimes) ? stopTimes : [];
+  const candidates = rows
+    .map((item, index) =>
+      String(item?.stopId) === String(currentStopId) ? index : -1
+    )
+    .filter((index) => index >= 0);
+
+  if (candidates.length === 1) return candidates[0];
+  if (candidates.length === 0) return -1;
+
+  const aimedClock = helsinkiClockSeconds(aimedDepartureEpochSec);
+  if (aimedClock === null) return -1;
+
+  const ranked = candidates
+    .map((index) => ({
+      index,
+      delta: circularClockDeltaSeconds(
+        stopTimeSeconds(rows[index]),
+        aimedClock
+      ),
+    }))
+    .sort((a, b) => a.delta - b.delta);
+
+  if (ranked[0].delta > 10 * 60) return -1;
+  if (ranked[1] && ranked[1].delta - ranked[0].delta < 30) return -1;
+
+  return ranked[0].index;
+}
+
 export function buildRidePlan({
   stopTimes,
   currentStopId,
+  currentStopAimedEpochSec,
   targetStopId,
+  targetStopSequence,
   stopsById,
   departureEpochSec,
 }) {
   if (!Array.isArray(stopTimes) || stopTimes.length < 2) return null;
 
-  const boardingIndex = stopTimes.findIndex(
-    (item) => String(item?.stopId) === String(currentStopId)
+  const boardingIndex = resolveRideBoardingIndex(
+    stopTimes,
+    currentStopId,
+    currentStopAimedEpochSec
   );
   if (boardingIndex < 0) return null;
 
+  const targetSequence = finiteNumber(targetStopSequence);
   const targetIndex = stopTimes.findIndex(
     (item, index) =>
       index > boardingIndex &&
-      String(item?.stopId) === String(targetStopId) &&
-      Number(item?.dropOffType) !== 1
+      Number(item?.dropOffType) !== 1 &&
+      (targetSequence !== null
+        ? finiteNumber(item?.stopSequence) === targetSequence
+        : String(item?.stopId) === String(targetStopId))
   );
   if (targetIndex < 0) return null;
 
@@ -100,7 +178,9 @@ export function buildRidePlan({
   const routeStops = throughRecovery.map((item) => {
     const scheduleSec = stopTimeSeconds(item);
     const offsetSec =
-      scheduleSec === null ? null : Math.max(0, scheduleSec - boardingScheduleSec);
+      scheduleSec === null
+        ? null
+        : Math.max(0, scheduleSec - boardingScheduleSec);
 
     return {
       ...stopDetails(item.stopId, stopsById),
@@ -109,6 +189,7 @@ export function buildRidePlan({
       departureTime: item.departureTime || "",
       timepoint: finiteNumber(item.timepoint),
       dropOffType: finiteNumber(item.dropOffType),
+      shapeDistTraveled: finiteNumber(item.shapeDistTraveled),
       offsetSec,
       predictedEpochSec:
         offsetSec === null ? null : Math.round(departure + offsetSec),
@@ -225,6 +306,8 @@ function candidateStage(signals) {
   const providerAge = finiteNumber(signals.providerPositionAgeSec);
   const gpsDistance = finiteNumber(signals.gpsDistanceM);
   const gpsAccuracy = finiteNumber(signals.gpsAccuracyM);
+  const gpsRouteDistance = finiteNumber(signals.gpsRouteDistanceM);
+  const gpsRouteEta = finiteNumber(signals.gpsRouteEtaSec);
 
   const freshProviderPosition =
     providerDistance !== null &&
@@ -234,8 +317,19 @@ function candidateStage(signals) {
     gpsDistance !== null &&
     (gpsAccuracy === null || gpsAccuracy <= 120);
 
+  const reliableShapeGps =
+    signals.gpsShapeUsable === true &&
+    signals.gpsOnRoute === true &&
+    gpsRouteDistance !== null &&
+    gpsAccuracy !== null &&
+    gpsAccuracy <= 120;
+
   if (signals.targetAtStop === true) {
-    return { stage: RIDE_STAGE.NOW, reason: "target-at-stop", confidence: "live" };
+    return {
+      stage: RIDE_STAGE.NOW,
+      reason: "target-at-stop",
+      confidence: "live",
+    };
   }
 
   if (
@@ -252,6 +346,20 @@ function candidateStage(signals) {
 
   if (
     signals.currentAtLeastNext === true &&
+    reliableShapeGps &&
+    gpsRouteDistance >= -30 &&
+    gpsRouteDistance <= 110
+  ) {
+    return {
+      stage: RIDE_STAGE.NOW,
+      reason: "gps-route-arrival",
+      confidence: "location",
+    };
+  }
+
+  if (
+    signals.currentAtLeastNext === true &&
+    signals.gpsShapeAvailable !== true &&
     reliableGps &&
     gpsDistance <= 60
   ) {
@@ -264,6 +372,10 @@ function candidateStage(signals) {
 
   if (
     signals.previousPassedConfirmed === true ||
+    (reliableShapeGps &&
+      gpsRouteDistance >= -50 &&
+      gpsRouteDistance <= 600) ||
+    (reliableShapeGps && gpsRouteEta !== null && gpsRouteEta <= 90) ||
     (liveEta !== null && liveEta <= 90) ||
     (remaining !== null && remaining <= 1) ||
     (scheduleEta !== null && scheduleEta <= 90)
@@ -271,6 +383,7 @@ function candidateStage(signals) {
     const degraded =
       liveEta === null &&
       signals.previousPassedConfirmed !== true &&
+      !reliableShapeGps &&
       scheduleEta !== null;
 
     return {
@@ -278,16 +391,32 @@ function candidateStage(signals) {
       reason:
         signals.previousPassedConfirmed === true
           ? "previous-stop-passed"
-          : liveEta !== null && liveEta <= 90
-            ? "live-eta"
-            : remaining !== null && remaining <= 1
-              ? "planned-stop-count"
-              : "schedule-fallback",
-      confidence: degraded ? "schedule" : "live",
+          : reliableShapeGps &&
+              gpsRouteDistance >= -50 &&
+              gpsRouteDistance <= 600
+            ? "gps-route-distance"
+            : reliableShapeGps &&
+                gpsRouteEta !== null &&
+                gpsRouteEta <= 90
+              ? "gps-route-eta"
+              : liveEta !== null && liveEta <= 90
+                ? "live-eta"
+                : remaining !== null && remaining <= 1
+                  ? "planned-stop-count"
+                  : "schedule-fallback",
+      confidence: reliableShapeGps
+        ? "location"
+        : degraded
+          ? "schedule"
+          : "live",
     };
   }
 
   if (
+    (reliableShapeGps &&
+      gpsRouteDistance >= 0 &&
+      gpsRouteDistance <= 1200) ||
+    (reliableShapeGps && gpsRouteEta !== null && gpsRouteEta <= 300) ||
     (liveEta !== null && liveEta <= 300) ||
     (remaining !== null && remaining <= 3) ||
     (scheduleEta !== null && scheduleEta <= 300)
@@ -295,13 +424,24 @@ function candidateStage(signals) {
     return {
       stage: RIDE_STAGE.SOON,
       reason:
-        liveEta !== null && liveEta <= 300
-          ? "live-eta"
-          : remaining !== null && remaining <= 3
-            ? "planned-stop-count"
-            : "schedule-fallback",
-      confidence:
-        liveEta === null && scheduleEta !== null ? "schedule" : "live",
+        reliableShapeGps &&
+        gpsRouteDistance >= 0 &&
+        gpsRouteDistance <= 1200
+          ? "gps-route-distance"
+          : reliableShapeGps &&
+              gpsRouteEta !== null &&
+              gpsRouteEta <= 300
+            ? "gps-route-eta"
+            : liveEta !== null && liveEta <= 300
+              ? "live-eta"
+              : remaining !== null && remaining <= 3
+                ? "planned-stop-count"
+                : "schedule-fallback",
+      confidence: reliableShapeGps
+        ? "location"
+        : liveEta === null && scheduleEta !== null
+          ? "schedule"
+          : "live",
     };
   }
 
@@ -314,12 +454,17 @@ function candidateStage(signals) {
 
 export function evaluateRideStage(currentStage, signals = {}) {
   if (currentStage === RIDE_STAGE.MISSED) {
-    return { stage: currentStage, reason: "already-missed", confidence: "live" };
+    return {
+      stage: currentStage,
+      reason: "already-missed",
+      confidence: "live",
+    };
   }
 
   if (
     currentStage === RIDE_STAGE.NOW &&
     (signals.targetPassedConfirmed === true ||
+      signals.gpsPassedTarget === true ||
       signals.gpsMovedAwayAfterNear === true)
   ) {
     return {
@@ -327,13 +472,16 @@ export function evaluateRideStage(currentStage, signals = {}) {
       reason:
         signals.targetPassedConfirmed === true
           ? "target-passed"
-          : "device-moved-away",
+          : signals.gpsPassedTarget === true
+            ? "gps-route-passed"
+            : "device-moved-away",
       confidence:
         signals.targetPassedConfirmed === true ? "live" : "location",
     };
   }
 
-  const currentAtLeastNext = rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT);
+  const currentAtLeastNext =
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT);
   const candidate = candidateStage({ ...signals, currentAtLeastNext });
 
   return rideStageRank(candidate.stage) > rideStageRank(currentStage)
