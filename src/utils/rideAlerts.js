@@ -125,7 +125,7 @@ function speakUtterance(text, lang, voice = null) {
   globalThis.speechSynthesis.speak(utterance);
 }
 
-export function speakRideStage(stage, stopName) {
+export function speakRideStage(stage, stopName, routeType = null) {
   if (!speechSupported()) return false;
 
   const name = String(stopName || "your stop").trim();
@@ -149,7 +149,7 @@ export function speakRideStage(stage, stopName) {
     if (stage === "next") {
       speakUtterance("The next stop is yours.", "en-US");
       speakUtterance(name, "fi-FI", fiVoice);
-      speakUtterance("Press the stop button now.", "en-US");
+      speakUtterance(rideExitInstruction(routeType).nextVoice, "en-US");
       return true;
     }
 
