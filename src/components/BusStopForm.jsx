@@ -239,8 +239,8 @@ function BusStopForm({
             onClick={locateNearestStop}
             disabled={locating}
             aria-busy={locating}
-            aria-label="Use my location to find nearest stop"
-            title="Use my location"
+            aria-label="Use current location"
+            title="Find nearest stop"
           >
             <span aria-hidden="true">{locating ? "…" : "⌖"}</span>
           </button>
@@ -282,7 +282,7 @@ function BusStopForm({
       </div>
 
       <p id="stop-search-help" className={styles.help}>
-        Search by stop name or number, or use your location.
+        Search by stop name or number.
       </p>
 
       {validationError && (
