@@ -3,6 +3,7 @@ import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
 import ConnectivityStatus from "./components/ConnectivityStatus";
+import DemoTour from "./components/DemoTour";
 import HomeRecovery from "./components/HomeRecovery";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
@@ -51,6 +52,7 @@ function canonicalizeCurrentStop(stopId) {
 
 function App() {
   const [stopId, setStopId] = useState(stopFromLocation);
+  const [demoOpen, setDemoOpen] = useState(false);
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
   );
@@ -184,7 +186,12 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
+    <main
+      className="app-shell"
+      style={{
+        "--turku-skyline": `url("${import.meta.env.BASE_URL}turku-skyline.svg")`,
+      }}
+    >
       <header className="topbar">
         <div className="brandLockup">
           {/* The same file as the favicon, the home-screen icon and the
@@ -226,6 +233,12 @@ function App() {
       </header>
 
       <ConnectivityStatus online={online} />
+
+      <DemoTour
+        open={demoOpen}
+        onClose={() => setDemoOpen(false)}
+        onOpenKauppatori={() => selectStop("164")}
+      />
 
       {ride.session && (
         <RideMode
@@ -271,6 +284,24 @@ function App() {
           coordinatesStatus={coordinatesStatus}
           onSubmit={selectStop}
         />
+
+        <div className="demo-launcher">
+          <div>
+            <p className="demo-kicker">New to Turku Föli?</p>
+            <p className="demo-copy">
+              See the core flow in about a minute, then open a real central
+              Turku stop.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="demo-button"
+            onClick={() => setDemoOpen(true)}
+          >
+            <span aria-hidden="true">▶</span>
+            Try Turku demo
+          </button>
+        </div>
       </section>
 
       <QuickStops
