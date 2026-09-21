@@ -498,7 +498,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .getByRole("checkbox", { name: /Show system notifications/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -566,7 +566,7 @@ async function startRide(page, { gps }) {
     await gpsToggle.uncheck();
   }
   await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .getByRole("checkbox", { name: /Show system notifications/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -1396,6 +1396,543 @@ test("200 percent text scaling keeps core mobile controls usable", async ({
     expect(box.x + box.width).toBeLessThanOrEqual(360);
   }
 });
+
+
+function futureHelsinkiGtfsClock(minutesFromNow) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(Date.now() + minutesFromNow * 60_000));
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return \`\${byType.hour}:\${byType.minute}:\${byType.second}\`;
+}
+
+test("release gate: an empty realtime board falls back to the published GTFS timetable", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  const departureClock = futureHelsinkiGtfsClock(12);
+
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "OK",
+        stopname: "Kauppatori",
+        servertime: Math.floor(Date.now() / 1000),
+        result: [],
+      }),
+    });
+  });
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/stop_times/stop/164",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            trip_id: "trip-scheduled-164",
+            arrival_time: departureClock,
+            departure_time: departureClock,
+            stop_sequence: 1,
+            pickup_type: 0,
+            drop_off_type: 0,
+          },
+        ]),
+      });
+    }
+  );
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/calendar",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          release-test-service: {
+            monday: 1,
+            tuesday: 1,
+            wednesday: 1,
+            thursday: 1,
+            friday: 1,
+            saturday: 1,
+            sunday: 1,
+            start_date: "20260101",
+            end_date: "20271231",
+          },
+        }),
+      });
+    }
+  );
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/calendar_dates",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: "{}",
+      });
+    }
+  );
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/trips/trip/trip-scheduled-164",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            route_id: "1",
+            service_id: "release-test-service",
+            trip_headsign: "Satama",
+            direction_id: 0,
+            block_id: "release-block",
+            shape_id: "shape-1",
+            wheelchair_accessible: 1,
+            bikes_allowed: 0,
+          },
+        ]),
+      });
+    }
+  );
+
+  await page.goto("/?stop=164");
+
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page.getByText("No upcoming departures.")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      "No live departure is published right now · showing the next scheduled Föli times."
+    )
+  ).toBeVisible();
+  await expect(page.getByText("Scheduled", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("Satama").first()).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(1);
+});
+
+test("release gate: departure-board controls all respond to the passenger", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  const refreshRequest = page.waitForRequest(
+    (request) => request.url() === "https://data.foli.fi/siri/sm/164"
+  );
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await refreshRequest;
+  await expect(page.getByText("Harbour").first()).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Save Kauppatori to favorites" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Remove Kauppatori from favorites" })
+  ).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "Next stops" }).first().click();
+  await expect(page.getByText("Planned stop sequence")).toBeVisible();
+  await page.getByRole("button", { name: "Hide next stops" }).first().click();
+  await expect(page.getByText("Planned stop sequence")).toHaveCount(0);
+
+  const rideButton = page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first();
+  await rideButton.click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Close get-off alerts" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toHaveCount(0);
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await page
+    .locator('section[aria-label="Set up get-off alerts"]')
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toHaveCount(0);
+
+  const liveEstimateDetails = page.locator("details").filter({
+    hasText: "About live estimates",
+  });
+  await liveEstimateDetails.getByText("About live estimates").click();
+  await expect(
+    page.getByText(/Vehicle distance is a straight-line estimate/i)
+  ).toBeVisible();
+
+  const search = page.getByRole("combobox", { name: "Find your stop" });
+  await search.fill("Turun");
+  await page.getByRole("option", { name: /Turun linna/i }).click();
+  await expect(page).toHaveURL(/stop=4/);
+
+  await page.getByRole("button", { name: /Kauppatori/ }).first().click();
+  await expect(page).toHaveURL(/stop=164/);
+
+  await page
+    .getByRole("button", { name: "Remove Kauppatori from favorites" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Save Kauppatori to favorites" })
+  ).toHaveAttribute("aria-pressed", "false");
+});
+
+test("release gate: a first-load departure failure exposes a working retry", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  let attempts = 0;
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    attempts += 1;
+    if (attempts === 1) {
+      await route.abort("failed");
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto("/?stop=164");
+  await expect(page.getByText("Couldn’t load departures.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Try again" }).click();
+
+  await expect(page.getByText("Couldn’t load departures.")).toHaveCount(0);
+  await expect(page.getByText("Harbour").first()).toBeVisible();
+  expect(attempts).toBeGreaterThanOrEqual(2);
+});
+
+test("release gate: Ride Mode sound, switching and exit controls are coherent", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.route(
+    "https://data.foli.fi/gtfs/v0/20260920-120000/stop_times/trip/trip-164-7",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            stop_id: "164",
+            arrival_time: "17:40:00",
+            departure_time: "17:41:00",
+            stop_sequence: 1,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 1,
+            shape_dist_traveled: 0,
+          },
+          {
+            stop_id: "32",
+            arrival_time: "17:46:00",
+            departure_time: "17:46:00",
+            stop_sequence: 2,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 0,
+            shape_dist_traveled: 900,
+          },
+          {
+            stop_id: "4",
+            arrival_time: "17:55:00",
+            departure_time: "17:55:00",
+            stop_sequence: 3,
+            pickup_type: 0,
+            drop_off_type: 0,
+            timepoint: 1,
+            shape_dist_traveled: 3000,
+          },
+        ]),
+      });
+    }
+  );
+
+  await page.goto("/?stop=164");
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await page.locator('input[type="radio"][value="3"]').check();
+  await page
+    .getByRole("checkbox", { name: /Follow my location/i })
+    .uncheck();
+  await page
+    .getByRole("checkbox", { name: /Show system notifications/i })
+    .uncheck();
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+
+  const soundCheck = page.getByRole("group", { name: "Alert sound check" });
+  await expect(soundCheck).toBeVisible();
+  await soundCheck.getByRole("button", { name: "No" }).click();
+  await expect(soundCheck.getByText("Let’s get the sound working")).toBeVisible();
+  await soundCheck.getByRole("button", { name: "Play it again" }).click();
+  await soundCheck.getByRole("button", { name: "I can hear it now" }).click();
+  await expect(soundCheck).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Test alert" }).click();
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await page.locator('input[type="radio"][value="3"]').check();
+  await page
+    .getByRole("checkbox", { name: /Follow my location/i })
+    .uncheck();
+  await page
+    .getByRole("checkbox", { name: /Show system notifications/i })
+    .uncheck();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Switch Ride Mode to line 7?");
+    await dialog.dismiss();
+  });
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+  await expect(page.getByText("Line").locator("..").getByText("1")).toBeVisible();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Switch Ride Mode to line 7?");
+    await dialog.accept();
+  });
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+
+  await expect(page.getByRole("group", { name: "Alert sound check" })).toBeVisible();
+  await expect(page.getByText("Line").locator("..").getByText("7")).toBeVisible();
+
+  await page.getByRole("button", { name: "End ride" }).click();
+  await expect(page.getByRole("button", { name: "End ride" })).toHaveCount(0);
+});
+
+test("release gate: nearby-stop controls can update location and open a chosen stop", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+    accuracy: 15,
+  });
+
+  await page.goto("/?stop=4");
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+  await expect(page).toHaveURL(/stop=164/);
+
+  await context.setGeolocation({
+    latitude: 60.4488,
+    longitude: 22.255,
+    accuracy: 15,
+  });
+  await page.getByRole("button", { name: "Update location" }).click();
+  await expect(page).toHaveURL(/stop=32/);
+
+  await page
+    .getByRole("button", { name: /Turun linna, stop 4,/ })
+    .click();
+  await expect(page).toHaveURL(/stop=4/);
+});
+
+test("release gate: Home recovery and My Places management controls work", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+    accuracy: 15,
+  });
+
+  await page.addInitScript(() => {
+    globalThis.__releaseSpoken = false;
+    globalThis.__releasePrinted = false;
+    globalThis.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) {
+      this.text = text;
+      this.lang = "";
+      this.voice = null;
+    };
+    globalThis.speechSynthesis = {
+      cancel() {},
+      getVoices() {
+        return [{ lang: "fi-FI", name: "Release Finnish" }];
+      },
+      speak() {
+        globalThis.__releaseSpoken = true;
+      },
+    };
+    globalThis.print = () => {
+      globalThis.__releasePrinted = true;
+    };
+  });
+
+  await page.goto("/?stop=4");
+  await seedHome(page);
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  const homeOptions = recovery.getByRole("button", { name: "Home options" });
+  await expect(homeOptions).toBeVisible();
+  await homeOptions.click();
+  await recovery.getByRole("button", { name: "Fewer options" }).click();
+  await recovery.getByRole("button", { name: "Home options" }).click();
+
+  await recovery.getByRole("button", { name: "Show driver" }).click();
+  const driver = recovery.getByRole("dialog");
+  await expect(driver).toBeVisible();
+  const readAloud = driver.getByRole("button", { name: /Read aloud in Finnish/i });
+  await expect(readAloud).toBeVisible();
+  await readAloud.click();
+  await expect
+    .poll(() => page.evaluate(() => globalThis.__releaseSpoken))
+    .toBe(true);
+  await driver.getByRole("button", { name: "Close" }).click();
+
+  await recovery.getByText("Other saved Home stop").click();
+  const backupRoute = recovery.getByRole("link", {
+    name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+  });
+  await expect(backupRoute).toHaveAttribute("target", "_blank");
+
+  await recovery.getByText("Prepare for no battery").click();
+  await recovery
+    .getByRole("button", { name: "Print / save Home backup card" })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => globalThis.__releasePrinted))
+    .toBe(true);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const placeCard = page.locator("article").filter({
+    hasText: "Primary: Kauppatori",
+  }).first();
+
+  await placeCard.getByText("1 backup safe stop").click();
+  await placeCard.getByRole("button", { name: "Make primary" }).click();
+  await expect(placeCard.getByText(/Primary: Puistokatu/)).toBeVisible();
+
+  await placeCard.getByText("Manage Home").click();
+  await placeCard.getByRole("button", { name: "Share Home" }).click();
+  await expect(
+    placeCard.getByText(/Share link copied|Copy the share link below|Safe Place shared/)
+  ).toBeVisible();
+
+  await placeCard
+    .getByRole("button", { name: "Replace using where I am now" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Choose safe stops for Home" })
+  ).toBeVisible();
+  await page
+    .locator('section[aria-labelledby="setup-home-title"]')
+    .getByRole("button", { name: "Cancel" })
+    .click();
+
+  const refreshedPlaceCard = page.locator("article").filter({
+    hasText: "Primary: Puistokatu",
+  }).first();
+  await refreshedPlaceCard.getByText("Manage Home").click();
+
+  page.once("dialog", async (dialog) => {
+    expect(dialog.message()).toContain("Remove Home from My Places?");
+    await dialog.accept();
+  });
+  await refreshedPlaceCard
+    .getByRole("button", { name: "Remove Home" })
+    .click();
+
+  await expect(
+    page.getByRole("button", { name: "Set up Home from my current location" })
+  ).toBeVisible();
+});
+
+test("release gate: shared-place dismiss and service-update expansion controls work", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  const token = encodeSharedPlaceForTest({
+    v: 1,
+    p: "home",
+    m: "164",
+    s: [
+      ["164", "Kauppatori"],
+      ["32", "Puistokatu"],
+    ],
+  });
+
+  await page.goto(\`/?stop=164#place=\${token}\`);
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
+  await expect(page).toHaveURL(/\?stop=164$/);
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: Array.from({ length: 6 }, (_, index) => ({
+          message_id: 500 + index,
+          isactive: true,
+          priority: 1000 - index,
+          effect: "DETOUR",
+          cause: "CONSTRUCTION",
+          affected_stops: ["164"],
+          affected_routes: [],
+          header: \`Release update \${index + 1}\`,
+          message: \`Release passenger information \${index + 1}.\`,
+          repeat: [[now - 60, now + 3600]],
+          images: [],
+        })),
+        cancellations: [],
+      }),
+    });
+  });
+
+  await page.reload();
+  await expect(page.getByLabel("6 service updates")).toBeVisible();
+
+  const more = page.getByRole("button", { name: "Show 2 more updates" });
+  await more.click();
+  await expect(page.getByText("Release update 6")).toBeVisible();
+  await page.getByRole("button", { name: "Show fewer updates" }).click();
+  await expect(page.getByText("Release update 6")).toHaveCount(0);
+
+  const firstAlert = page.getByText("Release update 1");
+  await firstAlert.click();
+  await expect(page.getByText("Release passenger information 1.")).toBeVisible();
+  await firstAlert.click();
+  await expect(page.getByText("Release passenger information 1.")).toHaveCount(0);
+});
+
 
 test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
   if (
