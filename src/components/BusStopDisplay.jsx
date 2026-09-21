@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { Fragment, useMemo, useState } from "react";
 import styles from "./BusStopDisplay.module.css";
 import TripJourneyDetails from "./TripJourneyDetails";
+import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
 import useTripEnrichment from "../hooks/useTripEnrichment";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
@@ -117,6 +118,9 @@ function BusStopDisplay({
   onRefresh,
   isFavorite,
   onToggleFavorite,
+  placesById,
+  onStartRide,
+  activeRideTripRef = "",
 }) {
   // Keeps due times, freshness and the departed-row filter counting between
   // the 30-second provider refreshes instead of freezing at the last payload.
@@ -151,6 +155,7 @@ function BusStopDisplay({
     [stops]
   );
   const preferredLanguages = useMemo(browserLanguages, []);
+  const [rideCandidateKey, setRideCandidateKey] = useState("");
 
   return (
     <section
@@ -275,15 +280,24 @@ function BusStopDisplay({
                   tripDetails?.wheelchairAccessible
                 );
 
+                const rowKey = [
+                  arrival.lineref,
+                  arrival.tripref || arrival.destinationdisplay,
+                  departureTime,
+                  index,
+                ].join("-");
+                const rideKey = arrival.tripref
+                  ? `${arrival.tripref}-${departureTime}`
+                  : "";
+                const rideSetupOpen =
+                  Boolean(rideKey) && rideCandidateKey === rideKey;
+                const sameRideActive =
+                  Boolean(activeRideTripRef) &&
+                  activeRideTripRef === arrival.tripref;
+
                 return (
-                  <tr
-                    key={[
-                      arrival.lineref,
-                      arrival.tripref || arrival.destinationdisplay,
-                      departureTime,
-                      index,
-                    ].join("-")}
-                  >
+                  <Fragment key={rowKey}>
+                  <tr>
                     <td>
                       <span
                         className={styles.lineBadge}
@@ -315,17 +329,55 @@ function BusStopDisplay({
                         <span className={styles.proximity}>{proximity}</span>
                       )}
                       {arrival.tripref && (
-                        <TripJourneyDetails
-                          tripId={arrival.tripref}
-                          currentStopId={stopId}
-                          stopsById={stopsById}
-                        />
+                        <>
+                          <TripJourneyDetails
+                            tripId={arrival.tripref}
+                            currentStopId={stopId}
+                            stopsById={stopsById}
+                          />
+                          <button
+                            type="button"
+                            className={styles.rideButton}
+                            disabled={sameRideActive}
+                            aria-expanded={rideSetupOpen}
+                            onClick={() =>
+                              setRideCandidateKey((current) =>
+                                current === rideKey ? "" : rideKey
+                              )
+                            }
+                          >
+                            {sameRideActive
+                              ? "Ride Mode active"
+                              : rideSetupOpen
+                                ? "Close get-off alerts"
+                                : "Alert me when to get off"}
+                          </button>
+                        </>
                       )}
                     </td>
                     <td className={styles.due}>
                       {formatDue(departureTime, effectiveServerTime * 1000)}
                     </td>
                   </tr>
+                  {rideSetupOpen && !sameRideActive && (
+                    <tr className={styles.rideSetupRow}>
+                      <td colSpan={3}>
+                        <RideSetup
+                          arrival={arrival}
+                          currentStopId={stopId}
+                          currentStopName={stopName}
+                          stopsById={stopsById}
+                          placesById={placesById}
+                          onCancel={() => setRideCandidateKey("")}
+                          onStart={(config) => {
+                            onStartRide?.(config);
+                            setRideCandidateKey("");
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
