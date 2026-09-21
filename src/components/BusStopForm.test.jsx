@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import BusStopForm from "./BusStopForm";
 
@@ -7,6 +7,67 @@ const stops = [
   { id: "4", name: "Turun linna" },
   { id: "32", name: "Puistokatu" },
 ];
+
+
+test("starts with an empty field when no stop is selected", () => {
+  render(<BusStopForm activeStopId="" stops={stops} onSubmit={vi.fn()} />);
+
+  expect(
+    screen.getByRole("combobox", { name: "Find your stop" })
+  ).toHaveValue("");
+});
+
+test("location button fills the nearest stop but waits for explicit submit", async () => {
+  const originalGeolocation = navigator.geolocation;
+  const onSubmit = vi.fn();
+  const stopsWithCoordinates = [
+    { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+    { id: "4", name: "Turun linna", lat: 60.4355, lon: 22.2345 },
+  ];
+
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: {
+      getCurrentPosition: (success) =>
+        success({
+          coords: {
+            latitude: 60.45182,
+            longitude: 22.26662,
+            accuracy: 12,
+          },
+        }),
+    },
+  });
+
+  try {
+    render(
+      <BusStopForm
+        activeStopId=""
+        stops={stopsWithCoordinates}
+        coordinatesStatus="ready"
+        onSubmit={onSubmit}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Use my location to find nearest stop",
+      })
+    );
+
+    const input = screen.getByRole("combobox", { name: "Find your stop" });
+    await waitFor(() => expect(input).toHaveValue("Kauppatori"));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show departures" }));
+    expect(onSubmit).toHaveBeenCalledWith("164");
+  } finally {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: originalGeolocation,
+    });
+  }
+});
 
 test("finds stops by name and submits a suggestion", () => {
   const onSubmit = vi.fn();
