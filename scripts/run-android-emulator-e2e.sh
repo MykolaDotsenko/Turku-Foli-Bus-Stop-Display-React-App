@@ -46,11 +46,24 @@ for _ in $(seq 1 30); do
 done
 
 test -n "$SOCKET"
+SOCKET="${SOCKET#@}"
 
 adb forward tcp:9222 "localabstract:$SOCKET"
-curl --fail --retry 20 --retry-delay 1 \
-  http://127.0.0.1:9222/json \
-  | tee artifacts/android-e2e/cdp-targets.json
+
+CDP_READY=0
+for _ in $(seq 1 40); do
+  if curl --silent --show-error --fail --retry 1 --retry-all-errors \
+    http://127.0.0.1:9222/json/list \
+    -o artifacts/android-e2e/cdp-targets.json \
+    && [[ -s artifacts/android-e2e/cdp-targets.json ]]; then
+    CDP_READY=1
+    break
+  fi
+  sleep 0.5
+done
+
+test "$CDP_READY" -eq 1
+cat artifacts/android-e2e/cdp-targets.json
 
 node scripts/android-webview-e2e.mjs \
   | tee artifacts/android-e2e/webview-e2e.log
