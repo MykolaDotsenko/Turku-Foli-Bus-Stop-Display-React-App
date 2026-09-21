@@ -9,7 +9,11 @@
 
 Live departures, hands-free **Ride Mode** get-off alerts, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
 
+**Live production:** https://mykoladotsenko.github.io/foli-live-departures/
+
 <p>
+  <a href="https://mykoladotsenko.github.io/foli-live-departures/"><strong>Live demo</strong></a>
+  ·
   <a href="#product-preview"><strong>Product preview</strong></a>
   ·
   <a href="docs/PRODUCT_AUDIT.md">Product audit</a>

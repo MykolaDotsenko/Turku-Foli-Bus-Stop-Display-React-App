@@ -34,8 +34,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests with coverage gate
+        run: npm run test:coverage
 
       - name: Verify Föli API reference
         run: npm run verify:api-reference
