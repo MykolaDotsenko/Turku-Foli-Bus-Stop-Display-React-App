@@ -32,3 +32,15 @@ if (!sw.includes('caches.match(SHELL_URL, { ignoreVary: true })')) {
     "Generated service worker does not ignore Vary for the offline navigation shell."
   );
 }
+
+if (!sw.includes('self.addEventListener("notificationclick"')) {
+  throw new Error(
+    "Generated service worker does not handle notification taps, so a get-off alert cannot reopen the app."
+  );
+}
+
+if (!sw.includes('foli-claim-clients')) {
+  throw new Error(
+    "Generated service worker cannot take over a page that reloaded during install, so that visit has no offline shell."
+  );
+}

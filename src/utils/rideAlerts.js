@@ -287,7 +287,18 @@ export async function showRideNotification(stage, stopName, routeType = null) {
     }
 
     if (typeof NotificationApi === "function") {
-      new NotificationApi(copy.title, options);
+      // Without a service worker the tap lands on the page, and it has to be
+      // sent somewhere: a get-off alert that does nothing when pressed costs
+      // the passenger the seconds it was meant to buy them.
+      const notification = new NotificationApi(copy.title, options);
+      notification.onclick = () => {
+        try {
+          globalThis.focus?.();
+          notification.close?.();
+        } catch {
+          // Focusing is best effort; the alert has already been delivered.
+        }
+      };
       return true;
     }
   } catch {
