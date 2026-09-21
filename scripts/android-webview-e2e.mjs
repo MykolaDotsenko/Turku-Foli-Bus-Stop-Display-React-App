@@ -21,7 +21,7 @@ function record(name, passed, details = {}) {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 
 async function retry(label, fn, {
   attempts = 30,
