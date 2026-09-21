@@ -71,11 +71,58 @@ export function minutesUntil(unixSeconds, nowMs = Date.now()) {
   return Math.max(0, Math.ceil((seconds * 1000 - nowMs) / 60_000));
 }
 
+function serviceDayKey(valueMs) {
+  try {
+    const parts = serviceDateTimeFormat(
+      {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      },
+      "en-CA"
+    ).formatToParts(new Date(valueMs));
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${byType.year}-${byType.month}-${byType.day}`;
+  } catch {
+    return "";
+  }
+}
+
+function dayDistance(leftKey, rightKey) {
+  const left = String(leftKey || "").split("-").map(Number);
+  const right = String(rightKey || "").split("-").map(Number);
+  if (left.length !== 3 || right.length !== 3 || [...left, ...right].some(Number.isNaN)) {
+    return null;
+  }
+
+  return Math.round(
+    (Date.UTC(right[0], right[1] - 1, right[2]) -
+      Date.UTC(left[0], left[1] - 1, left[2])) /
+      86_400_000
+  );
+}
+
 export function formatDue(unixSeconds, nowMs = Date.now()) {
   const minutes = minutesUntil(unixSeconds, nowMs);
   if (minutes === null) return "—";
   if (minutes <= 1) return "Due";
-  return `${minutes} min`;
+  if (minutes <= 90) return `${minutes} min`;
+
+  const departureMs = Number(unixSeconds) * 1000;
+  const days = dayDistance(serviceDayKey(nowMs), serviceDayKey(departureMs));
+  const clock = formatClock(unixSeconds, "en-GB");
+
+  if (days === 0) return `Today ${clock}`;
+  if (days === 1) return `Tomorrow ${clock}`;
+
+  return serviceDateTimeFormat(
+    {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    "en-GB"
+  ).format(new Date(departureMs));
 }
 
 export function formatDelay(delaySeconds) {
