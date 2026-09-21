@@ -15,6 +15,11 @@ const STAGE_RANK = {
 };
 
 function finiteNumber(value) {
+  // `Number(null)` is 0, so without this guard every "no data yet" signal
+  // reads as zero metres and zero seconds away: a ride with no provider match
+  // and no location fix would announce "get off now" seconds after starting.
+  if (value === null || value === undefined || value === "") return null;
+
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -234,15 +239,37 @@ function candidateStage(signals) {
     gpsDistance !== null &&
     (gpsAccuracy === null || gpsAccuracy <= 120);
 
+  // The planned timetable is anchored to the departure the passenger boarded,
+  // so it drifts as the vehicle falls further behind. While the provider is
+  // still predicting this journey, that prediction wins: a schedule that has
+  // silently slipped five minutes must not announce the stop five minutes
+  // early and leave the passenger standing at the door.
+  const scheduleIsAuthoritative = liveEta === null;
+  const scheduleSaysNext =
+    scheduleIsAuthoritative &&
+    ((remaining !== null && remaining <= 1) ||
+      (scheduleEta !== null && scheduleEta <= 90));
+  const scheduleSaysSoon =
+    scheduleIsAuthoritative &&
+    ((remaining !== null && remaining <= 3) ||
+      (scheduleEta !== null && scheduleEta <= 300));
+
+  const nextEvidence =
+    signals.previousPassedConfirmed === true ||
+    (liveEta !== null && liveEta <= 90) ||
+    scheduleSaysNext;
+
+  // Proximity may only mean "get off now" once the ride is plausibly at its
+  // end, so a loop route passing the target early cannot fire it. Evidence
+  // gathered in this same evaluation counts: otherwise reaching NEXT and NOW
+  // together would hold the alert back a whole tick.
+  const nearEndOfRide = signals.currentAtLeastNext === true || nextEvidence;
+
   if (signals.targetAtStop === true) {
     return { stage: RIDE_STAGE.NOW, reason: "target-at-stop", confidence: "live" };
   }
 
-  if (
-    signals.currentAtLeastNext === true &&
-    freshProviderPosition &&
-    providerDistance <= 60
-  ) {
+  if (nearEndOfRide && freshProviderPosition && providerDistance <= 60) {
     return {
       stage: RIDE_STAGE.NOW,
       reason: "provider-near-target",
@@ -250,11 +277,7 @@ function candidateStage(signals) {
     };
   }
 
-  if (
-    signals.currentAtLeastNext === true &&
-    reliableGps &&
-    gpsDistance <= 60
-  ) {
+  if (nearEndOfRide && reliableGps && gpsDistance <= 60) {
     return {
       stage: RIDE_STAGE.NOW,
       reason: "device-near-target",
@@ -262,17 +285,7 @@ function candidateStage(signals) {
     };
   }
 
-  if (
-    signals.previousPassedConfirmed === true ||
-    (liveEta !== null && liveEta <= 90) ||
-    (remaining !== null && remaining <= 1) ||
-    (scheduleEta !== null && scheduleEta <= 90)
-  ) {
-    const degraded =
-      liveEta === null &&
-      signals.previousPassedConfirmed !== true &&
-      scheduleEta !== null;
-
+  if (nextEvidence) {
     return {
       stage: RIDE_STAGE.NEXT,
       reason:
@@ -283,15 +296,14 @@ function candidateStage(signals) {
             : remaining !== null && remaining <= 1
               ? "planned-stop-count"
               : "schedule-fallback",
-      confidence: degraded ? "schedule" : "live",
+      confidence:
+        signals.previousPassedConfirmed === true || liveEta !== null
+          ? "live"
+          : "schedule",
     };
   }
 
-  if (
-    (liveEta !== null && liveEta <= 300) ||
-    (remaining !== null && remaining <= 3) ||
-    (scheduleEta !== null && scheduleEta <= 300)
-  ) {
+  if ((liveEta !== null && liveEta <= 300) || scheduleSaysSoon) {
     return {
       stage: RIDE_STAGE.SOON,
       reason:
@@ -300,8 +312,7 @@ function candidateStage(signals) {
           : remaining !== null && remaining <= 3
             ? "planned-stop-count"
             : "schedule-fallback",
-      confidence:
-        liveEta === null && scheduleEta !== null ? "schedule" : "live",
+      confidence: liveEta !== null ? "live" : "schedule",
     };
   }
 
@@ -317,8 +328,14 @@ export function evaluateRideStage(currentStage, signals = {}) {
     return { stage: currentStage, reason: "already-missed", confidence: "live" };
   }
 
+  // Reachable from NEXT as well as NOW. If live tracking dies on the final
+  // approach the stage never reaches NOW, and requiring it would leave the
+  // panel insisting "your stop is next" while the bus drives away — the exact
+  // failure this feature exists to prevent. Below NEXT the evidence is not
+  // trusted: a route that merely passes near the target early in the trip
+  // must not be able to declare the stop missed.
   if (
-    currentStage === RIDE_STAGE.NOW &&
+    rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT) &&
     (signals.targetPassedConfirmed === true ||
       signals.gpsMovedAwayAfterNear === true)
   ) {
