@@ -56,6 +56,7 @@ function emptyGps() {
     wasNearTarget: false,
     movedAwayAfterNear: false,
     shapeStatus: "idle",
+    shapeError: "",
     shapeUsable: false,
     onRoute: false,
     alongRouteM: null,
