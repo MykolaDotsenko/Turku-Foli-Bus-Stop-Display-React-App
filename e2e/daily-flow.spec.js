@@ -461,7 +461,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByText("Press the STOP button now.")).toBeVisible();
   await expect(page.getByText("Puistokatu").first()).toBeVisible();
-  await expect(page.getByText("Live tracking")).toBeVisible();
+  await expect(page.locator('[data-health="live"]')).toBeVisible();
 
   await page.getByRole("button", { name: "End ride" }).click();
   await expect(
