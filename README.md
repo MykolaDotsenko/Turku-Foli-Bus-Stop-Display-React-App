@@ -318,7 +318,11 @@ npm run verify:pwa
 npm run test:e2e
 ~~~
 
-Browser QA uses Playwright and axe against the **production build served by Vite preview**, not the development server. CI installs pinned browser tooling before running `npm run test:e2e`.
+Browser QA uses Playwright and axe against the **production build served by Vite preview**, not the development server. Every gate above runs from a plain `npm ci`; browser binaries are the one extra step:
+
+~~~bash
+npx playwright install --with-deps chromium firefox webkit
+~~~
 
 Browser geolocation requires a secure context in production. HTTPS deployment satisfies that requirement; localhost remains valid for local development.
 
