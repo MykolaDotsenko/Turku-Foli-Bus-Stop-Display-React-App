@@ -156,7 +156,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            set -euxo pipefail
+            set -eu
             mkdir -p artifacts/android-e2e
 
             APK=android/app/build/outputs/apk/debug/app-debug.apk
