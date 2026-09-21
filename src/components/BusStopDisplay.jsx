@@ -277,9 +277,6 @@ function BusStopDisplay({
                   route,
                   effectiveServerTime
                 );
-                const tripDetails = arrival.tripref
-                  ? tripDetailsById.get(arrival.tripref)
-                  : null;
                 const destination =
                   localizedDestination(arrival, preferredLanguages) ||
                   tripDetails?.headsign ||
