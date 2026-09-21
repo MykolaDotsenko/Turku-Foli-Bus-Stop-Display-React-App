@@ -260,6 +260,274 @@ test("normalizes stop_times shape_dist_traveled for route-distance tracking", as
   ]);
 });
 
+test("fills an empty SIRI board from the active GTFS timetable", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: reference,
+          stopname: "Takakirves",
+          result: [],
+        },
+      });
+    }
+
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: [
+          {
+            trip_id: "trip-32",
+            arrival_time: "15:20:00",
+            departure_time: "15:20:00",
+            stop_sequence: 12,
+            pickup_type: 0,
+            drop_off_type: 0,
+          },
+          {
+            trip_id: "trip-inactive",
+            arrival_time: "15:25:00",
+            departure_time: "15:25:00",
+            stop_sequence: 13,
+            pickup_type: 0,
+            drop_off_type: 0,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({
+        data: {
+          weekday: [{ date: "20260921", exception_type: 0 }],
+          sunday: [{ date: "20260920", exception_type: 0 }],
+        },
+      });
+    }
+
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            route_short_name: "32",
+            route_long_name: "Pansio–Varissuo",
+            route_type: 3,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/trips/trip/trip-32`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            service_id: "weekday",
+            trip_headsign: "Varissuo",
+            block_id: "block-32",
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/trips/trip/trip-inactive`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            service_id: "sunday",
+            trip_headsign: "Varissuo",
+          },
+        ],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.stopName).toBe("Takakirves");
+  expect(result.realtimeAvailable).toBe(true);
+  expect(result.scheduleAvailable).toBe(true);
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.arrivals[0]).toEqual(
+    expect.objectContaining({
+      lineref: "32",
+      destinationdisplay: "Varissuo",
+      monitored: false,
+      tripref: "trip-32",
+      routeref: "route-32",
+      aimeddeparturetime: Date.parse("2026-09-21T12:20:00Z") / 1000,
+    })
+  );
+});
+
+test("falls back to GTFS when SIRI itself is temporarily unavailable", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "NO_SIRI_DATA",
+          servertime: reference,
+          stopname: "Takakirves",
+          result: [],
+        },
+      });
+    }
+
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: [
+          {
+            trip_id: "trip-32",
+            arrival_time: "15:20:00",
+            departure_time: "15:20:00",
+            stop_sequence: 12,
+            pickup_type: 0,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({
+        data: {
+          weekday: [{ date: "20260921", exception_type: 0 }],
+        },
+      });
+    }
+
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            route_short_name: "32",
+            route_type: 3,
+          },
+        ],
+      });
+    }
+
+    if (url === `${datasetBase}/trips/trip/trip-32`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            service_id: "weekday",
+            trip_headsign: "Varissuo",
+          },
+        ],
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.realtimeAvailable).toBe(false);
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.arrivals[0].monitored).toBe(false);
+});
+
+test("reuses pinned GTFS timetable data across realtime refreshes", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: reference,
+          stopname: "Takakirves",
+          result: [],
+        },
+      });
+    }
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: [
+          {
+            trip_id: "trip-32",
+            departure_time: "15:20:00",
+            arrival_time: "15:20:00",
+            pickup_type: 0,
+          },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({
+        data: { weekday: [{ date: "20260921", exception_type: 0 }] },
+      });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [{ route_id: "route-32", route_short_name: "32", route_type: 3 }],
+      });
+    }
+    if (url === `${datasetBase}/trips/trip/trip-32`) {
+      return Promise.resolve({
+        data: [
+          {
+            route_id: "route-32",
+            service_id: "weekday",
+            trip_headsign: "Varissuo",
+          },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  await fetchStopMonitor("621");
+  await fetchStopMonitor("621");
+
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === "https://data.foli.fi/siri/sm/621"
+    )
+  ).toHaveLength(2);
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === `${datasetBase}/stop_times/stop/621`
+    )
+  ).toHaveLength(1);
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === `${datasetBase}/calendar_dates`
+    )
+  ).toHaveLength(1);
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === `${datasetBase}/routes`
+    )
+  ).toHaveLength(1);
+  expect(
+    mocks.get.mock.calls.filter(
+      ([url]) => url === `${datasetBase}/trips/trip/trip-32`
+    )
+  ).toHaveLength(1);
+});
+
 test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () => {
   mocks.get.mockResolvedValue({
     data: {

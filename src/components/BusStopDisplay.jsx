@@ -113,6 +113,8 @@ function BusStopDisplay({
   routesByShortName,
   serverTime,
   receivedAtMs,
+  realtimeAvailable,
+  scheduleAvailable,
   loading,
   refreshing,
   error,
@@ -135,7 +137,7 @@ function BusStopDisplay({
   const referenceTime = effectiveServerTime;
   const visibleArrivals = [...arrivals]
     .filter((arrival) => {
-      const departureTime = getDepartureTime(arrival);
+      const departureTime = getDepartureTime(arrival, referenceTime);
       return (
         Number.isFinite(departureTime) &&
         departureTime >= referenceTime - DEPARTED_GRACE_SECONDS
@@ -143,7 +145,7 @@ function BusStopDisplay({
     })
     .sort(
       (a, b) =>
-        getDepartureTime(a) - getDepartureTime(b)
+        getDepartureTime(a, referenceTime) - getDepartureTime(b, referenceTime)
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
   const hasData = Boolean(stopName || arrivals.length);
@@ -226,6 +228,14 @@ function BusStopDisplay({
         </p>
       )}
 
+      {realtimeAvailable === false &&
+        scheduleAvailable &&
+        visibleArrivals.length > 0 && (
+          <p className={styles.staleNotice} role="status">
+            Live updates are unavailable · showing scheduled Föli times.
+          </p>
+        )}
+
       {loading && !hasData ? (
         <div className={styles.state} role="status">
           <span className={styles.stateKicker}>Connecting to Föli</span>
@@ -256,7 +266,7 @@ function BusStopDisplay({
             </thead>
             <tbody>
               {visibleArrivals.map((arrival, index) => {
-                const departureTime = getDepartureTime(arrival);
+                const departureTime = getDepartureTime(arrival, referenceTime);
                 const tripDetails = arrival.tripref
                   ? tripDetailsById.get(arrival.tripref)
                   : null;

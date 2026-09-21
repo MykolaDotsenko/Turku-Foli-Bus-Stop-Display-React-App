@@ -88,6 +88,8 @@ function App() {
     arrivals,
     serverTime,
     receivedAtMs,
+    realtimeAvailable,
+    scheduleAvailable,
     loading,
     refreshing,
     error,
@@ -281,6 +283,8 @@ function App() {
             routesByShortName={routesByShortName}
             serverTime={serverTime}
             receivedAtMs={receivedAtMs}
+            realtimeAvailable={realtimeAvailable}
+            scheduleAvailable={scheduleAvailable}
             loading={loading}
             refreshing={refreshing}
             error={error}

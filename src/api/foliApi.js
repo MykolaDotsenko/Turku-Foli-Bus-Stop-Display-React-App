@@ -1,5 +1,10 @@
 import axios from "axios";
 import createBoundedCache from "../utils/boundedCache";
+import {
+  mergeRealtimeAndScheduled,
+  scheduledClockCandidates,
+  serviceRunsOnDate,
+} from "../utils/gtfsSchedule";
 
 const API_BASE_URL =
   import.meta.env.VITE_FOLI_API_URL || "https://data.foli.fi/siri/sm";
@@ -29,6 +34,9 @@ const tripStopTimesCache = createBoundedCache(60);
 const stopBoardingTripsCache = createBoundedCache(20);
 const routeTripsCache = createBoundedCache(60);
 const tripShapeCache = createBoundedCache(40);
+const stopTimetableCache = createBoundedCache(30);
+const calendarDatesCache = createBoundedCache(1);
+const routeCatalogCache = createBoundedCache(1);
 
 let gtfsDatasetBasePromise = null;
 let gtfsDatasetBaseUrl = "";
@@ -40,6 +48,9 @@ function clearGtfsResourceCaches() {
   stopBoardingTripsCache.clear();
   routeTripsCache.clear();
   tripShapeCache.clear();
+  stopTimetableCache.clear();
+  calendarDatesCache.clear();
+  routeCatalogCache.clear();
 }
 
 /**
@@ -215,21 +226,83 @@ export async function fetchStopMonitor(stopId, signal) {
     throw new Error("Invalid Föli response.");
   }
 
-  if (payload.status !== "OK") {
+  const status = optionalString(payload.status);
+  const serverTime =
+    positiveNumber(payload.servertime) ?? Math.floor(Date.now() / 1000);
+
+  if (
+    status === "OK" &&
+    !Array.isArray(payload.result)
+  ) {
+    throw new Error("Invalid Föli departures.");
+  }
+
+  if (!["OK", "NO_SIRI_DATA", "PENDING"].includes(status)) {
     throw new Error("Föli real-time data is unavailable.");
   }
 
-  if (!Array.isArray(payload.result)) {
-    throw new Error("Invalid Föli departures.");
+  const realtimeRows =
+    status === "OK"
+      ? payload.result.map(normalizeArrival).filter(Boolean)
+      : [];
+
+  let scheduledRows = [];
+  let scheduleAvailable = false;
+
+  // SIRI is a realtime feed, not the source of the published timetable.
+  // If it has no rows at all, fall back to GTFS so a busy scheduled stop
+  // cannot turn into a false "No upcoming departures" state.
+  if (realtimeRows.length === 0) {
+    try {
+      scheduledRows = await fetchScheduledStopDepartures(
+        stopId,
+        serverTime,
+        signal
+      );
+      scheduleAvailable = true;
+    } catch (error) {
+      if (
+        error?.name === "CanceledError" ||
+        error?.name === "AbortError"
+      ) {
+        throw error;
+      }
+
+      // A healthy realtime response remains useful even if static GTFS is
+      // temporarily unavailable. If realtime is down too, surface failure.
+      if (status !== "OK") {
+        throw new Error("Föli departure data is unavailable.");
+      }
+    }
   }
+
+  const arrivals = mergeRealtimeAndScheduled(realtimeRows, scheduledRows)
+    .sort((a, b) => {
+      const left =
+        positiveNumber(a.expecteddeparturetime) ??
+        positiveNumber(a.expectedarrivaltime) ??
+        positiveNumber(a.aimeddeparturetime) ??
+        positiveNumber(a.aimedarrivaltime) ??
+        Number.POSITIVE_INFINITY;
+      const right =
+        positiveNumber(b.expecteddeparturetime) ??
+        positiveNumber(b.expectedarrivaltime) ??
+        positiveNumber(b.aimeddeparturetime) ??
+        positiveNumber(b.aimedarrivaltime) ??
+        Number.POSITIVE_INFINITY;
+      return left - right;
+    })
+    .slice(0, 24);
 
   return {
     stopName:
       typeof payload.stopname === "string" && payload.stopname.trim()
         ? payload.stopname.trim()
         : `Stop ${stopId}`,
-    arrivals: payload.result.map(normalizeArrival).filter(Boolean),
-    serverTime: positiveNumber(payload.servertime),
+    arrivals,
+    serverTime,
+    realtimeAvailable: status === "OK",
+    scheduleAvailable,
   };
 }
 
@@ -283,6 +356,12 @@ export async function fetchStopCoordinates(signal) {
 }
 
 export async function fetchRouteCatalog(signal) {
+  invalidateExpiredGtfsDataset();
+  const cacheKey = ROUTES_URL_OVERRIDE || "routes";
+  if (routeCatalogCache.has(cacheKey)) {
+    return routeCatalogCache.get(cacheKey);
+  }
+
   const response = await client.get(
     await gtfsResourceUrl("routes", ROUTES_URL_OVERRIDE),
     { signal }
@@ -293,7 +372,7 @@ export async function fetchRouteCatalog(signal) {
     throw new Error("Invalid Föli GTFS route list.");
   }
 
-  return payload
+  const normalized = payload
     .map((route) => {
       const id =
         route?.route_id === null || route?.route_id === undefined
@@ -311,6 +390,9 @@ export async function fetchRouteCatalog(signal) {
       };
     })
     .filter((route) => route.id && route.shortName);
+
+  routeCatalogCache.set(cacheKey, normalized);
+  return normalized;
 }
 
 export async function fetchAlerts(signal) {
@@ -340,6 +422,175 @@ function gtfsTime(value) {
     return value.trim();
   }
   return "";
+}
+
+async function fetchStopTimetable(stopId, signal) {
+  const id = requiredId(stopId, "stop ID");
+  invalidateExpiredGtfsDataset();
+  if (stopTimetableCache.has(id)) return stopTimetableCache.get(id);
+
+  const response = await client.get(
+    await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!Array.isArray(payload)) {
+    throw new Error("Invalid Föli GTFS stop timetable.");
+  }
+
+  const normalized = payload
+    .map((item) => ({
+      tripId:
+        item?.trip_id === null || item?.trip_id === undefined
+          ? ""
+          : String(item.trip_id),
+      arrivalTime: gtfsTime(item?.arrival_time),
+      departureTime: gtfsTime(item?.departure_time),
+      stopSequence: optionalNumber(item?.stop_sequence),
+      pickupType: optionalNumber(item?.pickup_type),
+      dropOffType: optionalNumber(item?.drop_off_type),
+      shapeDistTraveled: optionalNumber(item?.shape_dist_traveled),
+    }))
+    .filter((item) => item.tripId && item.pickupType !== 1);
+
+  stopTimetableCache.set(id, normalized);
+  return normalized;
+}
+
+async function fetchCalendarDates(signal) {
+  invalidateExpiredGtfsDataset();
+  const cacheKey = "calendar_dates";
+  if (calendarDatesCache.has(cacheKey)) {
+    return calendarDatesCache.get(cacheKey);
+  }
+
+  const response = await client.get(
+    await gtfsResourceUrl("calendar_dates"),
+    { signal }
+  );
+  const payload = response.data;
+
+  if (!payload || Array.isArray(payload) || typeof payload !== "object") {
+    throw new Error("Invalid Föli GTFS calendar dates.");
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(payload).map(([serviceId, entries]) => [
+      String(serviceId),
+      (Array.isArray(entries) ? entries : [])
+        .map((entry) => ({
+          date:
+            entry?.date === null || entry?.date === undefined
+              ? ""
+              : String(entry.date),
+          exceptionType: optionalNumber(entry?.exception_type),
+        }))
+        .filter((entry) => /^\d{8}$/.test(entry.date)),
+    ])
+  );
+
+  calendarDatesCache.set(cacheKey, normalized);
+  return normalized;
+}
+
+async function fetchTripDetailsInBatches(tripIds, signal) {
+  const ids = [...new Set(tripIds.filter(Boolean))];
+  const byId = new Map();
+
+  for (let index = 0; index < ids.length; index += 8) {
+    const batch = ids.slice(index, index + 8);
+    const results = await Promise.allSettled(
+      batch.map((tripId) => fetchTripDetails(tripId, signal))
+    );
+
+    results.forEach((result, resultIndex) => {
+      if (result.status === "fulfilled") {
+        byId.set(batch[resultIndex], result.value);
+      }
+    });
+  }
+
+  return byId;
+}
+
+export async function fetchScheduledStopDepartures(
+  stopId,
+  referenceTimeSec,
+  signal
+) {
+  const reference =
+    positiveNumber(referenceTimeSec) ?? Math.floor(Date.now() / 1000);
+
+  const [rows, calendarDates, routes] = await Promise.all([
+    fetchStopTimetable(stopId, signal),
+    fetchCalendarDates(signal),
+    fetchRouteCatalog(signal),
+  ]);
+
+  const clockCandidates = scheduledClockCandidates(rows, reference, {
+    lookaheadSeconds: 4 * 60 * 60,
+    graceSeconds: 30,
+    maxRows: 64,
+  });
+
+  if (clockCandidates.length === 0) return [];
+
+  const tripDetailsById = await fetchTripDetailsInBatches(
+    clockCandidates.map((candidate) => candidate.tripId),
+    signal
+  );
+  const routesById = new Map(routes.map((route) => [route.id, route]));
+
+  return clockCandidates
+    .map((candidate) => {
+      const details = tripDetailsById.get(candidate.tripId);
+      if (
+        !details?.serviceId ||
+        !serviceRunsOnDate(
+          calendarDates,
+          details.serviceId,
+          candidate.serviceDate
+        )
+      ) {
+        return null;
+      }
+
+      const route = routesById.get(details.routeId);
+
+      return {
+        lineref: route?.shortName || details.routeId || "",
+        destinationdisplay: details.headsign || "",
+        destinationdisplay_en: "",
+        destinationdisplay_sv: "",
+        monitored: false,
+        vehicleatstop: false,
+        vehicleref: "",
+        incongestion: false,
+        directionname: "",
+        destinationref: "",
+        originref: "",
+        visitnumber: candidate.row.stopSequence,
+        blockref: details.blockId || "",
+        dataframeref: "",
+        datedvehiclejourneyref: "",
+        tripref: candidate.tripId,
+        routeref: details.routeId || "",
+        delay: null,
+        recordedattime: null,
+        latitude: null,
+        longitude: null,
+        originaimeddeparturetime: null,
+        destinationaimedarrivaltime: null,
+        expecteddeparturetime: null,
+        expectedarrivaltime: null,
+        aimeddeparturetime: candidate.aimedDepartureTime,
+        aimedarrivaltime: candidate.aimedArrivalTime,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.aimeddeparturetime - b.aimeddeparturetime)
+    .slice(0, 24);
 }
 
 export async function fetchTripDetails(tripId, signal) {
@@ -458,24 +709,9 @@ export async function fetchStopBoardingTripIds(stopId, signal) {
   if (stopBoardingTripsCache.has(id)) {
     return new Set(stopBoardingTripsCache.get(id));
   }
-  const response = await client.get(
-    await gtfsResourceUrl(`stop_times/stop/${encodeURIComponent(id)}`),
-    { signal }
-  );
-  const payload = response.data;
 
-  if (!Array.isArray(payload)) {
-    throw new Error("Invalid Föli GTFS stop timetable.");
-  }
-
-  const tripIds = payload
-      .filter((item) => optionalNumber(item?.pickup_type) !== 1)
-      .map((item) =>
-        item?.trip_id === null || item?.trip_id === undefined
-          ? ""
-          : String(item.trip_id)
-      )
-      .filter(Boolean);
+  const rows = await fetchStopTimetable(id, signal);
+  const tripIds = rows.map((item) => item.tripId).filter(Boolean);
 
   stopBoardingTripsCache.set(id, tripIds);
   return new Set(tripIds);

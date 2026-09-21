@@ -5,6 +5,7 @@ import {
   formatClock,
   formatElapsedAge,
   formatServiceStatus,
+  getDepartureTime,
 } from "./time";
 
 test("advances the provider clock by elapsed client time after receipt", () => {
@@ -41,4 +42,33 @@ test("still refuses to invent a clock time for missing departures", () => {
   expect(formatClock(null)).toBe("—");
   expect(formatClock(0)).toBe("—");
   expect(formatClock("later")).toBe("—");
+});
+
+
+test("uses the planned departure when a realtime estimate is already stale", () => {
+  const reference = 1_000;
+
+  expect(
+    getDepartureTime(
+      {
+        expecteddeparturetime: 900,
+        aimeddeparturetime: 1_200,
+      },
+      reference
+    )
+  ).toBe(1_200);
+});
+
+test("keeps a valid future realtime estimate ahead of the plan", () => {
+  const reference = 1_000;
+
+  expect(
+    getDepartureTime(
+      {
+        expecteddeparturetime: 1_260,
+        aimeddeparturetime: 1_200,
+      },
+      reference
+    )
+  ).toBe(1_260);
 });

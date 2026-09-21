@@ -1,0 +1,246 @@
+import { SERVICE_TIME_ZONE } from "./time";
+
+const DEFAULT_LOOKAHEAD_SECONDS = 4 * 60 * 60;
+const DEFAULT_GRACE_SECONDS = 30;
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function parseGtfsClock(value) {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,3}):(\d{2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3]);
+
+  if (
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute) ||
+    !Number.isFinite(second) ||
+    minute > 59 ||
+    second > 59
+  ) {
+    return null;
+  }
+
+  return { hour, minute, second };
+}
+
+function serviceDateParts(epochSec) {
+  const epoch = finiteNumber(epochSec);
+  if (epoch === null || epoch <= 0) return null;
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: SERVICE_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(epoch * 1000));
+    const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+    return {
+      year: Number(byType.year),
+      month: Number(byType.month),
+      day: Number(byType.day),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function dateKeyFromParts({ year, month, day }) {
+  return `${String(year).padStart(4, "0")}${String(month).padStart(
+    2,
+    "0"
+  )}${String(day).padStart(2, "0")}`;
+}
+
+export function serviceDateKey(epochSec, offsetDays = 0) {
+  const parts = serviceDateParts(epochSec);
+  if (!parts) return "";
+
+  const shifted = new Date(
+    Date.UTC(parts.year, parts.month - 1, parts.day + Number(offsetDays || 0))
+  );
+
+  return dateKeyFromParts({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  });
+}
+
+function zoneOffsetMs(epochMs) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SERVICE_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(epochMs));
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  const asUtc = Date.UTC(
+    Number(byType.year),
+    Number(byType.month) - 1,
+    Number(byType.day),
+    Number(byType.hour) % 24,
+    Number(byType.minute),
+    Number(byType.second)
+  );
+
+  return asUtc - Math.floor(epochMs / 1000) * 1000;
+}
+
+export function gtfsServiceEpoch(serviceDate, gtfsTime) {
+  const dateMatch = String(serviceDate || "").match(/^(\d{4})(\d{2})(\d{2})$/);
+  const clock = parseGtfsClock(gtfsTime);
+  if (!dateMatch || !clock) return null;
+
+  const [, yearText, monthText, dayText] = dateMatch;
+  const dayCarry = Math.floor(clock.hour / 24);
+  const localHour = clock.hour % 24;
+
+  const localWallClockAsUtc = Date.UTC(
+    Number(yearText),
+    Number(monthText) - 1,
+    Number(dayText) + dayCarry,
+    localHour,
+    clock.minute,
+    clock.second
+  );
+
+  // First estimate the Helsinki offset at the target wall-clock instant,
+  // then repeat once at the resulting instant. The second pass handles DST
+  // boundaries without assuming the device itself is in Finland.
+  const first =
+    localWallClockAsUtc - zoneOffsetMs(localWallClockAsUtc);
+  const second =
+    localWallClockAsUtc - zoneOffsetMs(first);
+
+  return Math.round(second / 1000);
+}
+
+export function serviceRunsOnDate(calendarDates, serviceId, dateKey) {
+  const entries = calendarDates?.[String(serviceId)];
+  if (!Array.isArray(entries)) return false;
+
+  const matches = entries.filter(
+    (entry) => String(entry?.date || "") === String(dateKey || "")
+  );
+  if (matches.length === 0) return false;
+
+  // Föli historically publishes 0 for an active exception while standard
+  // GTFS commonly uses 1. Explicit removal (2) always wins.
+  if (matches.some((entry) => Number(entry?.exceptionType) === 2)) {
+    return false;
+  }
+
+  return matches.some((entry) => {
+    const type = Number(entry?.exceptionType);
+    return type === 0 || type === 1;
+  });
+}
+
+export function scheduledClockCandidates(
+  rows,
+  referenceTimeSec,
+  {
+    lookaheadSeconds = DEFAULT_LOOKAHEAD_SECONDS,
+    graceSeconds = DEFAULT_GRACE_SECONDS,
+    maxRows = 64,
+  } = {}
+) {
+  const reference = finiteNumber(referenceTimeSec);
+  if (reference === null || reference <= 0) return [];
+
+  const serviceDates = [-1, 0, 1]
+    .map((offset) => serviceDateKey(reference, offset))
+    .filter(Boolean);
+  const earliest = reference - Math.max(0, Number(graceSeconds) || 0);
+  const latest = reference + Math.max(0, Number(lookaheadSeconds) || 0);
+
+  const candidates = [];
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const tripId = String(row?.tripId || "").trim();
+    const departureTime = row?.departureTime || row?.arrivalTime || "";
+    if (!tripId || !parseGtfsClock(departureTime)) continue;
+    if (Number(row?.pickupType) === 1) continue;
+
+    for (const dateKey of serviceDates) {
+      const aimedDepartureTime = gtfsServiceEpoch(dateKey, departureTime);
+      if (
+        aimedDepartureTime === null ||
+        aimedDepartureTime < earliest ||
+        aimedDepartureTime > latest
+      ) {
+        continue;
+      }
+
+      const aimedArrivalTime = gtfsServiceEpoch(
+        dateKey,
+        row?.arrivalTime || departureTime
+      );
+
+      candidates.push({
+        row,
+        tripId,
+        serviceDate: dateKey,
+        aimedDepartureTime,
+        aimedArrivalTime:
+          aimedArrivalTime === null ? aimedDepartureTime : aimedArrivalTime,
+      });
+    }
+  }
+
+  return candidates
+    .sort((a, b) => a.aimedDepartureTime - b.aimedDepartureTime)
+    .slice(0, Math.max(1, Number(maxRows) || 64));
+}
+
+export function mergeRealtimeAndScheduled(
+  realtimeRows,
+  scheduledRows,
+  { timeToleranceSeconds = 120 } = {}
+) {
+  const realtime = Array.isArray(realtimeRows) ? realtimeRows : [];
+  const scheduled = Array.isArray(scheduledRows) ? scheduledRows : [];
+  const tolerance = Math.max(0, Number(timeToleranceSeconds) || 0);
+
+  const isDuplicate = (scheduledRow) =>
+    realtime.some((liveRow) => {
+      if (
+        scheduledRow?.tripref &&
+        liveRow?.tripref &&
+        String(scheduledRow.tripref) === String(liveRow.tripref)
+      ) {
+        return true;
+      }
+
+      const sameLine =
+        scheduledRow?.lineref &&
+        liveRow?.lineref &&
+        String(scheduledRow.lineref) === String(liveRow.lineref);
+      if (!sameLine) return false;
+
+      const scheduledTime = finiteNumber(scheduledRow?.aimeddeparturetime);
+      const liveAimed =
+        finiteNumber(liveRow?.aimeddeparturetime) ??
+        finiteNumber(liveRow?.aimedarrivaltime);
+      if (scheduledTime === null || liveAimed === null) return false;
+
+      return Math.abs(scheduledTime - liveAimed) <= tolerance;
+    });
+
+  return [...realtime, ...scheduled.filter((row) => !isDuplicate(row))];
+}
