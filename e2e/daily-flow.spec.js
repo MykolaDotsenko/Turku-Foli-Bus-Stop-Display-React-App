@@ -1407,7 +1407,7 @@ function futureHelsinkiGtfsClock(minutesFromNow) {
     second: "2-digit",
   }).formatToParts(new Date(Date.now() + minutesFromNow * 60_000));
   const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return \`\${byType.hour}:\${byType.minute}:\${byType.second}\`;
+  return `${byType.hour}:${byType.minute}:${byType.second}`;
 }
 
 test("release gate: an empty realtime board falls back to the published GTFS timetable", async ({
@@ -1886,7 +1886,7 @@ test("release gate: shared-place dismiss and service-update expansion controls w
     ],
   });
 
-  await page.goto(\`/?stop=164#place=\${token}\`);
+  await page.goto(`/?stop=164#place=${token}`);
   await page.getByRole("button", { name: "Not now" }).click();
   await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
   await expect(page).toHaveURL(/\?stop=164$/);
@@ -1907,8 +1907,8 @@ test("release gate: shared-place dismiss and service-update expansion controls w
           cause: "CONSTRUCTION",
           affected_stops: ["164"],
           affected_routes: [],
-          header: \`Release update \${index + 1}\`,
-          message: \`Release passenger information \${index + 1}.\`,
+          header: `Release update ${index + 1}`,
+          message: `Release passenger information ${index + 1}.`,
           repeat: [[now - 60, now + 3600]],
           images: [],
         })),
