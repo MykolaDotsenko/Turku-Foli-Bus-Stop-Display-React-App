@@ -51,6 +51,16 @@ function trackingLabel(health) {
   return "Schedule fallback";
 }
 
+function gpsDetail(gps) {
+  if (Number.isFinite(Number(gps.routeDistanceM))) {
+    return `~${Math.max(0, Math.round(gps.routeDistanceM))} m along route`;
+  }
+  if (Number.isFinite(Number(gps.distanceM))) {
+    return `~${Math.round(gps.distanceM)} m straight-line fallback`;
+  }
+  return "coordinates are never stored";
+}
+
 function locationLabel(gps, enabled) {
   if (!enabled) return "GPS ride tracking off";
   if (gps.status === "off-route") return "GPS no longer matches this trip";
@@ -160,11 +170,7 @@ export default function RideMode({
           <strong>
             {locationLabel(gps, session.options?.locationBackup === true)}
           </strong>
-          <small>
-            {gps.distanceM !== null && Number.isFinite(Number(gps.distanceM))
-              ? `~${Math.round(gps.distanceM)} m from target on this device`
-              : "coordinates are never stored"}
-          </small>
+          <small>{gpsDetail(gps)}</small>
         </span>
         <span>
           <strong>
