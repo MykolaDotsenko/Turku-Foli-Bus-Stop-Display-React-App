@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchStopMonitor } from "../api/foliApi";
+import { fetchStopMonitor, fetchTripShape } from "../api/foliApi";
 import { distanceInMeters, hasCoordinates } from "../utils/geo";
+import { analyzeRideGps, prepareRideShape } from "../utils/rideGeometry";
 import {
   announceRideStage,
   repeatNowRideSignal,
@@ -50,9 +51,20 @@ function emptyGps() {
     status: "off",
     distanceM: null,
     accuracyM: null,
+    speedMps: null,
     minimumDistanceM: null,
     wasNearTarget: false,
     movedAwayAfterNear: false,
+    shapeStatus: "idle",
+    shapeUsable: false,
+    onRoute: false,
+    alongRouteM: null,
+    lateralDistanceM: null,
+    routeDistanceM: null,
+    routeEtaSec: null,
+    offRouteSinceMs: null,
+    offRouteSuspected: false,
+    passedTarget: false,
     updatedAt: null,
     error: "",
   };
