@@ -294,6 +294,12 @@ export async function fetchStopCoordinates(signal) {
 }
 
 export async function fetchRouteCatalog(signal) {
+  invalidateExpiredGtfsDataset();
+  const cacheKey = ROUTES_URL_OVERRIDE || "routes";
+  if (routeCatalogCache.has(cacheKey)) {
+    return routeCatalogCache.get(cacheKey);
+  }
+
   const response = await client.get(
     await gtfsResourceUrl("routes", ROUTES_URL_OVERRIDE),
     { signal }
@@ -304,7 +310,7 @@ export async function fetchRouteCatalog(signal) {
     throw new Error("Invalid Föli GTFS route list.");
   }
 
-  return payload
+  const normalized = payload
     .map((route) => {
       const id =
         route?.route_id === null || route?.route_id === undefined
@@ -322,6 +328,9 @@ export async function fetchRouteCatalog(signal) {
       };
     })
     .filter((route) => route.id && route.shortName);
+
+  routeCatalogCache.set(cacheKey, normalized);
+  return normalized;
 }
 
 export async function fetchAlerts(signal) {
