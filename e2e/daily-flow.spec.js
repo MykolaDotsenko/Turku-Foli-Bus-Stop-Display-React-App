@@ -1454,7 +1454,7 @@ test("release gate: an empty realtime board falls back to the published GTFS tim
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
-          release-test-service: {
+          "release-test-service": {
             monday: 1,
             tuesday: 1,
             wednesday: 1,
