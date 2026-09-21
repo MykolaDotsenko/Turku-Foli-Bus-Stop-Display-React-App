@@ -261,6 +261,7 @@ function App() {
         stop={selectedStop}
         stops={stops}
         arrivals={arrivals}
+        routesById={routesById}
         routesByShortName={routesByShortName}
         serverTime={serverTime}
         receivedAtMs={receivedAtMs}
