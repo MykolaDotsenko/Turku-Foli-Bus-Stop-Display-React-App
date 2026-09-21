@@ -84,6 +84,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   Object.defineProperty(navigator, "geolocation", {
     configurable: true,
     value: originalGeolocation,
@@ -132,4 +133,69 @@ test("restores a non-expired active ride", () => {
 
   expect(result.current.session?.id).toBe("ride-restored");
   expect(result.current.session?.stage).toBe("next");
+});
+
+test("falls back to the timetable once the live prediction has gone stale", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 12, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: nowSec,
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              {
+                datedvehiclejourneyref: "journey-1",
+                expectedarrivaltime: nowSec + 600,
+                vehicleatstop: false,
+                recordedattime: nowSec,
+              },
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      plan: {
+        targetPredictedEpochSec: nowSec + 210,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 90 },
+          { id: "12", name: "Two", predictedEpochSec: nowSec + 150 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 210 },
+        ],
+      },
+    });
+  });
+
+  // Three stops out, so the timetable alone reaches SOON. The provider then
+  // answers with ten minutes, which must not be overtaken by the timetable.
+  await waitFor(() => expect(result.current.runtime.liveEtaSec).toBe(600));
+  expect(result.current.session?.stage).toBe("soon");
+
+  // The provider goes quiet. The frozen prediction must stop counting as a
+  // live answer, letting the timetable take over.
+  vi.setSystemTime(startMs + 121_000);
+  const onPosition = watchPosition.mock.calls[0][0];
+
+  act(() => {
+    onPosition({
+      coords: { latitude: 61.1234, longitude: 23.5678, accuracy: 15 },
+    });
+  });
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(result.current.session?.stageReason).toBe("schedule-fallback");
+  expect(result.current.session?.stageConfidence).toBe("schedule");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
 });

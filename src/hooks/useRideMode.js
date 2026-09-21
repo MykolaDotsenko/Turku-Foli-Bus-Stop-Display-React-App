@@ -218,8 +218,17 @@ export default function useRideMode() {
         nextRuntime.targetWasAtStop === true &&
         nextRuntime.targetMissingCount >= 2;
 
+      // A failed poll keeps the previous prediction in runtime. Past this age
+      // it is no longer a live answer, so the stage logic must fall back to
+      // the timetable instead of trusting a frozen number.
+      const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
+      const liveEtaUsable =
+        Number.isFinite(lastLiveMatchAt) &&
+        lastLiveMatchAt > 0 &&
+        Date.now() - lastLiveMatchAt <= 120_000;
+
       const evaluated = evaluateRideStage(current.stage, {
-        liveEtaSec: nextRuntime.liveEtaSec,
+        liveEtaSec: liveEtaUsable ? nextRuntime.liveEtaSec : null,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
         providerDistanceM: nextRuntime.providerDistanceM,
