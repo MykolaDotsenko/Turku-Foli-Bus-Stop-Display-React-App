@@ -413,7 +413,7 @@ export default function useRideMode() {
 
     return () => {
       active = false;
-      globalThis.navigator.geolocation.clearWatch?.(watchId);
+      globalThis.navigator?.geolocation?.clearWatch?.(watchId);
     };
   }, [applyProgress, commitGps, session?.id, session?.options?.locationBackup]);
 
