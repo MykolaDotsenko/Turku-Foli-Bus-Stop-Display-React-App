@@ -240,6 +240,12 @@ export default function useRideMode() {
         providerPositionAgeSec: nextRuntime.providerPositionAgeSec,
         gpsDistanceM: nextGps.distanceM,
         gpsAccuracyM: nextGps.accuracyM,
+        gpsShapeAvailable: nextGps.shapeStatus === "ready",
+        gpsShapeUsable: nextGps.shapeUsable,
+        gpsOnRoute: nextGps.onRoute,
+        gpsRouteDistanceM: nextGps.routeDistanceM,
+        gpsRouteEtaSec: nextGps.routeEtaSec,
+        gpsPassedTarget: nextGps.passedTarget,
         previousPassedConfirmed,
         targetAtStop: nextRuntime.targetWasAtStop && nextRuntime.targetListed,
         targetPassedConfirmed,
@@ -281,7 +287,8 @@ export default function useRideMode() {
         announceRideStage(
           evaluated.stage,
           current.targetStop.name,
-          current.options?.notifications !== false
+          current.options?.notifications !== false,
+          current.routeType
         );
       }
     },
