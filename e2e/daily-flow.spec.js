@@ -536,6 +536,63 @@ async function startRide(page, { gps }) {
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 }
 
+// Measured before this: the open form made the page 3.9 screens on a 375px
+// phone and left "Start Ride Mode" 684px below the fold — a full screen of
+// scrolling, one-handed, on a moving bus, before the one committing tap.
+test("the ride can be started without scrolling for the button", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  await routeTargetStop(page);
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+
+  const start = page.getByRole("button", { name: "Start Ride Mode" });
+  await expect(start).toBeInViewport();
+
+  // Pinned low, where a thumb reaches, not floating mid-screen.
+  const box = await start.boundingBox();
+  expect(box.y + box.height).toBeGreaterThan(640 * 0.75);
+  expect(box.y + box.height).toBeLessThanOrEqual(640);
+});
+
+// Measured at 735px against a 640px screen, which put the confirm button
+// below the fold at the exact moment the alarm was going off.
+test("the get-off panel fits a small phone with its button in reach", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  await routeTargetStop(page, { vehicleatstop: true, expectedarrivaltime: 0 });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: false });
+  await expect(page.getByRole("heading", { name: "Get off now" })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  const panel = await page
+    .locator('section[aria-labelledby="ride-mode-title"]')
+    .boundingBox();
+  expect(panel.height).toBeLessThanOrEqual(640);
+
+  await expect(page.getByRole("button", { name: "I'm getting off" })).toBeInViewport();
+  // The stop name and the instruction have to be on screen with it.
+  await expect(page.getByText("Puistokatu").first()).toBeInViewport();
+  await expect(
+    page.getByText("Move to the doors and step off here.")
+  ).toBeInViewport();
+});
+
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
   page,
 }) => {

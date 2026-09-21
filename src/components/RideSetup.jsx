@@ -357,13 +357,13 @@ export default function RideSetup({
               </span>
             </div>
 
-            {startError && (
-              <p className={styles.status} role="alert">
-                {startError}
-              </p>
-            )}
-
             <div className={styles.actions}>
+              {startError && (
+                <p className={styles.startError} role="alert">
+                  {startError}
+                </p>
+              )}
+
               <button
                 type="button"
                 className={styles.start}

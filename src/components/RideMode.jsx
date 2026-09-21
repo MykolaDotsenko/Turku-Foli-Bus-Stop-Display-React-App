@@ -135,6 +135,13 @@ export default function RideMode({
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
   const afterName = session.previousStop?.name || session.boardingStop?.name;
+  // Measured at 735px on a 360x640 phone, which puts the one button that
+  // matters below the fold at the exact moment the alarm is going. The three
+  // status rows are 185px of diagnostics — what is being tracked, whether
+  // the screen is held awake — and none of it is a decision the passenger
+  // makes while standing up to leave. The health badge stays in the corner,
+  // and a genuine problem still raises its own banner below.
+  const gettingOffNow = session.stage === RIDE_STAGE.NOW;
   const eta = etaLabel(runtime.etaSec, session.stage);
   const remaining = remainingLabel(runtime.remainingStops, session.stage);
 
@@ -196,21 +203,22 @@ export default function RideMode({
         </div>
       </div>
 
-      <div className={styles.statusGrid}>
-        <span>
-          <strong>
-            {runtime.targetMatchBy
-              ? "Your bus is confirmed"
-              : "Looking for your bus"}
-          </strong>
-          <small>in Föli&apos;s live arrival data</small>
-        </span>
-        <span>
-          <strong>
-            {locationLabel(
-              gps,
-              session.options?.locationBackup === true,
-              runtime.gpsAgeSec
+      {!gettingOffNow && (
+        <div className={styles.statusGrid}>
+          <span>
+            <strong>
+              {runtime.targetMatchBy
+                ? "Your bus is confirmed"
+                : "Looking for your bus"}
+            </strong>
+            <small>in Föli&apos;s live arrival data</small>
+          </span>
+          <span>
+            <strong>
+              {locationLabel(
+                gps,
+                session.options?.locationBackup === true,
+                runtime.gpsAgeSec
             )}
           </strong>
           <small>
@@ -232,6 +240,7 @@ export default function RideMode({
           <small>Most reliable while this page stays open and visible</small>
         </span>
       </div>
+      )}
 
       {scheduleOnly && (
         <p className={styles.degraded} role="status">

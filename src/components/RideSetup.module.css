@@ -179,6 +179,16 @@
   flex-wrap: wrap;
 }
 
+/* Lives with the button it belongs to, so the reason a press did nothing
+   arrives in the same glance as the button, not a screen above it. */
+.startError {
+  flex: 1 1 100%;
+  margin: 0;
+  color: #8a3d12;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
 .start {
   min-height: 46px;
   padding: 0.65rem 0.95rem;
@@ -218,9 +228,38 @@
     justify-self: start;
   }
 
+  /* Measured on a 375x667 phone: the form makes the page 3.9 screens tall
+     and leaves "Start Ride Mode" a full screen below the fold. Pinning it
+     to the bottom of the viewport removes that scroll entirely and puts the
+     one committing tap in the thumb zone. `sticky` cannot be used here: the
+     panel sits inside a table whose wrapper scrolls, so it would stick to
+     the table instead of the screen. */
   .actions {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    margin: 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
     align-items: stretch;
     flex-direction: column;
+    gap: 0.4rem;
+    border-top: 1px solid #cddde1;
+    /* Opaque: at this size the page behind showed through the caption. */
+    background: #ffffff;
+    box-shadow: 0 -6px 18px rgba(16, 25, 28, 0.14);
+  }
+
+  .start {
+    width: 100%;
+  }
+
+  .departureContext {
+    text-align: center;
+  }
+
+  /* Room for the pinned bar, so it never covers the last choice. */
+  .panel {
+    padding-bottom: 104px;
   }
 
   .start {
