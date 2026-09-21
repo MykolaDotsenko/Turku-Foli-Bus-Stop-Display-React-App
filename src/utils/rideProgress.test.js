@@ -255,6 +255,55 @@ describe("ride progress", () => {
     expect(match?.matchedBy).toBe("line-origin-time");
   });
 
+  it("reads an after-midnight trip written in next-day clock time", () => {
+    // "00:10" where GTFS asks for "24:10". Clamping the backwards jump to
+    // zero put the target at the moment of boarding, so the schedule called
+    // "your stop is next" the second the passenger sat down.
+    const stopsById = new Map([
+      ["10", { id: "10", name: "Board" }],
+      ["20", { id: "20", name: "Target" }],
+    ]);
+
+    const plan = buildRidePlan({
+      stopTimes: [
+        { stopId: "10", departureTime: "23:55:00", stopSequence: 1 },
+        { stopId: "20", departureTime: "00:10:00", stopSequence: 2 },
+      ],
+      currentStopId: "10",
+      targetStopId: "20",
+      targetStopSequence: 2,
+      stopsById,
+      departureEpochSec: 1_000_000,
+    });
+
+    expect(plan.targetStop.offsetSec).toBe(900);
+    expect(plan.targetPredictedEpochSec).toBe(1_000_900);
+  });
+
+  it("refuses a stop time that makes no sense either way round", () => {
+    // Twenty hours after boarding once rolled over: not a bus trip, so the
+    // schedule declines instead of inventing an arrival.
+    const stopsById = new Map([
+      ["10", { id: "10", name: "Board" }],
+      ["20", { id: "20", name: "Target" }],
+    ]);
+
+    const plan = buildRidePlan({
+      stopTimes: [
+        { stopId: "10", departureTime: "12:00:00", stopSequence: 1 },
+        { stopId: "20", departureTime: "08:00:00", stopSequence: 2 },
+      ],
+      currentStopId: "10",
+      targetStopId: "20",
+      targetStopSequence: 2,
+      stopsById,
+      departureEpochSec: 1_000_000,
+    });
+
+    expect(plan.targetStop.offsetSec).toBeNull();
+    expect(plan.targetPredictedEpochSec).toBeNull();
+  });
+
   it("keeps missing evidence neutral", () => {
     const stage = evaluateRideStage(RIDE_STAGE.BOARDED, {
       liveEtaSec: null,
