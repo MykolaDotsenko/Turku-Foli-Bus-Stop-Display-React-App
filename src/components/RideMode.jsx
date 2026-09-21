@@ -198,6 +198,21 @@ export default function RideMode({
         </p>
       )}
 
+      {gps.offRouteSuspected && (
+        <p className={styles.degraded} role="alert">
+          Your movement has not matched this trip&apos;s planned path for about
+          two minutes. Check that you are on the intended vehicle or route.
+        </p>
+      )}
+
+      {gps.shapeStatus === "unavailable" &&
+        session.options?.locationBackup && (
+          <p className={styles.degraded} role="status">
+            Route-shape matching is unavailable. Föli realtime and conservative
+            straight-line GPS fallback remain active.
+          </p>
+        )}
+
       {session.stage === RIDE_STAGE.MISSED && session.nextStop && (
         <div className={styles.recovery}>
           <strong>Next planned stop: {session.nextStop.name}</strong>
