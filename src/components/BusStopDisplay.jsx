@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import styles from "./BusStopDisplay.module.css";
 import TripJourneyDetails from "./TripJourneyDetails";
+import useClockTick from "../hooks/useClockTick";
 import useTripEnrichment from "../hooks/useTripEnrichment";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor } from "../utils/routes";
@@ -117,10 +118,13 @@ function BusStopDisplay({
   isFavorite,
   onToggleFavorite,
 }) {
+  // Keeps due times, freshness and the departed-row filter counting between
+  // the 30-second provider refreshes instead of freezing at the last payload.
+  const nowMs = useClockTick(10_000);
   const effectiveServerTime =
-    advanceServerTime(serverTime, receivedAtMs) ??
-    Math.floor(Date.now() / 1000);
-  const receiptAgeSeconds = elapsedSince(receivedAtMs);
+    advanceServerTime(serverTime, receivedAtMs, nowMs) ??
+    Math.floor(nowMs / 1000);
+  const receiptAgeSeconds = elapsedSince(receivedAtMs, nowMs);
   const dataIsStale =
     receiptAgeSeconds !== null && receiptAgeSeconds > 120;
   const referenceTime = effectiveServerTime;

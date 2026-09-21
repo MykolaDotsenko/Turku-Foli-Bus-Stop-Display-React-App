@@ -87,6 +87,14 @@ async function markOfflineShell(offline) {
   }
 }
 
+function offlineResponse() {
+  return new Response("", {
+    status: 504,
+    statusText: "Offline",
+    headers: { "Content-Type": "text/plain" },
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -103,7 +111,10 @@ self.addEventListener("fetch", (event) => {
           return response;
         } catch {
           await markOfflineShell(true);
-          return caches.match(SHELL_URL, { ignoreVary: true });
+          const shell = await caches.match(SHELL_URL, { ignoreVary: true });
+          // Never resolve respondWith with undefined: that turns a handled
+          // offline navigation into a browser network error.
+          return shell || offlineResponse();
         }
       })()
     );
@@ -111,7 +122,16 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    caches.match(request, { ignoreVary: true }).then((cached) => cached || fetch(request))
+    (async () => {
+      const cached = await caches.match(request, { ignoreVary: true });
+      if (cached) return cached;
+
+      try {
+        return await fetch(request);
+      } catch {
+        return offlineResponse();
+      }
+    })()
   );
 });
 `;

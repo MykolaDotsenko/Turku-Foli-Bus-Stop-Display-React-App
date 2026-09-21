@@ -1,6 +1,12 @@
 import { useState } from "react";
 import styles from "./ServiceAlerts.module.css";
-import { elapsedSince, formatClock, formatElapsedAge } from "../utils/time";
+import {
+  elapsedSince,
+  formatClock,
+  formatElapsedAge,
+  serviceDateTimeFormat,
+} from "../utils/time";
+import useClockTick from "../hooks/useClockTick";
 
 const DEFAULT_VISIBLE_ALERTS = 4;
 const STALE_ALERT_CHECK_SECONDS = 10 * 60;
@@ -18,7 +24,7 @@ function formatValidity(validity) {
   if (!validity?.end) return "";
 
   try {
-    const formatter = new Intl.DateTimeFormat(undefined, {
+    const formatter = serviceDateTimeFormat({
       day: "numeric",
       month: "short",
       hour: "2-digit",
@@ -116,7 +122,8 @@ function AlertItem({ alert }) {
 
 function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
   const [expanded, setExpanded] = useState(false);
-  const receiptAgeSeconds = elapsedSince(receivedAtMs);
+  const nowMs = useClockTick(60_000);
+  const receiptAgeSeconds = elapsedSince(receivedAtMs, nowMs);
   const stale =
     receiptAgeSeconds !== null &&
     receiptAgeSeconds > STALE_ALERT_CHECK_SECONDS;

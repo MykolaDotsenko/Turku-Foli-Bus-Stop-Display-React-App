@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import {
   fetchStopCatalog,
@@ -123,4 +123,65 @@ test("keeps stale stop search usable when catalogue refresh fails", async () => 
   ]);
   expect(result.current.catalogSavedAt).toBe(staleSavedAt);
   expect(result.current.coordinatesStatus).toBe("ready");
+});
+
+test("recovers coordinates when connectivity returns without re-requesting a healthy catalogue", async () => {
+  vi.mocked(fetchStopCatalog).mockResolvedValue([
+    { id: "164", name: "Kauppatori" },
+  ]);
+  vi.mocked(fetchStopCoordinates)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(new Map([["164", { lat: 60.4518, lon: 22.2666 }]]));
+
+  const { result } = renderHook(() => useStopCatalog());
+
+  await waitFor(() => {
+    expect(result.current.coordinatesStatus).toBe("unavailable");
+  });
+  await waitFor(() => {
+    expect(result.current.catalogStatus).toBe("ready");
+  });
+  expect(fetchStopCatalog).toHaveBeenCalledTimes(1);
+
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("online"));
+  });
+
+  await waitFor(() => {
+    expect(result.current.coordinatesStatus).toBe("ready");
+  });
+  expect(result.current.stops).toEqual([
+    { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+  ]);
+
+  // The failed resource recovered on its own; the healthy one was not redone.
+  expect(fetchStopCoordinates).toHaveBeenCalledTimes(2);
+  expect(fetchStopCatalog).toHaveBeenCalledTimes(1);
+});
+
+test("recovers the catalogue when connectivity returns", async () => {
+  vi.mocked(fetchStopCoordinates).mockResolvedValue(
+    new Map([["164", { lat: 60.4518, lon: 22.2666 }]])
+  );
+  vi.mocked(fetchStopCatalog)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce([{ id: "164", name: "Kauppatori" }]);
+
+  const { result } = renderHook(() => useStopCatalog());
+
+  await waitFor(() => {
+    expect(result.current.catalogStatus).toBe("unavailable");
+  });
+
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("online"));
+  });
+
+  await waitFor(() => {
+    expect(result.current.catalogStatus).toBe("ready");
+  });
+  expect(result.current.stops).toEqual([
+    { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+  ]);
+  expect(fetchStopCatalog).toHaveBeenCalledTimes(2);
 });

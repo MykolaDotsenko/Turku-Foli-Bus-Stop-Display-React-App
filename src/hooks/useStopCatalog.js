@@ -3,6 +3,7 @@ import {
   fetchStopCatalog,
   fetchStopCoordinates,
 } from "../api/foliApi";
+import useRetrySignal from "./useRetrySignal";
 
 const CACHE_KEY = "foli-stop-catalog-v2";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -75,69 +76,110 @@ export default function useStopCatalog() {
     return cacheIsFresh(initialCache) ? "ready" : "stale";
   });
 
+  // Coordinates and the catalogue recover independently: one failing must not
+  // re-request the other, and neither may stay broken for the whole session
+  // because of a single blip.
+  const {
+    attempt: coordinatesAttempt,
+    reportFailure: reportCoordinatesFailure,
+    reportSuccess: reportCoordinatesSuccess,
+  } = useRetrySignal();
+  const {
+    attempt: catalogAttempt,
+    reportFailure: reportCatalogFailure,
+    reportSuccess: reportCatalogSuccess,
+  } = useRetrySignal();
+
+  // Kept so a later catalogue refresh can re-apply the full coordinate set,
+  // including stops that the cached list did not have yet.
+  const latestCoordinatesRef = useRef(null);
+
+  const isFresh = cacheIsFresh(initialCache);
+  const hasCachedCoordinates = initialCache.stops.some(stopHasCoordinates);
+
   useEffect(() => {
-    const controller = new AbortController();
-    const isFresh = cacheIsFresh(initialCache);
-    const cachedCoordinates = coordinatesFromStops(initialCache.stops);
-    const hasCachedCoordinates = cachedCoordinates.size > 0;
-    let latestCoordinates = hasCachedCoordinates ? cachedCoordinates : null;
-    let active = true;
-
-    const save = (nextCache) => {
-      if (!active) return;
-      setCache(nextCache);
-      persistCache(nextCache);
-    };
-
-    const shouldRefreshCoordinates = !isFresh || !hasCachedCoordinates;
-
-    if (shouldRefreshCoordinates) {
-      fetchStopCoordinates(controller.signal)
-        .then((coordinates) => {
-          if (!active) return;
-
-          latestCoordinates = coordinates;
-          setCoordinatesStatus("ready");
-          setCache((current) => {
-            const next = {
-              ...current,
-              stops: mergeCoordinates(current.stops, coordinates),
-            };
-            persistCache(next);
-            return next;
-          });
-        })
-        .catch(() => {
-          if (!active || controller.signal.aborted) return;
-          setCoordinatesStatus(hasCachedCoordinates ? "ready" : "unavailable");
-        });
-    }
-
-    if (!isFresh) {
-      fetchStopCatalog(controller.signal)
-        .then((freshStops) => {
-          const coordinates = latestCoordinates || cachedCoordinates;
-          const next = {
-            savedAt: Date.now(),
-            stops: mergeCoordinates(freshStops, coordinates),
-          };
-          setCatalogStatus("ready");
-          save(next);
-        })
-        .catch(() => {
-          if (!active || controller.signal.aborted) return;
-          setCatalogStatus(initialCache.stops.length > 0 ? "stale" : "unavailable");
-          // Keep an expired cached catalogue as a stale-while-revalidate fallback.
-        });
-    } else if (hasCachedCoordinates) {
+    if (isFresh && hasCachedCoordinates) {
       setCoordinatesStatus("ready");
+      return undefined;
     }
 
-    return () => {
-      active = false;
-      controller.abort();
-    };
-  }, [initialCache]);
+    const controller = new AbortController();
+
+    fetchStopCoordinates(controller.signal)
+      .then((freshCoordinates) => {
+        if (controller.signal.aborted) return;
+
+        latestCoordinatesRef.current = freshCoordinates;
+        reportCoordinatesSuccess();
+        setCoordinatesStatus("ready");
+        setCache((current) => {
+          const next = {
+            ...current,
+            stops: mergeCoordinates(current.stops, freshCoordinates),
+          };
+          persistCache(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+
+        reportCoordinatesFailure();
+        setCoordinatesStatus(hasCachedCoordinates ? "ready" : "unavailable");
+      });
+
+    return () => controller.abort();
+  }, [
+    coordinatesAttempt,
+    hasCachedCoordinates,
+    isFresh,
+    reportCoordinatesFailure,
+    reportCoordinatesSuccess,
+  ]);
+
+  useEffect(() => {
+    if (isFresh) return undefined;
+
+    const controller = new AbortController();
+
+    fetchStopCatalog(controller.signal)
+      .then((freshStops) => {
+        if (controller.signal.aborted) return;
+
+        const savedAt = Date.now();
+        reportCatalogSuccess();
+        setCatalogStatus("ready");
+        setCache((current) => {
+          const next = {
+            savedAt,
+            stops: mergeCoordinates(
+              freshStops,
+              latestCoordinatesRef.current || coordinatesFromStops(current.stops)
+            ),
+          };
+          persistCache(next);
+          return next;
+        });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+
+        // Keep an expired cached catalogue as a stale-while-revalidate
+        // fallback while the retry runs.
+        reportCatalogFailure();
+        setCatalogStatus(
+          initialCache.stops.length > 0 ? "stale" : "unavailable"
+        );
+      });
+
+    return () => controller.abort();
+  }, [
+    catalogAttempt,
+    initialCache,
+    isFresh,
+    reportCatalogFailure,
+    reportCatalogSuccess,
+  ]);
 
   return {
     stops: cache.stops,

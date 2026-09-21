@@ -23,6 +23,7 @@ function Harness({ stopId }) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.mocked(fetchStopMonitor).mockReset();
 });
 
@@ -192,4 +193,92 @@ test("does not issue a foreground refresh on online while the document is hidden
 
   unmount();
   visibilitySpy.mockRestore();
+});
+
+const SNAPSHOT_KEY = "foli-last-departures-v1";
+
+function seedSnapshot(stopId, { ageMs = 60_000, stopName = "Kauppatori" } = {}) {
+  localStorage.setItem(
+    SNAPSHOT_KEY,
+    JSON.stringify({
+      [stopId]: {
+        stopName,
+        arrivals: [{ lineref: "1" }],
+        serverTime: 1_900_000_000,
+        receivedAtMs: Date.now() - ageMs,
+      },
+    })
+  );
+}
+
+test("reopening offline shows the recent board for the same stop", async () => {
+  seedSnapshot("164");
+  vi.mocked(fetchStopMonitor).mockRejectedValue(new Error("offline"));
+
+  render(<Harness stopId="164" />);
+
+  // Available before the failed request even settles.
+  expect(screen.getByText("Kauppatori")).toBeInTheDocument();
+
+  await waitFor(() => {
+    expect(screen.getByTestId("error")).toHaveTextContent("true");
+  });
+  expect(screen.getByText("Kauppatori")).toBeInTheDocument();
+});
+
+test("ignores a board old enough to be misleading", async () => {
+  seedSnapshot("164", { ageMs: 16 * 60_000 });
+  vi.mocked(fetchStopMonitor).mockRejectedValue(new Error("offline"));
+
+  render(<Harness stopId="164" />);
+
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByTestId("error")).toHaveTextContent("true");
+  });
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+});
+
+test("never seeds one stop from another stop's stored board", async () => {
+  seedSnapshot("164");
+  vi.mocked(fetchStopMonitor).mockRejectedValue(new Error("offline"));
+
+  render(<Harness stopId="32" />);
+
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByTestId("error")).toHaveTextContent("true");
+  });
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+});
+
+test("stores each successful board, keeping only the most recent stops", async () => {
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [{ lineref: "1" }],
+    serverTime: 1_900_000_000,
+  });
+
+  render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+
+  const stored = JSON.parse(localStorage.getItem(SNAPSHOT_KEY));
+  expect(stored["164"]).toMatchObject({
+    stopName: "Kauppatori",
+    arrivals: [{ lineref: "1" }],
+    serverTime: 1_900_000_000,
+  });
+  expect(Number(stored["164"].receivedAtMs)).toBeGreaterThan(0);
+});
+
+test("discards a stored board that claims to come from the future", async () => {
+  seedSnapshot("164", { ageMs: -60_000 });
+  vi.mocked(fetchStopMonitor).mockRejectedValue(new Error("offline"));
+
+  render(<Harness stopId="164" />);
+
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+  await waitFor(() => {
+    expect(screen.getByTestId("error")).toHaveTextContent("true");
+  });
 });

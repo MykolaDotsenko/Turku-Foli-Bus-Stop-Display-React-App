@@ -14,14 +14,35 @@ export function getDepartureTime(arrival = {}) {
   return null;
 }
 
+// Departure times belong to the Turku region, not to wherever the device
+// thinks it is. A phone still set to another zone must not show a bus leaving
+// at the wrong wall-clock time.
+export const SERVICE_TIME_ZONE = "Europe/Helsinki";
+
+export function serviceDateTimeFormat(options, locale) {
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: SERVICE_TIME_ZONE,
+    });
+  } catch {
+    // A runtime without the full time zone database still gets a usable
+    // clock, just in its own zone.
+    return new Intl.DateTimeFormat(locale, options);
+  }
+}
+
 export function formatClock(unixSeconds, locale) {
   const seconds = Number(unixSeconds);
   if (!Number.isFinite(seconds) || seconds <= 0) return "—";
 
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(seconds * 1000));
+  return serviceDateTimeFormat(
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    locale
+  ).format(new Date(seconds * 1000));
 }
 
 export function minutesUntil(unixSeconds, nowMs = Date.now()) {
