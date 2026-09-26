@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetLanguageForTests } from "../i18n";
 import {
   RIDE_STAGE,
   arrivalEtaSeconds,
@@ -7,6 +8,7 @@ import {
   gtfsTimeToSeconds,
   matchRideArrival,
   plannedRideProgress,
+  previousStopPassed,
   resolveRideBoardingIndex,
 } from "./rideProgress";
 
@@ -62,6 +64,35 @@ describe("ride progress", () => {
     expect(plan.nextStop.name).toBe("After");
     expect(plan.boardingStop.shapeDistTraveled).toBe(0);
     expect(plan.targetStop.shapeDistTraveled).toBe(1800);
+  });
+
+  // The plan's names are what the panel shows and the alerts say, so a stop
+  // the catalogue does not name goes by its number in the passenger's
+  // language, never by an empty name.
+  describe("a stop the catalogue does not name", () => {
+    afterEach(() => resetLanguageForTests("en"));
+
+    const plan = () =>
+      buildRidePlan({
+        stopTimes: [
+          { stopId: "10", departureTime: "12:00:00", stopSequence: 1 },
+          { stopId: "30", departureTime: "12:08:00", stopSequence: 2 },
+        ],
+        currentStopId: "10",
+        targetStopId: "30",
+        targetStopSequence: 2,
+        stopsById: new Map([["10", { id: "10", name: "Board" }]]),
+        departureEpochSec: 1_000,
+      });
+
+    // The plan is saved with the ride. A stand-in saved in it stayed in the
+    // language the ride started in, and was read out by the Finnish voice.
+    it("keeps no stand-in name in the saved plan, in any language", () => {
+      expect(plan().targetStop.name).toBe("");
+      resetLanguageForTests("fi");
+      expect(plan().targetStop.name).toBe("");
+      expect(plan().boardingStop.name).toBe("Board");
+    });
   });
 
   it("disambiguates a loop boarding stop from the SIRI aimed time", () => {
@@ -217,6 +248,71 @@ describe("ride progress", () => {
 
     expect(stage.stage).toBe(RIDE_STAGE.NEXT);
     expect(stage.reason).toBe("planned-stop-count");
+  });
+
+  it("follows the visit the passenger chose when a loop lists the stop twice", () => {
+    // Both laps carry the same journey reference. The first row used to win,
+    // so a passenger riding to the second visit had the first lap's "bus at
+    // stop" read as theirs: "Get off now" a full lap early.
+    const firstLap = {
+      datedvehiclejourneyref: "journey-1",
+      expectedarrivaltime: 1_000,
+      vehicleatstop: true,
+    };
+    const secondLap = {
+      datedvehiclejourneyref: "journey-1",
+      expectedarrivaltime: 2_200,
+    };
+
+    expect(
+      matchRideArrival([firstLap, secondLap], {
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 2_150,
+      })?.arrival
+    ).toBe(secondLap);
+    expect(
+      matchRideArrival([firstLap, secondLap], {
+        tripRef: "",
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 1_060,
+      })?.arrival
+    ).toBe(firstLap);
+    expect(
+      matchRideArrival(
+        [
+          { tripref: "trip-1", expectedarrivaltime: 1_000 },
+          { tripref: "trip-1", expectedarrivaltime: 2_200 },
+        ],
+        { tripRef: "trip-1", plannedEpochSec: 2_150 }
+      )?.arrival.expectedarrivaltime
+    ).toBe(2_200);
+  });
+
+  it("does not guess between two visits the plan cannot tell apart", () => {
+    const rows = [
+      { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 1_000 },
+      { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 2_200 },
+    ];
+
+    expect(
+      matchRideArrival(rows, {
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 1_620,
+      })
+    ).toBeNull();
+    expect(
+      matchRideArrival(rows, { datedVehicleJourneyRef: "journey-1" })
+    ).toBeNull();
+  });
+
+  it("still matches a journey the feed lists twice at the same time", () => {
+    const row = { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 1_000 };
+    const duplicate = { ...row };
+
+    expect(
+      matchRideArrival([row, duplicate], { datedVehicleJourneyRef: "journey-1" })
+        ?.arrival
+    ).toBe(row);
   });
 
   it("declines a line and time match when two visits both fit", () => {
@@ -449,6 +545,47 @@ describe("ride progress", () => {
     expect(afterGettingOff.stage).toBe(RIDE_STAGE.NOW);
   });
 
+  it("does not take someone walking on from their stop for a missed stop", () => {
+    // Off the bus at NOW and walking on down the same street, the phone ends
+    // up past the stop along the route just as a bus would, only at walking
+    // pace. "Get off at the next stop" would send them back onto a bus.
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: 1.3,
+        stageAgeSec: 150,
+      }).stage
+    ).toBe(RIDE_STAGE.NOW);
+
+    // No speed from the phone, and long after the alert: a bus carrying them
+    // on would have been past the stop long before this.
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: null,
+        stageAgeSec: 180,
+      }).stage
+    ).toBe(RIDE_STAGE.NOW);
+  });
+
+  it("still catches a passenger the bus carried past the stop after the alert", () => {
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: 8,
+        stageAgeSec: 150,
+      }).stage
+    ).toBe(RIDE_STAGE.MISSED);
+
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: null,
+        stageAgeSec: 60,
+      }).stage
+    ).toBe(RIDE_STAGE.MISSED);
+  });
+
   it("computes live and planned ETA", () => {
     expect(
       arrivalEtaSeconds({ expectedarrivaltime: 1_120 }, 1_000)
@@ -464,7 +601,49 @@ describe("ride progress", () => {
     expect(plannedRideProgress(plan, 1_050)).toEqual({
       etaSec: 250,
       remainingStops: 2,
+      beforeDeparture: false,
     });
+  });
+
+  // Set up twenty minutes early, a one-stop ride counted its one stop as
+  // "next" and announced "Press STOP" before the bus had even come.
+  it("counts no stops before the bus is due to leave the boarding stop", () => {
+    const plan = {
+      boardingStop: { predictedEpochSec: 2_200 },
+      targetPredictedEpochSec: 2_290,
+      stopsToTarget: [{ predictedEpochSec: 2_290 }],
+    };
+
+    expect(plannedRideProgress(plan, 1_000)).toEqual({
+      etaSec: 1_290,
+      remainingStops: null,
+      beforeDeparture: true,
+    });
+    expect(plannedRideProgress(plan, 2_200).remainingStops).toBe(1);
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, {
+        ...plannedRideProgress(plan, 1_000),
+        scheduleEtaSec: 1_290,
+      }).stage
+    ).toBe(RIDE_STAGE.BOARDED);
+  });
+
+  // "Get your things together" beside "~18 min" where the last stops are
+  // far apart, and the passenger learns to ignore it.
+  it("lets the timetable's stop count raise SOON only once the time is near too", () => {
+    const threeStopsOut = { remainingStops: 3, scheduleEtaSec: 18 * 60 };
+    expect(evaluateRideStage(RIDE_STAGE.BOARDED, threeStopsOut).stage).toBe(
+      RIDE_STAGE.BOARDED
+    );
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, {
+        remainingStops: 3,
+        scheduleEtaSec: 6 * 60,
+      }).stage
+    ).toBe(RIDE_STAGE.SOON);
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, { remainingStops: 3 }).stage
+    ).toBe(RIDE_STAGE.SOON);
   });
 
   it("announces nothing at all before any evidence has arrived", () => {
@@ -551,6 +730,17 @@ describe("ride progress", () => {
     expect(evaluated.reason).toBe("device-moved-away");
   });
 
+  // With the trip's shape loaded, straight-line distance cannot raise NOW,
+  // and a loop swinging back past the stop looks like having ridden on.
+  it("takes no straight-line miss when the trip's shape says where the phone is", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.NEXT, {
+      gpsMovedAwayAfterNear: true,
+      gpsShapeAvailable: true,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.NEXT);
+  });
+
   it("never declares a miss before the ride is anywhere near its end", () => {
     const evaluated = evaluateRideStage(RIDE_STAGE.SOON, {
       gpsMovedAwayAfterNear: true,
@@ -558,5 +748,50 @@ describe("ride progress", () => {
     });
 
     expect(evaluated.stage).not.toBe(RIDE_STAGE.MISSED);
+  });
+});
+
+// STOP asks for the next stop: pressed before the bus has left the stop
+// before the exit, it stops the bus there. In the city centre those stops
+// are 300 m apart, closer than what raises "next".
+describe("whether the bus has left the stop before the exit", () => {
+  const onShape = {
+    gpsShapeUsable: true,
+    gpsOnRoute: true,
+    gpsAccuracyM: 20,
+    gpsAgeSec: 5,
+    previousRouteDistanceM: 300,
+  };
+
+  it("takes the bus seen leaving that stop in the live data", () => {
+    expect(previousStopPassed({ previousPassedConfirmed: true })).toBe(true);
+  });
+
+  it("takes a fix on the route past that stop", () => {
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 250 })).toBe(true);
+  });
+
+  it("does not take a fix at that stop or before it", () => {
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 290 })).toBe(false);
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 520 })).toBe(false);
+  });
+
+  it("does not take a near exit on its own", () => {
+    expect(previousStopPassed({ liveEtaSec: 40 })).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, previousRouteDistanceM: null, gpsRouteDistanceM: 100 })
+    ).toBe(false);
+  });
+
+  it("does not take a fix that is vague, old or off the route", () => {
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsAccuracyM: 300 })
+    ).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsAgeSec: 120 })
+    ).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsOnRoute: false })
+    ).toBe(false);
   });
 });

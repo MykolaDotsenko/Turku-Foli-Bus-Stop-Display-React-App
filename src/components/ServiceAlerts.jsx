@@ -1,5 +1,6 @@
 import { useState } from "react";
 import styles from "./ServiceAlerts.module.css";
+import { getLanguage, intlLocale, t } from "../i18n";
 import {
   elapsedSince,
   formatClock,
@@ -20,17 +21,56 @@ function humanizeCode(value) {
     .join(" ");
 }
 
+// GTFS-Realtime's causes, in words. A code Föli adds later is still shown,
+// spelt out as best it can be in English; in Finnish, a code spelt out is
+// English, so it is simply another cause.
+function causeLabel(code) {
+  switch (code) {
+    case "UNKNOWN_CAUSE":
+      return t("Unknown cause");
+    case "OTHER_CAUSE":
+      return t("Other cause");
+    case "TECHNICAL_PROBLEM":
+      return t("Technical problem");
+    case "STRIKE":
+      return t("Strike");
+    case "DEMONSTRATION":
+      return t("Demonstration");
+    case "ACCIDENT":
+      return t("Accident");
+    case "HOLIDAY":
+      return t("Holiday");
+    case "WEATHER":
+      return t("Weather");
+    case "MAINTENANCE":
+      return t("Maintenance");
+    case "CONSTRUCTION":
+      return t("Construction work");
+    case "POLICE_ACTIVITY":
+      return t("Police activity");
+    case "MEDICAL_EMERGENCY":
+      return t("Medical emergency");
+    default:
+      return getLanguage() === "fi" ? t("Other cause") : humanizeCode(code);
+  }
+}
+
+// "Valid until 26 Sept, 16:12", or "Voimassa 26.9. klo 16:12 asti": the date
+// in the language's own form, the time on the transit clock.
 function formatValidity(validity) {
   if (!validity?.end) return "";
 
   try {
-    const formatter = serviceDateTimeFormat({
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
+    const date = serviceDateTimeFormat(
+      getLanguage() === "fi"
+        ? { day: "numeric", month: "numeric" }
+        : { day: "numeric", month: "short" },
+      intlLocale()
+    ).format(new Date(validity.end * 1000));
+    return t("Valid until {date}, {time}", {
+      date,
+      time: formatClock(validity.end),
     });
-    return `Valid until ${formatter.format(new Date(validity.end * 1000))}`;
   } catch {
     return "";
   }
@@ -69,19 +109,21 @@ function AlertItem({ alert }) {
       <div className={styles.alertBody}>
         {isCancellation ? (
           <p>
-            {alert.line ? `Line ${alert.line}` : "A departure"}
+            {alert.line ? t("Line {line}", { line: alert.line }) : t("A departure")}
             {alert.scheduledTime ? ` · ${formatClock(alert.scheduledTime)}` : ""}
-            {alert.cause ? ` · ${humanizeCode(alert.cause)}` : ""}
+            {alert.cause ? ` · ${causeLabel(alert.cause)}` : ""}
           </p>
         ) : (
           <>
             {(alert.routeNames?.length > 0 || isGlobal || validity) && (
               <p className={styles.alertMeta}>
-                {alert.routeNames?.length > 0
-                  ? `Line${alert.routeNames.length > 1 ? "s" : ""} ${alert.routeNames.join(", ")}`
-                  : isGlobal
-                    ? "All Föli services"
-                    : ""}
+                {alert.routeNames?.length > 1
+                  ? t("Lines {lines}", { lines: alert.routeNames.join(", ") })
+                  : alert.routeNames?.length === 1
+                    ? t("Line {line}", { line: alert.routeNames[0] })
+                    : isGlobal
+                      ? t("All Föli services")
+                      : ""}
                 {(alert.routeNames?.length > 0 || isGlobal) && validity
                   ? " · "
                   : ""}
@@ -99,16 +141,19 @@ function AlertItem({ alert }) {
                     href={image.url}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={image.title || `Open image for ${alert.title}`}
+                    aria-label={
+                      image.title ||
+                      t("Open full image for {title}", { title: alert.title })
+                    }
                   >
                     <img
                       src={image.url}
-                      alt={image.title || `${alert.title} illustration`}
+                      alt={image.title || t("{title} illustration", { title: alert.title })}
                       loading="lazy"
                       decoding="async"
                       referrerPolicy="no-referrer"
                     />
-                    <span>{image.title || "Open full image"}</span>
+                    <span>{image.title || t("Open full image")}</span>
                   </a>
                 ))}
               </div>
@@ -122,6 +167,7 @@ function AlertItem({ alert }) {
 
 function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
   const [expanded, setExpanded] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const nowMs = useClockTick(60_000);
   const receiptAgeSeconds = elapsedSince(receivedAtMs, nowMs);
   const stale =
@@ -138,18 +184,21 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
       >
         <div className={styles.headingRow}>
           <div>
-            <p className={styles.kicker}>Before you go</p>
+            <p className={styles.kicker}>{t("Before you go")}</p>
             <h2 id="service-alerts-title" className={styles.heading}>
-              Service update check unavailable
+              {t("Service update check unavailable")}
             </h2>
           </div>
         </div>
         <p className={styles.feedStatus} role="status">
-          Föli disruption data could not be confirmed
+          {t("Föli disruption data could not be confirmed")}
           {receiptAgeSeconds !== null
-            ? ` · last checked ${formatElapsedAge(receiptAgeSeconds)}`
-            : ""}.
-          Live departure data may still work separately.
+            ? ` · ${t("last checked {age}", {
+                age: formatElapsedAge(receiptAgeSeconds),
+              })}`
+            : ""}
+          {". "}
+          {t("Live departure data may still work separately.")}
         </p>
       </section>
     );
@@ -161,35 +210,68 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
     ? alerts
     : alerts.slice(0, DEFAULT_VISIBLE_ALERTS);
 
+  // On a phone the list folds into one line, the count and the first
+  // notice's title: four of them stood between the search and the board.
+  // An emergency is never folded.
+  const folded = !emergency && !phoneOpen;
+
   return (
     <section
       className={`${styles.panel} ${emergency ? styles.emergencyPanel : ""}`}
       aria-labelledby="service-alerts-title"
+      data-folded={folded ? "true" : "false"}
     >
       <div className={styles.headingRow}>
         <div>
           <p className={styles.kicker}>
-            {emergency ? "Important now" : "Before you go"}
+            {emergency ? t("Important now") : t("Before you go")}
           </p>
           <h2 id="service-alerts-title" className={styles.heading}>
-            {emergency ? "Emergency notice" : "Service updates"}
+            {emergency ? t("Emergency notice") : t("Service updates")}
           </h2>
         </div>
-        <span className={styles.count} aria-label={`${alerts.length} service updates`}>
+        <span
+          className={styles.count}
+          aria-label={
+            alerts.length === 1
+              ? t("1 service update")
+              : t("{count} service updates", { count: alerts.length })
+          }
+        >
           {alerts.length}
         </span>
       </div>
 
+      {!emergency && (
+        <button
+          type="button"
+          className={styles.phoneToggle}
+          aria-expanded={phoneOpen}
+          aria-controls="service-alerts-list"
+          onClick={() => setPhoneOpen((current) => !current)}
+        >
+          {phoneOpen
+            ? t("Hide service updates")
+            : `${
+                alerts.length === 1
+                  ? t("1 service update")
+                  : t("{count} service updates", { count: alerts.length })
+              } · ${alerts[0].title}`}
+        </button>
+      )}
+
       {(error || stale) && (
         <p className={styles.feedStatus} role="status">
-          {error ? "Update check failed" : "Service update check is getting old"}
+          {error ? t("Update check failed") : t("Service update check is getting old")}
           {receiptAgeSeconds !== null
-            ? ` · last checked ${formatElapsedAge(receiptAgeSeconds)}`
+            ? ` · ${t("last checked {age}", {
+                age: formatElapsedAge(receiptAgeSeconds),
+              })}`
             : ""}
         </p>
       )}
 
-      <div className={styles.list}>
+      <div id="service-alerts-list" className={styles.list}>
         {visibleAlerts.map((alert) => (
           <AlertItem key={alert.id} alert={alert} />
         ))}
@@ -203,10 +285,12 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
           aria-expanded={expanded}
         >
           {expanded
-            ? "Show fewer updates"
-            : `Show ${alerts.length - DEFAULT_VISIBLE_ALERTS} more update${
-                alerts.length - DEFAULT_VISIBLE_ALERTS === 1 ? "" : "s"
-              }`}
+            ? t("Show fewer updates")
+            : alerts.length - DEFAULT_VISIBLE_ALERTS === 1
+              ? t("Show 1 more update")
+              : t("Show {count} more updates", {
+                  count: alerts.length - DEFAULT_VISIBLE_ALERTS,
+                })}
         </button>
       )}
     </section>

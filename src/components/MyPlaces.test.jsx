@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import MyPlaces from "./MyPlaces";
+import { resetLanguageForTests } from "../i18n";
 
 const stops = [
   { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
@@ -23,6 +24,7 @@ function setGeolocation(getCurrentPosition) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetLanguageForTests("en");
 
   if (originalGeolocation) {
     Object.defineProperty(navigator, "geolocation", originalGeolocation);
@@ -65,11 +67,11 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   expect(getCurrentPosition).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("button", { name: "Set up Home from my current location" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use my location to set up Home" }));
 
   expect(
     await screen.findByRole("heading", {
-      name: "Choose safe stops for Home",
+      name: "Choose stops for Home",
     })
   ).toBeInTheDocument();
   expect(screen.getByText(/Location accuracy ±20 m/)).toBeInTheDocument();
@@ -87,7 +89,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -136,7 +138,7 @@ test("Go Home creates a transit handoff with no stored or shared origin", () => 
   );
 
   const goHome = screen.getByRole("link", {
-    name: "Go Home by public transit",
+    name: "Get me Home by public transit",
   });
   const url = new globalThis.URL(goHome.href);
 
@@ -171,14 +173,13 @@ test("shows a simple driver card without exposing a private address", () => {
     />
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show to driver" }));
 
   const dialog = screen.getByRole("dialog");
   expect(
-    within(dialog).getByRole("heading", { name: "I need to get to School" })
+    within(dialog).getByRole("heading", { name: /Puistokatu/ })
   ).toBeInTheDocument();
-  expect(within(dialog).getByText("Puistokatu")).toBeInTheDocument();
-  expect(within(dialog).getByText("Stop 32")).toBeInTheDocument();
+  expect(within(dialog).getByText(/Stop 32/)).toBeInTheDocument();
   expect(
     within(dialog).getByText(
       "Voitteko auttaa minua jäämään pois oikealla pysäkillä?"
@@ -204,11 +205,11 @@ test("reviews and confirms the selected public stop when location is unavailable
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home using Puistokatu" })
+    screen.getByRole("button", { name: "Use Puistokatu for Home" })
   );
 
   expect(
-    screen.getByRole("heading", { name: "Choose safe stops for Home" })
+    screen.getByRole("heading", { name: "Choose stops for Home" })
   ).toBeInTheDocument();
   expect(screen.getByText("Using the stop you selected manually")).toBeInTheDocument();
 
@@ -217,7 +218,7 @@ test("reviews and confirms the selected public stop when location is unavailable
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   fireEvent.click(saveHome);
@@ -261,7 +262,7 @@ test("requires explicit confirmation before importing a shared Home", () => {
     screen.getByRole("heading", { name: "Add Home?" })
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/can still reveal the general area/i)
+    screen.getByText(/The stops show roughly where this place is/i)
   ).toBeInTheDocument();
   expect(onImportSharedPlace).not.toHaveBeenCalled();
 
@@ -364,7 +365,7 @@ test("shares a configured place through the native share sheet when available", 
 });
 
 
-test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
+test("adds backup stops to a place only after explicit opt-in", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -391,11 +392,11 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   await screen.findByRole("heading", {
-    name: "Choose safe stops for Home",
+    name: "Choose stops for Home",
   });
 
   const choices = screen.getAllByRole("checkbox");
@@ -403,7 +404,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -413,7 +414,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stops are suitable and intended for arriving at Home/i,
+      name: /Yes, these are the right stops for Home/i,
     })
   );
   fireEvent.click(saveHome);
@@ -426,7 +427,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 });
 
 
-test("warns that sharing a Safe Place can reveal its general area", () => {
+test("warns that sharing a place can reveal its general area", () => {
   render(
     <MyPlaces
       stops={stops}
@@ -455,12 +456,12 @@ test("warns that sharing a Safe Place can reveal its general area", () => {
 
   fireEvent.click(screen.getByText("Manage Home"));
   expect(
-    screen.getByText(/Sharing Home reveals its saved public stop names and IDs/i)
+    screen.getByText(/Sharing Home reveals its saved public stop names and numbers/i)
   ).toBeInTheDocument();
 });
 
 
-test("does not preselect a Safe Place when location accuracy is poor", async () => {
+test("does not preselect a place's stop when location accuracy is poor", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -487,11 +488,11 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   await screen.findByRole("heading", {
-    name: "Choose safe stops for Home",
+    name: "Choose stops for Home",
   });
 
   expect(
@@ -500,7 +501,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
 
   const stopChoices = screen
     .getAllByRole("checkbox")
-    .filter((element) => !/I confirm/.test(element.getAttribute("aria-label") || ""));
+    .filter((element) => !/right stop/.test(element.getAttribute("aria-label") || ""));
 
   expect(stopChoices[0]).not.toBeChecked();
   expect(stopChoices[1]).not.toBeChecked();
@@ -509,7 +510,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   expect(onSavePlace).not.toHaveBeenCalled();
 });
 
-test("does not create a location-based Safe Place outside the Föli boundary", async () => {
+test("does not create a location-based place outside the Föli boundary", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -551,14 +552,236 @@ test("does not create a location-based Safe Place outside the Föli boundary", a
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   expect(
     await screen.findByText(/outside Föli’s published service area/i)
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Choose safe stops for Home" })
+    screen.queryByRole("heading", { name: "Choose stops for Home" })
   ).not.toBeInTheDocument();
   expect(onSavePlace).not.toHaveBeenCalled();
+});
+// Ticking the confirmation for Home and then starting School kept the tick:
+// "Save School" was enabled for a stop nobody had confirmed for School.
+test("starts each place's setup with its own, unticked confirmation", () => {
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="unavailable"
+      activeStopId="32"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use Puistokatu for Home" })
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /Yes, this is the right stop for Home/i,
+    })
+  );
+  expect(screen.getByRole("button", { name: "Save Home" })).toBeEnabled();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use Puistokatu for School" })
+  );
+
+  expect(
+    screen.getByRole("checkbox", {
+      name: /Yes, this is the right stop for School/i,
+    })
+  ).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "Save School" })).toBeDisabled();
+});
+
+// Saved places keep the English label they were stored with ("Home"); the
+// screen names each by its id, so a place saved in one language reads
+// correctly in the other.
+const savedHome = {
+  id: "home",
+  label: "Home",
+  icon: "⌂",
+  primaryStopId: "164",
+  stops: [
+    { id: "164", name: "Kauppatori" },
+    { id: "32", name: "Puistokatu" },
+  ],
+};
+
+function renderSavedHome() {
+  return render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map([["home", savedHome]])}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+}
+
+test("names a place saved as \"Home\" in Finnish, by what it is", () => {
+  resetLanguageForTests("fi");
+  renderSavedHome();
+
+  expect(screen.getByRole("heading", { name: "Omat paikat" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Koti" })).toBeInTheDocument();
+  expect(
+    screen.getByText("Pääpysäkki: Kauppatori · pysäkki 164")
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Vie minut kotiin joukkoliikenteellä" })
+  ).toHaveTextContent("Vie minut kotiin");
+  expect(screen.getByRole("button", { name: "Avaa kotipysäkki" })).toBeInTheDocument();
+  expect(screen.getByText("1 varapysäkki")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Koulu" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", {
+      name: "Käytä sijaintiani työpaikan asettamiseen",
+    })
+  ).toHaveTextContent("Käytä sijaintiani");
+  expect(document.body).not.toHaveTextContent(/Home|School|Work/);
+});
+
+test("sets up a place in Finnish, confirming it in the place's own words", () => {
+  resetLanguageForTests("fi");
+  const onSavePlace = vi.fn();
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="unavailable"
+      activeStopId="32"
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Käytä pysäkkiä Puistokatu koulun pysäkkinä",
+    })
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Valitse koulun pysäkit" })
+  ).toBeInTheDocument();
+  const save = screen.getByRole("button", { name: "Tallenna koulu" });
+  expect(save).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Kyllä, tämä on oikea pysäkki kouluun.",
+    })
+  );
+  fireEvent.click(save);
+
+  // What is saved is the place's id and its public stops, never words.
+  expect(onSavePlace).toHaveBeenCalledWith({
+    id: "school",
+    stops: [{ id: "32", name: "Puistokatu" }],
+    primaryStopId: "32",
+  });
+});
+
+test("shares and removes in Finnish, with the same link as in English", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+  const english = renderSavedHome();
+  fireEvent.click(screen.getByRole("button", { name: "Share Home" }));
+  await screen.findByText("Link shared.");
+  english.unmount();
+
+  resetLanguageForTests("fi");
+  renderSavedHome();
+  fireEvent.click(screen.getByRole("button", { name: "Jaa Koti" }));
+  expect(await screen.findByText("Linkki jaettu.")).toBeInTheDocument();
+
+  const [englishShare, finnishShare] = share.mock.calls.map(([data]) => data);
+  expect(finnishShare.title).toBe("Koti · Omat paikat");
+  expect(finnishShare.text).toBe("Lisää koti Omiin paikkoihin");
+  expect(finnishShare.url).toBe(englishShare.url);
+
+  fireEvent.click(screen.getByRole("button", { name: "Poista Koti" }));
+  expect(confirm).toHaveBeenCalledWith("Poistetaanko Koti Omista paikoista?");
+});
+
+test("rewords a message already on screen when the language changes", () => {
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: undefined,
+  });
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use my location to set up Home" })
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "This browser does not support location access."
+  );
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Tämä selain ei tue sijainnin käyttöä."
+  );
+  expect(
+    screen.getByRole("heading", { name: "Omat paikat" })
+  ).toBeInTheDocument();
+});
+
+// Near you said this in Finnish; My Places, with the same browser answer,
+// said it in English.
+test("a blocked location is explained in Finnish in the Finnish interface", async () => {
+  resetLanguageForTests("fi");
+  setGeolocation(vi.fn((success, failure) => failure({ code: 1 })));
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /Käytä sijaintiani kodin asettamiseen/ })
+  );
+
+  expect(
+    await screen.findByText(/^Sijainnin käyttö on estetty\./)
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Location access is blocked/)).not.toBeInTheDocument();
 });

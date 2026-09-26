@@ -3,20 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#007985" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#007985" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c1416" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Turku Föli" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
     <link rel="icon" href="%BASE_URL%foli-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
     <meta
       name="description"
-      content="Privacy-first Föli companion for Turku: live departures, disruptions, Safe Places, nearest stops and resilient Get me Home travel help."
+      content="Live Turku bus departures, service updates and an alert that tells you when to press STOP. Free, no account, no ads. Not an official Föli app."
     />
     <title>Turku bus departures · Föli live times</title>
+    <link rel="canonical" href="%VITE_SITE_URL%" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Föli departures" />
+    <meta property="og:title" content="Know when to press STOP · Turku bus times" />
+    <meta
+      property="og:description"
+      content="Turun bussien lähtöajat ja muistutus, kun pitää painaa STOP. Live Turku bus times and an alert that tells you when to press STOP. Free, no account, no ads. Not an official Föli app."
+    />
+    <meta property="og:url" content="%VITE_SITE_URL%" />
+    <meta property="og:image" content="%VITE_SITE_URL%social-card.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Know when to press STOP: the app's get-off alert saying Your stop is next, Puistokatu, Press the STOP button now"
+    />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fi_FI" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
-    <noscript>JavaScript is required to show live Föli departures.</noscript>
+    <noscript>
+      <p>JavaScript is required to show live Föli departures.</p>
+      <p lang="fi">Fölin reaaliaikaisten lähtöjen näyttäminen vaatii JavaScriptin.</p>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

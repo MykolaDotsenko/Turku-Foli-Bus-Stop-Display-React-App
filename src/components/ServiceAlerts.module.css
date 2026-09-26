@@ -303,6 +303,28 @@
     align-items: center;
   }
 
+  /* display: flex removes a summary's own disclosure triangle, and these
+     rows then read as plain labels. A drawn chevron puts the cue back
+     without adding text for a screen reader to announce. */
+  .details summary::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-left: 10px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  .details[open] > summary::after {
+    transform: rotate(45deg);
+  }
+
+  .details summary::-webkit-details-marker {
+    display: none;
+  }
+
   .moreButton {
     min-height: 44px;
   }
@@ -320,18 +342,12 @@
 }
 
 @media (max-width: 620px) {
+  /* No clamp on .message: it only renders inside an opened notice, and a
+     moved stop's new location is often in its last sentence. */
   .alertMeta {
     margin-top: 2px;
     font-size: 0.8125rem;
     line-height: 1.3;
-  }
-
-  .message {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
   }
 }
 
@@ -399,3 +415,195 @@
     font-size: 1rem;
   }
 }
+
+/* Dark theme: tokens in App.css. Notices stay warm, emergencies stay red. */
+@media screen and (prefers-color-scheme: dark) {
+  .panel {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    box-shadow: 0 8px 22px var(--dm-shadow);
+  }
+
+  .emergencyPanel {
+    border-color: var(--dm-danger-line);
+    background: var(--dm-danger-surface);
+  }
+
+  .headingRow,
+  .alert,
+  .moreButton {
+    border-color: var(--dm-warn-line);
+  }
+
+  .emergencyPanel .headingRow {
+    border-bottom-color: var(--dm-danger-line);
+  }
+
+  .kicker,
+  .heading,
+  .alert strong,
+  .alert p,
+  .details,
+  .details summary,
+  .alertMeta,
+  .mediaLink,
+  .disclosureIcon,
+  .moreButton,
+  .validity {
+    color: var(--dm-warn-text) !important;
+  }
+
+  .emergencyPanel .kicker,
+  .cancellation strong,
+  .emergency strong {
+    color: var(--dm-danger-text) !important;
+  }
+
+  .emergencyPanel .heading {
+    color: #ffe1db !important;
+  }
+
+  .count,
+  .effectBadge {
+    background: #4a3b17;
+    color: var(--dm-warn-text);
+  }
+
+  .emergencyPanel .count {
+    background: var(--dm-danger-line);
+    color: #ffe1db;
+  }
+
+  .cancellation,
+  .emergency {
+    background: var(--dm-danger-surface);
+    border-left-color: var(--dm-danger-text);
+  }
+
+  .global {
+    background: #231c10;
+    border-left-color: #c9a45a;
+  }
+
+  .unavailablePanel {
+    border-color: var(--dm-line);
+    background: var(--dm-surface);
+  }
+
+  .unavailablePanel .kicker,
+  .unavailablePanel .heading {
+    color: var(--dm-soft) !important;
+  }
+
+  .feedStatus {
+    border-bottom-color: var(--dm-line);
+    background: var(--dm-sunken);
+    color: var(--dm-muted);
+  }
+
+  .moreButton {
+    background: #211a0e;
+  }
+
+  .moreButton:hover {
+    background: #30260f;
+  }
+
+  .moreButton:focus-visible,
+  .mediaLink:focus-visible,
+  .alertSummary:focus-visible {
+    outline-color: rgba(242, 212, 143, 0.5);
+  }
+
+  /* A map with a transparent edge stood in a white frame on a dark page. */
+  .mediaLink img {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-raised);
+  }
+}
+
+/* On a phone the list folds into one line (ServiceAlerts.jsx). The heading
+   stays in the page for its name, out of sight while the line stands in. */
+.phoneToggle {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .panel[data-folded] .headingRow {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .emergencyPanel[data-folded] .headingRow {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .phoneToggle {
+    display: flex;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 15px;
+    border: 0;
+    background: transparent;
+    color: #3d3320;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 850;
+    line-height: 1.3;
+    text-align: left;
+  }
+
+  .phoneToggle::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  .panel[data-folded="false"] .phoneToggle {
+    border-bottom: 1px solid #f3dfb5;
+  }
+
+  .panel[data-folded="false"] .phoneToggle::after {
+    transform: rotate(45deg);
+  }
+
+  .phoneToggle:focus-visible {
+    outline: 3px solid rgba(139, 100, 29, 0.35);
+    outline-offset: -3px;
+  }
+
+  .panel[data-folded="true"] .list,
+  .panel[data-folded="true"] .moreButton {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 620px) and (prefers-color-scheme: dark) {
+  .phoneToggle {
+    color: var(--dm-warn-text);
+  }
+
+  .panel[data-folded="false"] .phoneToggle {
+    border-bottom-color: var(--dm-warn-line);
+  }
+}
+

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { msg } from "../i18n";
 import { distanceInMeters, hasCoordinates } from "../utils/geo";
 import { analyzeRideGps } from "../utils/rideGeometry";
 import {
@@ -14,6 +15,8 @@ import {
   rideStageRank,
   evaluateRideStage,
   plannedRideProgress,
+  previousStopPassed,
+  rideLongOver,
 } from "../utils/rideProgress";
 import { dataAgeSeconds } from "../utils/time";
 import useRideAudioReadiness from "./useRideAudioReadiness";
@@ -25,12 +28,44 @@ const STORAGE_KEY = "foli-active-ride-v1";
 const RIDE_TTL_MS = 6 * 60 * 60 * 1000;
 const CLOCK_INTERVAL_MS = 10_000;
 const NOW_REPEAT_MS = 5_000;
+// Long enough for any dwell and a door that is slow to open. Past it the bus
+// has left, whether or not anything could report that: with the network
+// gone, a phone in a pocket otherwise repeated "get off now" until the ride
+// expired hours later.
+const NOW_REPEAT_LIMIT_MS = 3 * 60_000;
+// How long an answer from the exit stop still counts as live. Everything
+// read from it, estimate and position alike, is aged by the time since.
+const TARGET_LIVE_FOR_SEC = 120;
+// The same window trackingHealth calls "live", so the panel's "Your bus is
+// confirmed" and its badge always describe the same evidence.
+const TARGET_CONFIRMED_FOR_SEC = 45;
+// A fix this precise is needed before straight-line distance counts towards
+// "you have gone past your stop": two fixes 300 m wide ended a ride that was
+// still a minute from the stop.
+const MISS_FIX_ACCURACY_M = 50;
+
+// Metres along the trip's shape from the stop before the exit to the exit.
+function previousStopGapM(plan) {
+  const target = Number(plan?.targetStop?.shapeDistTraveled);
+  const previous = Number(plan?.previousStop?.shapeDistTraveled);
+  if (
+    plan?.targetStop?.shapeDistTraveled === null ||
+    plan?.previousStop?.shapeDistTraveled === null ||
+    !Number.isFinite(target) ||
+    !Number.isFinite(previous) ||
+    target <= previous
+  ) {
+    return null;
+  }
+  return target - previous;
+}
 
 function emptyRuntime() {
   return {
     lastPollAt: null,
     lastProviderSuccessAt: null,
     lastLiveMatchAt: null,
+    targetSeenAt: null,
     previousSeen: false,
     previousMissingCount: 0,
     targetMissingCount: 0,
@@ -83,7 +118,8 @@ function validStoredRide(value) {
     value.targetStop &&
     /^\d+$/.test(String(value.targetStop.id || "")) &&
     value.plan &&
-    Number(value.expiresAt) > Date.now()
+    Number(value.expiresAt) > Date.now() &&
+    !rideLongOver(value.plan, Date.now() / 1000)
   );
 }
 
@@ -164,6 +200,9 @@ export default function useRideMode() {
   const [session, setSession] = useState(
     initialRideRef.current === false ? null : initialRideRef.current
   );
+  // The ride this page picked up from storage, if any. It knows nothing
+  // live about the bus until its first poll comes back.
+  const restoredRideIdRef = useRef(initialRideRef.current?.id || "");
   const [runtime, setRuntimeState] = useState(emptyRuntime);
   const [gps, setGpsState] = useState(emptyGps);
 
@@ -257,18 +296,62 @@ export default function useRideMode() {
         ? Math.max(0, (Date.now() - Number(nextGps.updatedAt)) / 1000)
         : null;
 
-      const lastLiveMatchAt = Number(nextRuntime.lastLiveMatchAt);
-      const liveEtaUsable =
-        Number.isFinite(lastLiveMatchAt) &&
-        lastLiveMatchAt > 0 &&
-        Date.now() - lastLiveMatchAt <= 120_000;
+      // The exit stop's row is only as current as the answer it came in.
+      // Its estimate counts down from then, and its position ages from then,
+      // or a failed poll keeps both looking fresh: a frozen "100 s" held
+      // back "Press STOP" past the bus's arrival, and a position from a
+      // loop's first pass, kept at its original age, later read as the bus
+      // standing at the stop. Sightings at the stop before do not count
+      // here; they say nothing about the exit stop's estimate.
+      const targetSeenAt = Number(nextRuntime.targetSeenAt);
+      const sinceTargetSec =
+        Number.isFinite(targetSeenAt) && targetSeenAt > 0
+          ? Math.max(0, (Date.now() - targetSeenAt) / 1000)
+          : null;
+      const targetAnswerLive =
+        sinceTargetSec !== null && sinceTargetSec <= TARGET_LIVE_FOR_SEC;
+      const reportedEta = Number(nextRuntime.liveEtaSec);
+      const liveEtaSec =
+        targetAnswerLive &&
+        nextRuntime.liveEtaSec !== null &&
+        Number.isFinite(reportedEta)
+          ? Math.round(reportedEta - sinceTargetSec)
+          : null;
+
+      // Well past its planned exit, with nothing live saying the bus is
+      // still on its way, the ride is over: it ends without a sound.
+      if (liveEtaSec === null && rideLongOver(current.plan, Date.now() / 1000)) {
+        endRide();
+        return;
+      }
+      const reportedPositionAge = Number(nextRuntime.providerPositionAgeSec);
+      const providerPositionAgeSec =
+        sinceTargetSec === null
+          ? null
+          : (nextRuntime.providerPositionAgeSec !== null &&
+            Number.isFinite(reportedPositionAge)
+              ? reportedPositionAge
+              : 0) + sinceTargetSec;
+
+      // Riding pace, from a fix recent enough to still describe the phone.
+      const gpsSpeed = Number(nextGps.speedMps);
+      const gpsSpeedMps =
+        nextGps.speedMps !== null &&
+        Number.isFinite(gpsSpeed) &&
+        gpsAgeSec !== null &&
+        gpsAgeSec <= 60
+          ? gpsSpeed
+          : null;
+      const stageAgeSec = Number.isFinite(Number(current.stageChangedAt))
+        ? Math.max(0, (Date.now() - Number(current.stageChangedAt)) / 1000)
+        : null;
 
       const evaluated = evaluateRideStage(current.stage, {
-        liveEtaSec: liveEtaUsable ? nextRuntime.liveEtaSec : null,
+        liveEtaSec,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
         providerDistanceM: nextRuntime.providerDistanceM,
-        providerPositionAgeSec: nextRuntime.providerPositionAgeSec,
+        providerPositionAgeSec,
         gpsDistanceM: nextGps.distanceM,
         gpsAccuracyM: nextGps.accuracyM,
         gpsAgeSec,
@@ -278,10 +361,19 @@ export default function useRideMode() {
         gpsRouteDistanceM: nextGps.routeDistanceM,
         gpsRouteEtaSec: nextGps.routeEtaSec,
         gpsPassedTarget: nextGps.passedTarget,
+        gpsSpeedMps,
+        stageAgeSec,
         previousPassedConfirmed,
         targetAtStop: nextRuntime.targetWasAtStop && nextRuntime.targetListed,
         targetPassedConfirmed,
         gpsMovedAwayAfterNear: gpsMovedAway,
+        // A reloaded ride waits for its first poll to answer, or fail. And
+        // the timetable says nothing about a bus that is not due to have
+        // left the boarding stop yet.
+        scheduleMayRaise:
+          !planned.beforeDeparture &&
+          (current.id !== restoredRideIdRef.current ||
+            nextRuntime.lastPollAt !== null),
         lastReason: current.stageReason,
         lastConfidence: current.stageConfidence,
       });
@@ -292,51 +384,102 @@ export default function useRideMode() {
       // would otherwise keep showing a confident "~2 min" next to a badge
       // that already says tracking is degraded.
       const gpsEtaUsable =
+        nextGps.routeEtaSec !== null &&
         Number.isFinite(Number(nextGps.routeEtaSec)) &&
         (gpsAgeSec === null || gpsAgeSec <= 60);
+      const etaSource = gpsEtaUsable
+        ? "location"
+        : liveEtaSec !== null
+          ? "live"
+          : "schedule";
+      // Answers without the bus only count towards ending the alarm once it
+      // is sounding, so the count starts again as it begins.
+      const enteringNow =
+        evaluated.stage === RIDE_STAGE.NOW &&
+        current.stage !== RIDE_STAGE.NOW;
       const mergedRuntime = {
         ...nextRuntime,
+        targetMissingCount: enteringNow ? 0 : nextRuntime.targetMissingCount,
         scheduleEtaSec: planned.etaSec,
         remainingStops: planned.remainingStops,
         // Published so the panel can age out a fix on exactly the same clock
         // the stage logic uses, instead of presenting a tunnel-old distance
         // as where the passenger is now.
         gpsAgeSec,
-        etaSec: gpsEtaUsable
-          ? Number(nextGps.routeEtaSec)
-          : liveEtaUsable && Number.isFinite(Number(nextRuntime.liveEtaSec))
-            ? Number(nextRuntime.liveEtaSec)
-            : planned.etaSec,
+        etaSec:
+          etaSource === "location"
+            ? Number(nextGps.routeEtaSec)
+            : etaSource === "live"
+              ? liveEtaSec
+              : planned.etaSec,
+        etaSource,
+        // The panel's "confirmed" is about the exit stop, on the same clock
+        // as the estimate it sits beside, and never beside a badge that has
+        // gone back to the timetable (an offline phone does at once).
+        targetLive:
+          health === "live" &&
+          sinceTargetSec !== null &&
+          sinceTargetSec <= TARGET_CONFIRMED_FOR_SEC &&
+          nextRuntime.targetListed === true,
         trackingHealth: health,
       };
       runtimeRef.current = mergedRuntime;
       setRuntimeState(mergedRuntime);
 
-      if (evaluated.stage === current.stage) return;
+      // Kept once known: "Press STOP now" is only said once the bus has left
+      // the stop before the exit, and a fix lost in a tunnel afterwards does
+      // not put it back there.
+      const previousLeft =
+        current.previousLeft === true ||
+        previousStopPassed({
+          previousPassedConfirmed,
+          gpsShapeUsable: nextGps.shapeUsable,
+          gpsOnRoute: nextGps.onRoute,
+          gpsRouteDistanceM: nextGps.routeDistanceM,
+          gpsAccuracyM: nextGps.accuracyM,
+          gpsAgeSec,
+          previousRouteDistanceM: previousStopGapM(current.plan),
+        });
+      const stageChanged = evaluated.stage !== current.stage;
+      const leftPrevious = previousLeft && current.previousLeft !== true;
 
-      const nextSession = {
-        ...current,
-        stage: evaluated.stage,
-        stageReason: evaluated.reason,
-        stageConfidence: evaluated.confidence,
-        stageChangedAt: Date.now(),
-      };
+      if (!stageChanged && !leftPrevious) return;
+
+      const nextSession = stageChanged
+        ? {
+            ...current,
+            previousLeft,
+            stage: evaluated.stage,
+            stageReason: evaluated.reason,
+            stageConfidence: evaluated.confidence,
+            stageChangedAt: Date.now(),
+          }
+        : { ...current, previousLeft };
 
       sessionRef.current = nextSession;
       setSession(nextSession);
       persistRide(nextSession);
 
+      // "Your stop is after X" is said on reaching NEXT before the bus has
+      // left X; the moment it has, "Press STOP now" is said as an alert of
+      // its own.
+      const announceStage = stageChanged
+        ? evaluated.stage
+        : evaluated.stage === RIDE_STAGE.NEXT
+          ? RIDE_STAGE.NEXT
+          : null;
       if (
-        evaluated.stage === RIDE_STAGE.SOON ||
-        evaluated.stage === RIDE_STAGE.NEXT ||
-        evaluated.stage === RIDE_STAGE.NOW ||
-        evaluated.stage === RIDE_STAGE.MISSED
+        announceStage === RIDE_STAGE.SOON ||
+        announceStage === RIDE_STAGE.NEXT ||
+        announceStage === RIDE_STAGE.NOW ||
+        announceStage === RIDE_STAGE.MISSED
       ) {
         announceRideStage(
-          evaluated.stage,
-          current.targetStop.name,
+          announceStage,
+          current.targetStop,
           current.options?.notifications !== false,
-          current.routeType
+          current.routeType,
+          { previousStop: current.previousStop, previousLeft }
         );
       }
     },
@@ -377,7 +520,7 @@ export default function useRideMode() {
       }
 
       void runRideTestAlert(
-        nextSession.targetStop.name,
+        nextSession.targetStop,
         wantsNotifications
       );
 
@@ -390,7 +533,7 @@ export default function useRideMode() {
     const current = sessionRef.current;
     if (!current) return;
     void runRideTestAlert(
-      current.targetStop.name,
+      current.targetStop,
       current.options?.notifications !== false
     );
   }, []);
@@ -436,13 +579,15 @@ export default function useRideMode() {
       return undefined;
     }
 
+    // Errors are kept as phrases and translated where the panel shows them,
+    // so a language switch mid-ride reaches them too.
     if (
       typeof globalThis.navigator?.geolocation?.watchPosition !== "function"
     ) {
       commitGps((value) => ({
         ...value,
         status: "unavailable",
-        error: "Location backup is unavailable on this device.",
+        error: msg("Location backup is unavailable on this device."),
       }));
       return undefined;
     }
@@ -463,7 +608,13 @@ export default function useRideMode() {
           lon: Number(position?.coords?.longitude),
         };
         const accuracy = Number(position?.coords?.accuracy);
-        const speed = Number(position?.coords?.speed);
+        // Browsers report a speed they do not have as null, which Number()
+        // turns into a confident 0 m/s.
+        const reportedSpeed = position?.coords?.speed;
+        const speed =
+          reportedSpeed === null || reportedSpeed === undefined
+            ? Number.NaN
+            : Number(reportedSpeed);
         const nowMs = Date.now();
 
         if (!hasCoordinates(point)) return;
@@ -480,8 +631,12 @@ export default function useRideMode() {
         const onApproach =
           rideStageRank(sessionRef.current?.stage) >=
           rideStageRank(RIDE_STAGE.NEXT);
+        // Only a precise fix moves the "near, then away" latch that ends a
+        // ride as missed. The rest still show distance and time as before.
+        const preciseFix =
+          Number.isFinite(accuracy) && accuracy <= MISS_FIX_ACCURACY_M;
         const minimumDistance =
-          onApproach && Number.isFinite(straightDistance)
+          onApproach && preciseFix && Number.isFinite(straightDistance)
             ? previous.minimumDistanceM === null
               ? straightDistance
               : Math.min(previous.minimumDistanceM, straightDistance)
@@ -491,12 +646,13 @@ export default function useRideMode() {
           (onApproach &&
             Number.isFinite(minimumDistance) &&
             minimumDistance <= 80);
-        const movedAwayAfterNear =
-          wasNearTarget &&
-          Number.isFinite(straightDistance) &&
-          straightDistance >= 250 &&
-          Number.isFinite(minimumDistance) &&
-          straightDistance > minimumDistance + 120;
+        const movedAwayAfterNear = preciseFix
+          ? wasNearTarget &&
+            Number.isFinite(straightDistance) &&
+            straightDistance >= 250 &&
+            Number.isFinite(minimumDistance) &&
+            straightDistance > minimumDistance + 120
+          : previous.movedAwayAfterNear === true;
 
         const shapeAnalysis = shapeRef.current
           ? analyzeRideGps({
@@ -563,8 +719,8 @@ export default function useRideMode() {
           status: "error",
           error:
             error?.code === 1
-              ? "Location backup was not allowed."
-              : "Location backup is temporarily unavailable.",
+              ? msg("Location backup was not allowed.")
+              : msg("Location backup is temporarily unavailable."),
         }));
       },
       {
@@ -602,9 +758,13 @@ export default function useRideMode() {
 
   // The vehicle leaving the target ends the alarm whether the passenger got
   // off or not. Repeating "get off now" at someone already standing on the
-  // pavement is noise, and it cannot help anyone still aboard either.
+  // pavement is noise, and it cannot help anyone still aboard either. Once it
+  // is sounding, two answers without the bus are enough: needing a sighting
+  // of the bus standing at the stop first left the alarm running after a
+  // reload, and after a dwell shorter than the poll.
   const targetVehicleGone =
-    runtime.targetWasAtStop === true && runtime.targetMissingCount >= 2;
+    session?.stage === RIDE_STAGE.NOW && runtime.targetMissingCount >= 2;
+  const nowStartedAt = Number(session?.stageChangedAt) || 0;
 
   useEffect(() => {
     if (session?.stage !== RIDE_STAGE.NOW || targetVehicleGone) {
@@ -612,11 +772,15 @@ export default function useRideMode() {
     }
 
     const id = window.setInterval(() => {
+      if (Date.now() - nowStartedAt > NOW_REPEAT_LIMIT_MS) {
+        window.clearInterval(id);
+        return;
+      }
       repeatNowRideSignal();
     }, NOW_REPEAT_MS);
 
     return () => window.clearInterval(id);
-  }, [session?.stage, targetVehicleGone]);
+  }, [nowStartedAt, session?.stage, targetVehicleGone]);
 
   useEffect(
     () => () => {

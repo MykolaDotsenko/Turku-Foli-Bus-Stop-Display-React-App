@@ -94,7 +94,11 @@
   top: calc(100% + 7px);
   right: 0;
   left: 0;
-  overflow: hidden;
+  /* A hub lists every stop sharing its name, so the list scrolls rather
+     than running off a phone screen. */
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border: 1px solid #cbdcdf;
   border-radius: 14px;
   background: #fff;
@@ -145,7 +149,7 @@
 }
 
 .help {
-  color: #60747d;
+  color: #4d626b;
 }
 
 .error {
@@ -214,5 +218,99 @@
   .help {
     margin: 4px 0 0;
     font-size: 0.78rem;
+  }
+}
+
+/* With a stop's board below it, a returning passenger's phone shows the
+   search card as the field alone: its label and hint repeated what the
+   field shows, and cost the board its first departure. A first visit
+   keeps them. The label stays the field's name. */
+@media (max-width: 620px) {
+  .form[data-compact="true"] .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .form[data-compact="true"] .help {
+    display: none;
+  }
+}
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .label {
+    color: var(--dm-soft);
+  }
+
+  .input {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-sunken);
+    color: var(--dm-text);
+  }
+
+  .input::placeholder {
+    color: var(--dm-muted);
+  }
+
+  .input:hover {
+    border-color: #5f949c;
+  }
+
+  .input[aria-invalid="true"] {
+    border-color: var(--dm-danger-text);
+  }
+
+  .button {
+    box-shadow: 0 6px 16px var(--dm-shadow);
+  }
+
+  .locateButton {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-accent);
+  }
+
+  .locateButton:hover:not(:disabled) {
+    border-color: #5f949c;
+    background: var(--dm-accent-surface);
+  }
+
+  .locateButton:focus-visible,
+  .button:focus-visible,
+  .input:focus-visible {
+    outline-color: var(--dm-focus);
+  }
+
+  .suggestions {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    box-shadow: 0 16px 36px var(--dm-shadow);
+  }
+
+  .suggestion {
+    border-bottom-color: var(--dm-line);
+  }
+
+  .suggestion:hover,
+  .suggestion[aria-selected="true"] {
+    background: var(--dm-accent-surface);
+  }
+
+  .suggestionName {
+    color: var(--dm-text);
+  }
+
+  .suggestionId,
+  .help {
+    color: var(--dm-muted);
+  }
+
+  .error {
+    color: var(--dm-danger-text);
   }
 }

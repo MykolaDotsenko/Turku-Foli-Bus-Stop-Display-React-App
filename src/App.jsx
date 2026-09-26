@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
 import ConnectivityStatus from "./components/ConnectivityStatus";
 import HomeRecovery from "./components/HomeRecovery";
+import LanguageSwitch from "./components/LanguageSwitch";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
@@ -13,13 +14,15 @@ import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
 import useRideMode from "./hooks/useRideMode";
 import useSavedPlaces from "./hooks/useSavedPlaces";
-import useSavedStops from "./hooks/useSavedStops";
+import useSavedStops, { stopToReopen } from "./hooks/useSavedStops";
 import useServiceBoundary from "./hooks/useServiceBoundary";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
+import { t, useLanguage } from "./i18n";
 import { buildRouteIndexes } from "./utils/routes";
 import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
+import { realStopName } from "./utils/stopNames";
 
 
 function stopFromLocation() {
@@ -27,7 +30,23 @@ function stopFromLocation() {
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : "";
 }
 
-function stopUrl(stopId) {
+// The home-screen icon opens the bare address, and a daily passenger opens
+// it for their own stop: the one they last looked at, or their first
+// favourite. A link that names a stop, even one that does not exist, and a
+// shared place's link still decide for themselves.
+function openingStop() {
+  if (new URLSearchParams(window.location.search).has("stop")) {
+    return stopFromLocation();
+  }
+  if (parseSharedPlaceHash(window.location.hash)) return "";
+  return stopToReopen();
+}
+
+// A shared-place token belongs to the page it arrived on. Carried into
+// every stop URL, it put the "Add Home?" question back one Back press
+// after "Not now". So an entry keeps it only while it is the page the link
+// opened; leaving for another stop drops it from both entries.
+function stopUrl(stopId, { keepSharedPlace = false } = {}) {
   const url = new globalThis.URL(window.location.href);
 
   if (/^\d+$/.test(stopId || "")) {
@@ -36,7 +55,19 @@ function stopUrl(stopId) {
     url.searchParams.delete("stop");
   }
 
+  if (!keepSharedPlace && url.hash.startsWith("#place=")) {
+    url.hash = "";
+  }
+
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function withCatalogNames(savedStops, stops) {
+  if (!savedStops.some((stop) => !stop.name)) return savedStops;
+  const names = new Map(stops.map((stop) => [stop.id, stop.name]));
+  return savedStops.map((stop) =>
+    stop.name ? stop : { ...stop, name: names.get(stop.id) || "" }
+  );
 }
 
 function currentHistoryState() {
@@ -45,12 +76,19 @@ function currentHistoryState() {
     : {};
 }
 
-function canonicalizeCurrentStop(stopId) {
-  window.history.replaceState(currentHistoryState(), "", stopUrl(stopId));
+function canonicalizeCurrentStop(stopId, options) {
+  window.history.replaceState(
+    currentHistoryState(),
+    "",
+    stopUrl(stopId, options)
+  );
 }
 
 function App() {
-  const [stopId, setStopId] = useState(stopFromLocation);
+  // Everything below reads its words from the current language.
+  const language = useLanguage();
+  const [stopId, setStopId] = useState(openingStop);
+  const openedStopRef = useRef(stopId);
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
   );
@@ -75,6 +113,14 @@ function App() {
     rememberRecent,
     toggleFavorite,
   } = useSavedStops();
+  // A first visit, on this phone: nothing looked at or saved before it. A
+  // phone then still says what the app is and what the search takes; after
+  // that the board gets the room.
+  const firstVisitRef = useRef(null);
+  if (firstVisitRef.current === null) {
+    firstVisitRef.current = favorites.length === 0 && recents.length === 0;
+  }
+  const firstVisit = firstVisitRef.current;
   const {
     places,
     byId: placesById,
@@ -90,6 +136,8 @@ function App() {
     receivedAtMs,
     realtimeAvailable,
     scheduleAvailable,
+    scheduleFailed,
+    scheduleIncomplete,
     loading,
     refreshing,
     error,
@@ -108,11 +156,49 @@ function App() {
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
   );
-  const displayStopName = selectedStop?.name || stopName;
+  // A number Föli's up-to-date stop list does not have: "?stop=1640" for
+  // 164 read as a stop with no departures.
+  const unknownStop =
+    Boolean(stopId) &&
+    catalogStatus === "ready" &&
+    stops.length > 0 &&
+    !selectedStop;
+  // A notice about a line, on that line's buses: with the list folded on a
+  // phone, "Detour" on the row is what says line 1 is affected.
+  const lineNotices = useMemo(() => {
+    const notices = new Map();
+    for (const alert of serviceAlerts) {
+      if (alert.type !== "message" && alert.type !== "emergency") continue;
+      for (const line of alert.routeNames || []) {
+        if (!notices.has(String(line))) {
+          notices.set(String(line), alert.effectLabel || "");
+        }
+      }
+    }
+    return notices;
+  }, [serviceAlerts]);
+  const stopCancellations = useMemo(
+    () => serviceAlerts.filter((alert) => alert.type === "cancellation"),
+    [serviceAlerts]
+  );
+  // Föli's own name for the stop, or "" while none is known: the board and
+  // the title then call it by its number, in the reader's language.
+  const displayStopName = selectedStop?.name || realStopName(stopName);
+  // Saved stops kept before their name was known pick it up from the
+  // catalogue instead of showing a number for good.
+  const namedFavorites = useMemo(
+    () => withCatalogNames(favorites, stops),
+    [favorites, stops]
+  );
+  const namedRecents = useMemo(
+    () => withCatalogNames(recents, stops),
+    [recents, stops]
+  );
 
   useEffect(() => {
-    const currentStopId = stopFromLocation();
-    canonicalizeCurrentStop(currentStopId);
+    // A reopened stop goes into the address too, so reload, Back and a
+    // copied link all agree with the screen.
+    canonicalizeCurrentStop(openedStopRef.current, { keepSharedPlace: true });
 
     const handlePopState = () => {
       // The shareable URL is the single source of truth for browser history.
@@ -150,6 +236,18 @@ function App() {
     }
   }, [displayStopName, rememberRecent, stopId]);
 
+  // Every stop used to share one title, so tabs, bookmarks and history
+  // could not be told apart.
+  useEffect(() => {
+    // The page's own title in index.html is this same phrase.
+    document.title = stopId
+      ? t("{name} ({id}) · Föli departures", {
+          name: displayStopName || t("Stop {id}", { id: stopId }),
+          id: stopId,
+        })
+      : t("Turku bus departures · Föli live times");
+  }, [displayStopName, language, stopId]);
+
   const selectStop = (nextStopId) => {
     if (!/^\d+$/.test(nextStopId || "")) return;
 
@@ -168,7 +266,8 @@ function App() {
   const currentStop = stopId
     ? {
         id: stopId,
-        name: displayStopName || `Stop ${stopId}`,
+        // Stored with a favourite, so never a stand-in.
+        name: displayStopName,
       }
     : null;
 
@@ -187,11 +286,11 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brandLockup">
-          {/* The same file as the favicon, the home-screen icon and the
-              get-off notification, so the mark someone tapped is the mark
-              that greets them. Decorative here: the wordmark beside it
-              already carries the name, so a second "Föli departures" for a
-              screen reader would only repeat it. */}
+          {/* The favicon, and the source scripts/build-icons.mjs renders the
+              home-screen and get-off notification icons from, so the mark
+              someone tapped is the mark that greets them. Decorative here:
+              the wordmark beside it already carries the name, so a second
+              "Föli departures" for a screen reader would only repeat it. */}
           <img
             className="brandMark"
             src={`${import.meta.env.BASE_URL}foli-icon.svg`}
@@ -204,24 +303,35 @@ function App() {
             {/* Turku is officially bilingual, and the pairing is itself a
                 local signal. The independence disclaimer keeps its place in
                 the footer; this line has one job, which is "you are here". */}
-            <p className="eyebrow">Turku · Åbo</p>
-            <p className="brand">Föli departures</p>
+            {/* The language switch rides on this short line's spare end: in a
+                row of its own it cost every phone screen a line of board. */}
+            <div className="eyebrow-row">
+              <p className="eyebrow">
+                <span lang="fi">Turku</span> · <span lang="sv">Åbo</span>
+              </p>
+              <LanguageSwitch />
+            </div>
+            {/* The name stays English in either interface, and is read so. */}
+            <p className="brand" lang="en">
+              Föli departures
+            </p>
             <p
               className="context"
-              data-firstrun={placesById.size === 0 ? "true" : "false"}
+              data-firstrun={
+                placesById.size === 0 && (firstVisit || !stopId) ? "true" : "false"
+              }
             >
-              Find a stop, save the places you travel to, and get told when to
-              get off.
+              {t(
+                "Find your stop, then tap Get-off alert on your bus: we’ll tell you when to press STOP."
+              )}
             </p>
           </div>
         </div>
-        <span
-          className="live-pill"
-          data-online={online ? "true" : "false"}
-          aria-live="polite"
-        >
-          <span className="live-dot" aria-hidden="true" />
-          {online ? "Live Föli data" : "Offline mode"}
+        {/* Out of sight, and always in the page, so a change of connection
+            is announced: a live region added at that moment often is not.
+            The Offline banner below is what the eye gets. */}
+        <span className="live-pill" aria-live="polite">
+          {online ? t("Online") : t("Offline mode")}
         </span>
       </header>
 
@@ -257,37 +367,47 @@ function App() {
         />
       )}
 
-      <HomeRecovery
-        home={placesById.get("home") || null}
-        stops={stops}
-        online={online}
-        onOpenStop={selectStop}
-      />
-
-      <section className="search-panel" aria-label="Choose a bus stop">
-        <BusStopForm
-          activeStopId={stopId}
+      {/* One column on a phone. On a wide screen, Get me Home takes the
+          left and search, saved stops and service updates the right, so
+          the board starts on the first screen (App.css). */}
+      <div className="top-section">
+        <HomeRecovery
+          home={placesById.get("home") || null}
           stops={stops}
-          coordinatesStatus={coordinatesStatus}
-          onSubmit={selectStop}
+          online={online}
+          compact={Boolean(stopId)}
+          onOpenStop={selectStop}
         />
-      </section>
 
-      <QuickStops
-        favorites={favorites}
-        recents={recents}
-        activeStopId={stopId}
-        onSelect={selectStop}
-      />
+        <section className="search-panel" aria-label={t("Choose a bus stop")}>
+          <BusStopForm
+            compact={Boolean(stopId) && !firstVisit}
+            activeStopId={stopId}
+            stops={stops}
+            coordinatesStatus={coordinatesStatus}
+            serviceBoundary={serviceBoundary}
+            onSubmit={selectStop}
+          />
+        </section>
 
-      {stopId && (
-        <>
+        <QuickStops
+          favorites={namedFavorites}
+          recents={namedRecents}
+          activeStopId={stopId}
+          onSelect={selectStop}
+        />
+
+        {stopId && (
           <ServiceAlerts
             alerts={serviceAlerts}
             error={serviceAlertsError}
             receivedAtMs={serviceAlertsReceivedAtMs}
           />
+        )}
+      </div>
 
+      {stopId && (
+        <>
           <BusStopDisplay
             stopId={stopId}
             stopName={displayStopName}
@@ -300,6 +420,8 @@ function App() {
             receivedAtMs={receivedAtMs}
             realtimeAvailable={realtimeAvailable}
             scheduleAvailable={scheduleAvailable}
+            scheduleFailed={scheduleFailed === true}
+            scheduleIncomplete={scheduleIncomplete === true}
             loading={loading}
             refreshing={refreshing}
             error={error}
@@ -311,18 +433,27 @@ function App() {
             placesById={placesById}
             onStartRide={ride.startRide}
             activeRideTripRef={ride.session?.tripRef || ""}
-          />
-
-          <NearbyStops
-            stops={stops}
-            coordinatesStatus={coordinatesStatus}
-            activeStopId={stopId}
-            serviceBoundary={serviceBoundary}
+            cancellations={stopCancellations}
+            unknownStop={unknownStop}
             online={online}
-            onSelect={selectStop}
+            lineNotices={lineNotices}
           />
         </>
       )}
+
+      {/* Before a stop is chosen, location is the quickest way to one, and
+          with no board yet this is where it lands. One instance in one place:
+          a second copy for first visits unmounted under the passenger's
+          finger as they chose a stop, dropping keyboard focus to the page
+          and the list they had just found. */}
+      <NearbyStops
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId || ""}
+        serviceBoundary={serviceBoundary}
+        online={online}
+        onSelect={selectStop}
+      />
 
       {!sharedPlace && (
         <MyPlaces
@@ -343,18 +474,71 @@ function App() {
       )}
 
       <footer className="source-note">
-        Independent app · Data: Turku region public transport ·{" "}
-        <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
-          data.foli.fi
-        </a>{" "}
-        ·{" "}
-        <a
-          href="https://creativecommons.org/licenses/by/4.0/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          CC BY 4.0
-        </a>
+        <p className="source-line">
+          {t("Unofficial app · Data: Turku region public transport")} ·{" "}
+          <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
+            data.foli.fi
+          </a>{" "}
+          ·{" "}
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            CC BY 4.0
+          </a>
+        </p>
+
+        {/* Trust needs one place that says who makes this, what stays on
+            the phone and what leaves it. The facts were spread over a
+            dozen fine-print lines, and a one-line disclaimer was all a
+            passenger saw without scrolling to the bottom. */}
+        <details className="about">
+          <summary>{t("About & privacy")}</summary>
+          <dl>
+            <dt>{t("Who makes it")}</dt>
+            <dd>
+              {t(
+                "An unofficial app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services."
+              )}{" "}
+              {/* It is a companion to the official services, not a stand-in
+                  for them, so it points the way. */}
+              <a href="https://www.foli.fi/" target="_blank" rel="noreferrer">
+                {t("Föli’s website")}
+              </a>
+            </dd>
+            <dt>{t("Where the times come from")}</dt>
+            <dd>
+              {t(
+                "Föli open data at data.foli.fi, under CC BY 4.0, as processed by this app. Live times are estimates from the buses and can change."
+              )}
+            </dd>
+            <dt>{t("What stays on this phone")}</dt>
+            <dd>
+              {t(
+                "Favourites, recent stops and when you last looked at them, each stop’s line filter, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
+              )}
+            </dd>
+            <dt>{t("What leaves it")}</dt>
+            <dd>
+              {t(
+                "The app is served by GitHub Pages, which sees your IP address. Each stop you look up, and during a ride the stop you get off at and the one before it, is requested from data.foli.fi, which sees your IP address and those stops. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link, and then sees the stop you chose."
+              )}
+            </dd>
+            <dt>{t("What there is not")}</dt>
+            <dd>{t("No account, no ads, no analytics.")}</dd>
+          </dl>
+          <p>
+            {t("Feedback and source code:")}{" "}
+            <a
+              href="https://github.com/MykolaDotsenko/foli-live-departures/issues"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </p>
+        </details>
       </footer>
     </main>
   );

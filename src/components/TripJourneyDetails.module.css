@@ -5,6 +5,9 @@
 .toggle {
   min-height: 44px;
   padding: 0;
+  /* A button centres its text: wrapped, "Hide next stops" sat centred
+     under its own first line. */
+  text-align: left;
   border: 0;
   background: transparent;
   color: #006b75;
@@ -15,6 +18,20 @@
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
+}
+
+.toggleShort {
+  display: none;
+}
+
+@media (max-width: 400px) {
+  .toggleLong {
+    display: none;
+  }
+
+  .toggleShort {
+    display: inline;
+  }
 }
 
 .toggle:focus-visible {
@@ -61,14 +78,14 @@
   font-size: 0.8rem;
 }
 
-.list li span,
+.list li > span,
 .list li small {
   display: block;
 }
 
 .list li small {
   margin-top: 1px;
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.8125rem;
 }
 
@@ -79,5 +96,32 @@
 @media (max-width: 620px) {
   .panel {
     max-width: none;
+  }
+}
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .toggle {
+    color: var(--dm-accent);
+  }
+
+  .toggle:focus-visible {
+    outline-color: var(--dm-focus);
+  }
+
+  .panel {
+    border-color: var(--dm-line);
+    background: var(--dm-sunken);
+  }
+
+  .kicker,
+  .status,
+  .more,
+  .list li small {
+    color: var(--dm-muted);
+  }
+
+  .list li {
+    color: var(--dm-soft);
   }
 }

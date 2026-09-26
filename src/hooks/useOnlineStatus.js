@@ -1,7 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const CONNECTIVITY_TIMEOUT_MS = 3000;
 const OFFLINE_HINT_KEY = "foli-offline-hint";
+// How often a page that thinks it is offline looks again, while visible.
+const OFFLINE_RECHECK_MS = 30_000;
+
+// Fired when data.foli.fi has just answered: a working connection, whatever
+// the last probe said.
+export const PROVIDER_REACHED_EVENT = "foli:provider-reached";
+
+export function reportProviderReached() {
+  try {
+    globalThis.dispatchEvent?.(new globalThis.Event(PROVIDER_REACHED_EVENT));
+  } catch {
+    // Connectivity reporting is advisory.
+  }
+}
 
 // The service worker files the marker under the deployment's base path
 // (scripts/build-sw.mjs). Looked up at the origin root it never matched on
@@ -14,24 +28,26 @@ function browserSaysOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
 }
 
+// Reading window.localStorage itself throws when a person has blocked site
+// data, so even the existence check belongs inside the try. This hook runs at
+// the top of the app: one uncaught read here was the whole page.
 function readOfflineHint() {
-  if (typeof globalThis.localStorage === "undefined") return false;
-
   try {
-    return globalThis.localStorage.getItem(OFFLINE_HINT_KEY) === "1";
+    return globalThis.localStorage?.getItem(OFFLINE_HINT_KEY) === "1";
   } catch {
     return false;
   }
 }
 
 function writeOfflineHint(offline) {
-  if (typeof globalThis.localStorage === "undefined") return;
-
   try {
+    const storage = globalThis.localStorage;
+    if (!storage) return;
+
     if (offline) {
-      globalThis.localStorage.setItem(OFFLINE_HINT_KEY, "1");
+      storage.setItem(OFFLINE_HINT_KEY, "1");
     } else {
-      globalThis.localStorage.removeItem(OFFLINE_HINT_KEY);
+      storage.removeItem(OFFLINE_HINT_KEY);
     }
   } catch {
     // Connectivity UI must not fail because storage is unavailable.
@@ -101,6 +117,8 @@ async function canReachAppOrigin() {
 
 export default function useOnlineStatus() {
   const [online, setOnline] = useState(initialOnlineState);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
 
   useEffect(() => {
     let active = true;
@@ -142,11 +160,37 @@ export default function useOnlineStatus() {
       sync({ ignoreOfflineShell: true });
     };
 
+    // The cache's offline marker describes how this page was opened, so it
+    // decides the first check only. Later checks test the connection: with
+    // Wi-Fi that had no internet, the browser never reports going offline,
+    // no "online" event follows the recovery, and trusting the marker kept
+    // "Offline mode" (and Get me Home switched off) for the whole visit.
+    const recheck = () => {
+      sync({ ignoreOfflineShell: true });
+    };
+
     const persistOfflineBeforeReload = () => {
       if (!browserSaysOnline()) {
         writeOfflineHint(true);
       }
     };
+
+    // One probe slower than three seconds on a slow connection said
+    // "Offline mode", hid bus positions and switched Get me Home off while
+    // live departures kept arriving. An answer from Föli settles it, and a
+    // page that thinks it is offline keeps looking.
+    const markReached = () => {
+      if (!browserSaysOnline()) return;
+      sequence += 1;
+      writeOfflineHint(false);
+      setOnline(true);
+      void clearOfflineShellMarker();
+    };
+    const recheckWhileOffline = window.setInterval(() => {
+      if (!onlineRef.current && document.visibilityState === "visible") {
+        recheck();
+      }
+    }, OFFLINE_RECHECK_MS);
 
     sync();
 
@@ -154,20 +198,23 @@ export default function useOnlineStatus() {
     window.addEventListener("offline", markOffline);
     window.addEventListener("beforeunload", persistOfflineBeforeReload);
     window.addEventListener("pagehide", persistOfflineBeforeReload);
-    window.addEventListener("pageshow", sync);
-    window.addEventListener("focus", sync);
-    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("pageshow", recheck);
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener(PROVIDER_REACHED_EVENT, markReached);
 
     return () => {
       active = false;
       sequence += 1;
+      window.clearInterval(recheckWhileOffline);
+      window.removeEventListener(PROVIDER_REACHED_EVENT, markReached);
       window.removeEventListener("online", markOnline);
       window.removeEventListener("offline", markOffline);
       window.removeEventListener("beforeunload", persistOfflineBeforeReload);
       window.removeEventListener("pagehide", persistOfflineBeforeReload);
-      window.removeEventListener("pageshow", sync);
-      window.removeEventListener("focus", sync);
-      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("pageshow", recheck);
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
     };
   }, []);
 

@@ -36,4 +36,52 @@ export default [
       "react-hooks/exhaustive-deps": "warn",
     },
   },
+  {
+    // Words on screen go through t() (src/i18n), or they stay English
+    // whatever language the passenger chose. Names and symbols are allowed.
+    files: ["src/**/*.jsx"],
+    ignores: ["src/**/*.test.jsx"],
+    rules: {
+      "react/jsx-no-literals": [
+        "error",
+        {
+          // {"text"} and {`text`} count too; props are the i18n test's job.
+          noStrings: true,
+          ignoreProps: true,
+          allowedStrings: [
+            "·",
+            "›",
+            "‹",
+            "≈",
+            "×",
+            "+",
+            "−",
+            "–",
+            "—",
+            "/",
+            ":",
+            "(",
+            ")",
+            "↗",
+            "⌖",
+            "⌂",
+            "★",
+            "☆",
+            "↺",
+            "♿",
+            "✓",
+            "…",
+            ".",
+            "🔊",
+            "Turku",
+            "Åbo",
+            "Föli departures",
+            "data.foli.fi",
+            "CC BY 4.0",
+            "GitHub",
+          ],
+        },
+      ],
+    },
+  },
 ];

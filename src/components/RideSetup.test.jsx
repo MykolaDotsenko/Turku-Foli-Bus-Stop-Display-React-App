@@ -1,5 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { resetLanguageForTests } from "../i18n";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 const mocks = vi.hoisted(() => ({
   fetchTripDetails: vi.fn(),
@@ -294,4 +299,222 @@ test("refuses to guess when the trip passes the boarding stop twice", async () =
   expect(
     screen.queryByRole("button", { name: "Start Ride Mode" })
   ).not.toBeInTheDocument();
+});
+
+const threeStopTrip = [
+  { stopId: "164", departureTime: "17:41:00", stopSequence: 1, dropOffType: 0 },
+  { stopId: "32", arrivalTime: "17:46:00", departureTime: "17:46:00", stopSequence: 2, dropOffType: 0 },
+  { stopId: "4", arrivalTime: "17:55:00", departureTime: "17:55:00", stopSequence: 3, dropOffType: 0 },
+];
+const tripStops = new Map([
+  ["164", { id: "164", name: "Kauppatori" }],
+  ["32", { id: "32", name: "Puistokatu" }],
+  ["4", { id: "4", name: "Turun linna" }],
+]);
+
+function renderThreeStopSetup({ placesById = new Map(), onStart = vi.fn() } = {}) {
+  mocks.fetchTripDetails.mockResolvedValue(null);
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  render(
+    <RideSetup
+      arrival={{
+        lineref: "1",
+        tripref: "trip-164-1",
+        destinationdisplay: "Satama",
+        expecteddeparturetime: 2_000_000_000,
+      }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={placesById}
+      routesById={new Map()}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+  return onStart;
+}
+
+test("preselects the main Home stop, not a backup the bus reaches first", async () => {
+  renderThreeStopSetup({
+    placesById: new Map([
+      [
+        "home",
+        {
+          id: "home",
+          label: "Home",
+          primaryStopId: "4",
+          stops: [
+            { id: "32", name: "Puistokatu" },
+            { id: "4", name: "Turun linna" },
+          ],
+        },
+      ],
+    ]),
+  });
+
+  await waitFor(() => expect(screen.getByDisplayValue("3")).toBeChecked());
+  expect(screen.getByDisplayValue("2")).not.toBeChecked();
+});
+
+test("names the chosen stop beside the button that starts the ride", async () => {
+  // On a phone the button is pinned to the bottom of the screen while the
+  // list can sit out of view, so the bar itself says where the ride goes.
+  renderThreeStopSetup();
+  fireEvent.click(await screen.findByDisplayValue("3"));
+
+  expect(screen.getByText(/Get off at Turun linna/)).toBeInTheDocument();
+});
+
+test("does not offer notifications a browser cannot send", async () => {
+  // iPhone Safari has no Notification API outside a Home Screen app, and
+  // the option then did nothing at all.
+  const original = globalThis.Notification;
+  delete globalThis.Notification;
+  try {
+    const onStart = renderThreeStopSetup();
+    fireEvent.click(await screen.findByDisplayValue("3"));
+
+    expect(
+      screen.queryByRole("checkbox", { name: /notification/i })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+    expect(onStart.mock.calls[0][0].options.notifications).toBe(false);
+  } finally {
+    globalThis.Notification = original;
+  }
+});
+
+// Trip details carry the route and its shape. Lost to one failed request on
+// a weak connection, the ride went without "Press STOP" and without
+// location tracking along the route.
+test("a ride whose trip details fail once still gets its route and shape", async () => {
+  mocks.fetchTripDetails
+    .mockRejectedValueOnce(new Error("timeout"))
+    .mockResolvedValueOnce({ tripId: "trip-164-1", routeId: "1", shapeId: "shape-1" });
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  const onStart = vi.fn();
+  render(
+    <RideSetup
+      arrival={{ lineref: "1", tripref: "trip-164-1", expecteddeparturetime: 2_000_000_000 }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={new Map()}
+      routesById={new Map([["1", { id: "1", shortName: "1", type: 3 }]])}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+
+  fireEvent.click(await screen.findByDisplayValue("3", {}, { timeout: 4_000 }));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+
+  expect(mocks.fetchTripDetails).toHaveBeenCalledTimes(2);
+  expect(onStart.mock.calls[0][0]).toEqual(
+    expect.objectContaining({ shapeId: "shape-1", routeType: 3 })
+  );
+});
+
+test("a ride whose trip details never load knows its line is a bus", async () => {
+  mocks.fetchTripDetails.mockRejectedValue(new Error("offline"));
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  const onStart = vi.fn();
+  render(
+    <RideSetup
+      arrival={{ lineref: "1", tripref: "trip-164-1", expecteddeparturetime: 2_000_000_000 }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={new Map()}
+      routesById={new Map()}
+      routesByShortName={new Map([["1", { id: "1", shortName: "1", type: 3 }]])}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+
+  fireEvent.click(await screen.findByDisplayValue("3", {}, { timeout: 4_000 }));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+
+  expect(onStart.mock.calls[0][0].routeType).toBe(3);
+  mocks.fetchTripDetails.mockReset();
+});
+
+test("mentions vibration only where the phone can vibrate", async () => {
+  renderThreeStopSetup();
+  await screen.findByDisplayValue("3");
+  expect(
+    screen.getByText(/check the sound now; this phone will not vibrate/)
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/sound and vibration/i)).not.toBeInTheDocument();
+});
+
+test("promises only what a web page can keep", async () => {
+  renderThreeStopSetup();
+  await screen.findByDisplayValue("3");
+
+  expect(screen.queryByText(/put your phone away/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/unless we are sure/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/keep this page open/i)).toBeInTheDocument();
+});
+
+test("sets up the ride in Finnish, with stop names as Föli publishes them", async () => {
+  resetLanguageForTests("fi");
+  const onStart = renderThreeStopSetup();
+
+  expect(
+    await screen.findByRole("heading", { name: "Missä haluat jäädä pois?" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("region", { name: "Aseta pysäkkihälytys" })
+  ).toBeInTheDocument();
+  fireEvent.click(await screen.findByDisplayValue("3"));
+
+  expect(screen.getByText(/pysäkin päässä/)).toHaveTextContent(
+    "2 pysäkin päässä · noin klo 17:55 · pysäkin Puistokatu jälkeen"
+  );
+  expect(screen.getByText(/^Seuraava pysäkki · /)).toBeInTheDocument();
+  expect(
+    screen.getByText(/^Jäät pois: Turun linna · Linja 1 lähtee klo \d\d:\d\d$/)
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Käynnistä matkatila" }));
+  expect(onStart).toHaveBeenCalledTimes(1);
+});
+
+// Names are worked out where they are shown, and a start error is kept as a
+// phrase, so a switch mid-choice reaches both.
+test("follows a language switch while the stop is being chosen", async () => {
+  mocks.fetchTripDetails.mockResolvedValue(null);
+  mocks.fetchTripStopTimes.mockResolvedValue([
+    { stopId: "164", departureTime: "17:41:00", stopSequence: 1, dropOffType: 0 },
+    { stopId: "77", departureTime: "17:44:00", stopSequence: 2, dropOffType: 0 },
+    { stopId: "32", departureTime: "17:46:00", stopSequence: 3, dropOffType: 0 },
+  ]);
+  renderSetup({
+    arrival: {
+      expecteddeparturetime: null,
+      aimeddeparturetime: null,
+      expectedarrivaltime: null,
+      aimedarrivaltime: null,
+    },
+  });
+
+  // Stop 77 is not in the catalogue, so it goes by its number.
+  expect(await screen.findByText("Stop 77")).toBeInTheDocument();
+  fireEvent.click(screen.getByDisplayValue("3"));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /do not have a departure time/i
+  );
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(screen.getByText("Pysäkki 77")).toBeInTheDocument();
+  expect(screen.getByText(/pysäkin Pysäkki 77 jälkeen/)).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Tälle bussille ei ole vielä lähtöaikaa. Odota, että lähtötaulu päivittyy, ja yritä uudelleen."
+  );
+  expect(screen.getByText(/^Jäät pois: Puistokatu · Linja 1$/)).toBeInTheDocument();
 });

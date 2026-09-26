@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { resetLanguageForTests } from "../i18n";
 import {
   announceRideStage,
   playRideTone,
@@ -11,6 +12,10 @@ import {
   unlockRideAudio,
   vibrateRideStage,
 } from "./rideAlerts";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 describe("ride alerts", () => {
   const originalVibrate = navigator.vibrate;
@@ -101,6 +106,11 @@ describe("ride get-off notifications", () => {
     expect(options.requireInteraction).toBe(true);
     expect(options.renotify).toBe(true);
     expect(options.tag).toBe("foli-active-ride");
+    expect(options.lang).toBe("en");
+    // A raster icon every notification centre decodes, and a status-bar badge
+    // so Android shows the bus rather than the browser's logo.
+    expect(options.icon).toMatch(/\/icon-192\.png$/);
+    expect(options.badge).toMatch(/\/notification-badge-96\.png$/);
   });
 
   it("sends a tap on the page-level fallback back to the app", async () => {
@@ -116,6 +126,89 @@ describe("ride get-off notifications", () => {
     created[0].onclick();
     expect(focus).toHaveBeenCalledTimes(1);
     expect(created[0].close).toHaveBeenCalledTimes(1);
+  });
+
+  // Every stage replaces the last under one tag, and a replacement without
+  // renotify arrives silently: "Press STOP" reached a locked phone without
+  // a sound, and only "Get off now" made one.
+  it("makes every stage after the test heard, not just get off now", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    for (const stage of ["test", "soon", "next", "now", "missed"]) {
+      await showRideNotification(stage, "Puistokatu", 3);
+    }
+
+    expect(
+      showNotification.mock.calls.map(([, options]) => [options.tag, options.renotify])
+    ).toEqual([
+      ["foli-active-ride", false],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+    ]);
+  });
+
+  // "Press STOP now" before the bus has left the stop before the exit would
+  // stop it there; until it has, the alert names that stop instead.
+  it("tells a locked phone which stop to wait for before pressing STOP", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+    const previousStop = { id: "164", name: "Kauppatori" };
+
+    await showRideNotification("next", "Puistokatu", 3, {
+      previousStop,
+      previousLeft: false,
+    });
+    await showRideNotification("next", "Puistokatu", 3, {
+      previousStop,
+      previousLeft: true,
+    });
+
+    expect(
+      showNotification.mock.calls.map(([title, options]) => [title, options.body])
+    ).toEqual([
+      ["Your stop is after Kauppatori", "Press STOP when the bus leaves Kauppatori."],
+      ["Next stop: Puistokatu", "Press the STOP button now."],
+    ]);
+  });
+
+  it("calls a stop Föli has not named by its number, in either language", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    await showRideNotification("now", { id: "164", name: "" });
+    await showRideNotification("soon", { id: "164", name: "Stop 164" });
+    await showRideNotification("soon", "");
+    resetLanguageForTests("fi");
+    await showRideNotification("now", { id: "164", name: "" });
+
+    expect(showNotification.mock.calls.map(([title, options]) => [title, options.body])).toEqual([
+      ["This is your stop: Stop 164", "Get off now."],
+      ["Get ready", "Stop 164 is coming up soon."],
+      ["Get ready", "Your stop is coming up soon."],
+      ["Tämä on pysäkkisi: Pysäkki 164", "Jää pois nyt."],
+    ]);
+  });
+
+  // It arrives over a locked screen, where the page cannot explain itself.
+  it("sends the get-off alert in the language on screen", async () => {
+    resetLanguageForTests("fi");
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    await showRideNotification("now", "Puistokatu");
+    await showRideNotification("next", "Puistokatu", 3);
+
+    expect(showNotification.mock.calls.map(([title, options]) => [
+      title,
+      options.body,
+      options.lang,
+    ])).toEqual([
+      ["Tämä on pysäkkisi: Puistokatu", "Jää pois nyt.", "fi"],
+      ["Seuraava pysäkki: Puistokatu", "Paina STOP-nappia nyt.", "fi"],
+    ]);
   });
 });
 
@@ -196,9 +289,85 @@ describe("spoken get-off alerts", () => {
     expect(cancelled).toBe(2);
   });
 
-  it("falls back to a neutral name when the stop has none", () => {
+  it("does not name a stop that has no name", () => {
     speakRideStage("now", "");
-    expect(spoken.map((u) => u.text)).toContain("your stop");
+    expect(spoken.map((u) => u.text)).toEqual([
+      "This is your stop.",
+      "Get off now.",
+    ]);
+  });
+
+  // Instructions in the language the passenger reads, each by a voice for
+  // it; the stop name in Finnish either way, so it stays recognisable.
+  it("keeps English instructions with an English voice and the name in Finnish", () => {
+    speakRideStage("next", "Puistokatu", 3);
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["The next stop is yours.", "en-US"],
+      ["Puistokatu", "fi-FI"],
+      ["Press the stop button now.", "en-US"],
+    ]);
+  });
+
+  it("says which stop to wait for, before the bus has left it", () => {
+    speakRideStage("next", "Puistokatu", 3, {
+      previousStop: { id: "164", name: "Kauppatori" },
+      previousLeft: false,
+    });
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["Your stop comes after", "en-US"],
+      ["Kauppatori", "fi-FI"],
+      ["Press the stop button when the bus leaves it.", "en-US"],
+    ]);
+
+    spoken = [];
+    speakRideStage("next", "Puistokatu", 3, {
+      previousStop: { id: "164", name: "" },
+      previousLeft: false,
+    });
+    expect(spoken.map((u) => u.text)).toEqual([
+      "Press STOP once the bus has left the stop before yours.",
+    ]);
+  });
+
+  it("speaks to a Finnish reader in Finnish, all with the Finnish voice", () => {
+    resetLanguageForTests("fi");
+    speakRideStage("now", "Puistokatu", 3);
+
+    expect(spoken.map((u) => u.text)).toEqual([
+      "Tämä on pysäkkisi.",
+      "Puistokatu",
+      "Jää pois nyt.",
+    ]);
+    expect(spoken.map((u) => [u.lang, u.voice?.lang])).toEqual([
+      ["fi-FI", "fi-FI"],
+      ["fi-FI", "fi-FI"],
+      ["fi-FI", "fi-FI"],
+    ]);
+
+    spoken = [];
+    speakRideStage("next", "Puistokatu", 3);
+    expect(spoken.map((u) => u.text)).toContain("Paina stop-nappia nyt.");
+  });
+
+  it("speaks a nameless stop's alert wholly in the reader's language", () => {
+    resetLanguageForTests("fi");
+    speakRideStage("soon", "");
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["Valmistaudu. Pysäkkisi lähestyy.", "fi-FI"],
+    ]);
+  });
+
+  // A ride saved by an older version may carry "Stop 30" as its name. Read
+  // by the Finnish voice it came out as nonsense; it is no name at all.
+  it("treats a stored stand-in like a missing name", () => {
+    speakRideStage("now", "Stop 30");
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["This is your stop.", "en-US"],
+      ["Get off now.", "en-US"],
+    ]);
   });
 
   it("reports failure instead of throwing when speech is unavailable", () => {

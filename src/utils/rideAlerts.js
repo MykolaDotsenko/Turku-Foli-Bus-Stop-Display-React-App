@@ -1,4 +1,6 @@
+import { getLanguage, t } from "../i18n";
 import { rideExitInstruction } from "./rideInstructions";
+import { realStopName } from "./stopNames";
 
 const ALERT_PATTERNS = {
   test: {
@@ -164,46 +166,80 @@ function speakUtterance(text, lang, voice = null) {
   globalThis.speechSynthesis.speak(utterance);
 }
 
-export function speakRideStage(stage, stopName, routeType = null) {
+// The instructions are spoken in the language the passenger reads, by a
+// voice for that language. The stop name is read by the Finnish voice in
+// either language: it is the word the passenger is listening for, and an
+// English voice mangles a Finnish name past recognition.
+const SPEECH_LANG = { en: "en-US", fi: "fi-FI" };
+
+// Whether "Press STOP now" would be premature: the bus has not been seen
+// leaving the stop before the exit yet, on a trip with a STOP button.
+function waitingForPrevious(routeType, context) {
+  return (
+    context?.previousLeft === false &&
+    rideExitInstruction(routeType).kind === "request-stop"
+  );
+}
+
+export function speakRideStage(stage, stop, routeType = null, context = {}) {
   if (!speechSupported()) return false;
 
-  const name = String(stopName || "your stop").trim();
+  // An earlier version could save a stand-in ("Stop 30") with the ride; it
+  // is not a name to read out with the Finnish voice.
+  const realName = realStopName(exitStop(stop).name);
   const fiVoice = finnishVoice();
+  const lang = SPEECH_LANG[getLanguage()] || SPEECH_LANG.en;
+  const voice = lang === SPEECH_LANG.fi ? fiVoice : null;
+  const say = (text) => speakUtterance(text, lang, voice);
+  // Every lead-in already says "your stop", so a stop with no name is
+  // simply not named again: "This is your stop. Your stop." was an echo.
+  const sayName = () => {
+    if (realName) speakUtterance(realName, SPEECH_LANG.fi, fiVoice);
+  };
 
   try {
     globalThis.speechSynthesis.cancel();
 
     if (stage === "test") {
-      speakUtterance("Ride alerts are working.", "en-US");
-      speakUtterance(name, "fi-FI", fiVoice);
+      say(t("Ride alerts are working."));
+      sayName();
       return true;
     }
 
     if (stage === "soon") {
-      speakUtterance("Get ready. Your stop is coming up.", "en-US");
-      speakUtterance(name, "fi-FI", fiVoice);
+      say(t("Get ready. Your stop is coming up."));
+      sayName();
       return true;
     }
 
     if (stage === "next") {
-      speakUtterance("The next stop is yours.", "en-US");
-      speakUtterance(name, "fi-FI", fiVoice);
-      speakUtterance(rideExitInstruction(routeType).nextVoice, "en-US");
+      const exit = rideExitInstruction(routeType);
+      const previousName = realStopName(exitStop(context?.previousStop).name);
+      if (waitingForPrevious(routeType, context) && previousName) {
+        say(t(exit.afterPreviousLead));
+        speakUtterance(previousName, SPEECH_LANG.fi, fiVoice);
+        say(t(exit.afterPreviousVoice));
+        return true;
+      }
+      if (waitingForPrevious(routeType, context)) {
+        say(t(exit.unnamedPreviousText));
+        return true;
+      }
+      say(t("The next stop is yours."));
+      sayName();
+      say(t(exit.nextVoice));
       return true;
     }
 
     if (stage === "now") {
-      speakUtterance("This is your stop.", "en-US");
-      speakUtterance(name, "fi-FI", fiVoice);
-      speakUtterance("Get off now.", "en-US");
+      say(t("This is your stop."));
+      sayName();
+      say(t("Get off now."));
       return true;
     }
 
     if (stage === "missed") {
-      speakUtterance(
-        "It looks like your stop is behind you. Get off at the next stop.",
-        "en-US"
-      );
+      say(t("It looks like your stop is behind you. Get off at the next stop."));
       return true;
     }
   } catch {
@@ -227,52 +263,90 @@ export async function requestRideNotificationPermission() {
   }
 }
 
-function notificationCopy(stage, stopName, routeType = null) {
-  const name = String(stopName || "your stop").trim();
+// A ride's exit stop as the alerts need it: Föli's name, and its number to
+// fall back on. Callers pass the stop, or just its name.
+function exitStop(stop) {
+  return typeof stop === "string" || !stop
+    ? { name: stop || "", id: "" }
+    : { name: stop.name || "", id: stop.id ? String(stop.id) : "" };
+}
+
+function capitalized(text) {
+  return text ? text.charAt(0).toLocaleUpperCase() + text.slice(1) : text;
+}
+
+// In the language of the moment it is sent, like everything on screen. A
+// stop Föli has not named is called by its number, the one on its sign:
+// "This is your stop: your stop" told a locked screen nothing.
+function notificationCopy(stage, stop, routeType = null, context = {}) {
+  const { name: rawName, id } = exitStop(stop);
+  const name =
+    realStopName(rawName) || (id ? t("Stop {id}", { id }) : t("your stop"));
 
   if (stage === "soon") {
     return {
-      title: "Get ready",
-      body: `${name} is coming up soon.`,
+      title: t("Get ready"),
+      body: capitalized(t("{name} is coming up soon.", { name })),
     };
   }
   if (stage === "next") {
+    const exit = rideExitInstruction(routeType);
+    const previousName = realStopName(exitStop(context?.previousStop).name);
+    if (waitingForPrevious(routeType, context)) {
+      return previousName
+        ? {
+            title: t(exit.afterPreviousTitle, { name: previousName }),
+            body: t(exit.afterPreviousText, { name: previousName }),
+          }
+        : { title: t("Get ready"), body: t(exit.unnamedPreviousText) };
+    }
     return {
-      title: `Next stop: ${name}`,
-      body: rideExitInstruction(routeType).nextNotification,
+      title: t("Next stop: {name}", { name }),
+      body: t(exit.nextNotification),
     };
   }
   if (stage === "now") {
     return {
-      title: `This is your stop: ${name}`,
-      body: "Get off now.",
+      title: t("This is your stop: {name}", { name }),
+      body: t("Get off now."),
     };
   }
   if (stage === "missed") {
     return {
-      title: "Your stop may be behind you",
-      body: "Get off at the next stop and use recovery help.",
+      title: t("Your stop may be behind you"),
+      body: t("Get off at the next stop and check the app for how to get back."),
     };
   }
   return {
-    title: "Ride alerts are working",
-    body: name,
+    title: t("Ride alerts are working"),
+    body: capitalized(name),
   };
 }
 
-export async function showRideNotification(stage, stopName, routeType = null) {
+export async function showRideNotification(
+  stage,
+  stop,
+  routeType = null,
+  context = {}
+) {
   const NotificationApi = globalThis.Notification;
   if (!NotificationApi || NotificationApi.permission !== "granted") {
     return false;
   }
 
-  const copy = notificationCopy(stage, stopName, routeType);
+  const copy = notificationCopy(stage, stop, routeType, context);
   const options = {
     body: copy.body,
+    // So a phone reading notifications aloud picks the right voice.
+    lang: getLanguage(),
     tag: "foli-active-ride",
-    renotify: stage === "now" || stage === "missed",
+    // Every stage replaces the one before under one tag, and a replacement
+    // without renotify is silent: "Press STOP" reached a locked phone
+    // without a sound. Only the start-up test stays quiet.
+    renotify: stage !== "test",
     requireInteraction: stage === "now",
-    icon: `${import.meta.env.BASE_URL}foli-icon.svg`,
+    icon: `${import.meta.env.BASE_URL}icon-192.png`,
+    badge: `${import.meta.env.BASE_URL}notification-badge-96.png`,
   };
 
   try {
@@ -308,18 +382,21 @@ export async function showRideNotification(stage, stopName, routeType = null) {
   return false;
 }
 
+// `context` carries the stop before the exit and whether the bus has been
+// seen leaving it, which decides what NEXT asks the passenger to do.
 export function announceRideStage(
   stage,
-  stopName,
+  stop,
   notificationsEnabled = true,
-  routeType = null
+  routeType = null,
+  context = {}
 ) {
   playRideTone(stage);
   vibrateRideStage(stage);
-  speakRideStage(stage, stopName, routeType);
+  speakRideStage(stage, stop, routeType, context);
 
   if (notificationsEnabled) {
-    void showRideNotification(stage, stopName, routeType);
+    void showRideNotification(stage, stop, routeType, context);
   }
 }
 
@@ -328,14 +405,14 @@ export function repeatNowRideSignal() {
   vibrateRideStage("now");
 }
 
-export async function runRideTestAlert(stopName, notificationsEnabled = true) {
+export async function runRideTestAlert(stop, notificationsEnabled = true) {
   await unlockRideAudio();
   playRideTone("test");
   vibrateRideStage("test");
-  speakRideStage("test", stopName);
+  speakRideStage("test", stop);
 
   if (notificationsEnabled) {
-    void showRideNotification("test", stopName);
+    void showRideNotification("test", stop);
   }
 }
 

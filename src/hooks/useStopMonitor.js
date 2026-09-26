@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
+import { reportProviderReached } from "./useOnlineStatus";
 
 const REFRESH_INTERVAL_MS = 30_000;
 const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
@@ -9,7 +10,8 @@ const SNAPSHOT_KEY = "foli-last-departures-v1";
 // row is still a plausible departure rather than a misleading empty board.
 const SNAPSHOT_TTL_MS = 15 * 60_000;
 const MAX_SNAPSHOT_STOPS = 5;
-const MAX_SNAPSHOT_ARRIVALS = 12;
+// Enough that a followed line a dozen rows down survives an offline reopen.
+const MAX_SNAPSHOT_ARRIVALS = 40;
 
 function readSnapshots() {
   try {
@@ -43,7 +45,10 @@ function readSnapshot(stopId, nowMs = Date.now()) {
   return {
     stopId: String(stopId),
     stopName: typeof entry.stopName === "string" ? entry.stopName : "",
-    arrivals: entry.arrivals,
+    // A stored row that is not a row crashed the board on every reopen.
+    arrivals: entry.arrivals.filter(
+      (arrival) => Boolean(arrival) && typeof arrival === "object"
+    ),
     serverTime:
       Number.isFinite(serverTime) && serverTime > 0 ? serverTime : null,
     realtimeAvailable:
@@ -51,6 +56,10 @@ function readSnapshot(stopId, nowMs = Date.now()) {
         ? entry.realtimeAvailable
         : null,
     scheduleAvailable: entry.scheduleAvailable === true,
+    // Without these a reopened board took an unchecked timetable at its word
+    // and said "No upcoming departures".
+    scheduleFailed: entry.scheduleFailed === true,
+    scheduleIncomplete: entry.scheduleIncomplete === true,
     receivedAtMs,
   };
 }
@@ -64,10 +73,18 @@ function writeSnapshot(data) {
       serverTime: data.serverTime,
       realtimeAvailable: data.realtimeAvailable,
       scheduleAvailable: data.scheduleAvailable,
+      scheduleFailed: data.scheduleFailed === true,
+      scheduleIncomplete: data.scheduleIncomplete === true,
       receivedAtMs: data.receivedAtMs,
     };
 
+    // Boards past their 15 minutes go now, as About says, rather than
+    // staying until five newer ones push them out.
     const mostRecent = Object.entries(snapshots)
+      .filter(
+        ([, entry]) =>
+          Date.now() - (Number(entry?.receivedAtMs) || 0) <= SNAPSHOT_TTL_MS
+      )
       .sort(
         ([, a], [, b]) =>
           (Number(b?.receivedAtMs) || 0) - (Number(a?.receivedAtMs) || 0)
@@ -101,6 +118,8 @@ function emptyData(stopId) {
     serverTime: null,
     realtimeAvailable: null,
     scheduleAvailable: false,
+    scheduleFailed: false,
+    scheduleIncomplete: false,
     receivedAtMs: null,
   };
 }
@@ -132,19 +151,29 @@ export default function useStopMonitor(stopId) {
 
       try {
         const next = await fetchStopMonitor(stopId, controller.signal);
+        // Superseded while it was on its way: a newer request, or another
+        // stop, owns the board now. Applying it put the old stop's answer
+        // back on screen.
+        if (controller.signal.aborted) return null;
         const received = { stopId, ...next, receivedAtMs: Date.now() };
         consecutiveFailuresRef.current = 0;
+        reportProviderReached();
         setData(received);
         writeSnapshot(received);
         return true;
       } catch (err) {
-        if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
-          consecutiveFailuresRef.current += 1;
-          setError(true);
-          return false;
+        // A cancelled request is not a failed one, however it surfaced.
+        if (
+          controller.signal.aborted ||
+          err?.name === "CanceledError" ||
+          err?.name === "AbortError"
+        ) {
+          return null;
         }
 
-        return null;
+        consecutiveFailuresRef.current += 1;
+        setError(true);
+        return false;
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);

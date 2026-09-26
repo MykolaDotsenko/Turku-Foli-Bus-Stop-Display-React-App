@@ -68,9 +68,23 @@ export function prepareRideShape(points) {
     };
   });
 
+  // Föli documents `traveled` as a cumulative distance without a unit, and
+  // every threshold that reads it (600 m, 110 m) is in metres. Kilometres
+  // would place a passenger at their stop as the ride began. The provider's
+  // length has to agree with the drawn path to within a factor of two
+  // before it is trusted; otherwise the shape is not used at all.
+  const gtfsLength = hasMonotonicGtfsDistances
+    ? gtfsDistances.at(-1) - gtfsDistances[0]
+    : 0;
+  const metreScale =
+    hasMonotonicGtfsDistances &&
+    cumulative > 0 &&
+    gtfsLength / cumulative >= 0.5 &&
+    gtfsLength / cumulative <= 2;
+
   return {
     points: normalized,
-    usesGtfsDistance: hasMonotonicGtfsDistances,
+    usesGtfsDistance: metreScale,
     lengthM: normalized.at(-1).alongM,
   };
 }

@@ -69,7 +69,7 @@ function setupPanels() {
 
 async function openSetupAndChooseTurunLinna(buttonIndex = 0) {
   fireEvent.click(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })[
+    screen.getAllByRole("button", { name: "Get-off alert" })[
       buttonIndex
     ]
   );
@@ -119,7 +119,7 @@ test("an open get-off setup survives an earlier bus leaving the board", async ()
 test("an expanded next-stops list stays open across a refresh", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
-  await screen.findByText("Planned stop sequence");
+  await screen.findByText("Next stops · timetable times");
 
   rerender(board([departure({ expecteddeparturetime: NOW + 320 })]));
 
@@ -141,12 +141,12 @@ test("two visits of one looping trip keep separate rows and panels", async () =>
   );
 
   fireEvent.click(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })[0]
+    screen.getAllByRole("button", { name: "Get-off alert" })[0]
   );
 
   expect(setupPanels()).toHaveLength(1);
   expect(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })
+    screen.getAllByRole("button", { name: "Get-off alert" })
   ).toHaveLength(1);
   expect(
     consoleError.mock.calls.some((call) =>
@@ -158,7 +158,7 @@ test("two visits of one looping trip keep separate rows and panels", async () =>
 test("a different departure taking the slot does not inherit an open setup", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(
-    screen.getByRole("button", { name: "Alert me when to get off" })
+    screen.getByRole("button", { name: "Get-off alert" })
   );
   expect(setupPanels()).toHaveLength(1);
 
@@ -173,7 +173,7 @@ test("a different departure taking the slot does not inherit an open setup", asy
 test("switching stops closes an open setup, and coming back does not reopen it", () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(
-    screen.getByRole("button", { name: "Alert me when to get off" })
+    screen.getByRole("button", { name: "Get-off alert" })
   );
   expect(setupPanels()).toHaveLength(1);
 
@@ -187,14 +187,14 @@ test("switching stops closes an open setup, and coming back does not reopen it",
 test("an expanded next-stops list does not carry over to another stop", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
-  await screen.findByText("Planned stop sequence");
+  await screen.findByText("Next stops · timetable times");
 
   rerender(board([departure()], TURUN_LINNA));
 
   expect(
     screen.getByRole("button", { name: "Next stops" })
   ).toBeInTheDocument();
-  expect(screen.queryByText("Planned stop sequence")).not.toBeInTheDocument();
+  expect(screen.queryByText("Next stops · timetable times")).not.toBeInTheDocument();
 });
 
 // Back and Forward change the stop under the same board. Remounting the whole

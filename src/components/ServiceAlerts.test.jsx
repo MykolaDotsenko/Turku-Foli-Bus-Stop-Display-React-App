@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import ServiceAlerts from "./ServiceAlerts";
+import { resetLanguageForTests } from "../i18n";
 
 function message(id) {
   return {
@@ -103,4 +104,35 @@ test("shows validity and mounts disruption media only after details are opened",
     "https://data.foli.fi/media/detour.png"
   );
   expect(image).toHaveAttribute("loading", "lazy");
+});
+
+// A cause Föli adds after this was written is spelt out from its code in
+// English; spelt out in a Finnish sentence it would be English, so there it
+// is simply another cause.
+test("names a cause it does not know without leaving English in Finnish", () => {
+  const cancellation = {
+    id: "cancellation-1",
+    type: "cancellation",
+    title: "Cancelled departure",
+    line: "32",
+    cause: "BUS_BREAKDOWN",
+    scheduledTime: null,
+    routeNames: ["32"],
+    message: "",
+    information: "",
+    effect: "NO_SERVICE",
+    effectLabel: "No service",
+  };
+
+  const { unmount } = render(<ServiceAlerts alerts={[cancellation]} />);
+  expect(screen.getByText("Line 32 · Bus Breakdown")).toBeInTheDocument();
+  unmount();
+
+  resetLanguageForTests("fi");
+  try {
+    render(<ServiceAlerts alerts={[cancellation]} />);
+    expect(screen.getByText("Linja 32 · Muu syy")).toBeInTheDocument();
+  } finally {
+    resetLanguageForTests("en");
+  }
 });

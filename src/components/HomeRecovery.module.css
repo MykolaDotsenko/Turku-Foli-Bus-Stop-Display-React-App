@@ -62,12 +62,17 @@
   font-size: 0.82rem;
 }
 
+/* Wraps rather than trails off: cut to "Kauppatori · stop …", the card lost
+   the one number a driver or a map needs. */
 .destination small {
   margin-top: 2px;
-  overflow: hidden;
   color: #536970;
   font-size: 0.75rem;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+}
+
+/* A narrow card broke "stop | 164"; the number moves down whole. */
+.stopNumber {
   white-space: nowrap;
 }
 
@@ -118,6 +123,11 @@
 .primaryAction:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.secondaryAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .secondaryAction {
@@ -190,7 +200,7 @@
 
 .backupRow small {
   margin-top: 2px;
-  color: #60747d;
+  color: #4d626b;
 }
 
 .backupActions {
@@ -287,8 +297,30 @@
 }
 
 @media print {
+  /* Hidden alone, the rest of the page still took up its space, and the
+     card printed with blank pages behind it. Everything but the card is
+     taken out of the layout; the visibility rules stay for a browser
+     without :has(). */
   :global(body *) {
     visibility: hidden !important;
+  }
+
+  :global(.app-shell) > :not(:has(.printCard)),
+  .wrapper > :not(.printCard) {
+    display: none !important;
+  }
+
+  :global(.app-shell):has(.printCard) {
+    padding: 0 !important;
+  }
+
+  .wrapper {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
   }
 
   .printCard,
@@ -296,15 +328,17 @@
     visibility: visible !important;
   }
 
+  /* Wallet size, with the dashed edge as the line to cut along. */
   .printCard {
     position: absolute;
     top: 0;
     left: 0;
     display: grid !important;
     width: 100%;
-    max-width: 620px;
+    max-width: 100mm;
     gap: 12px;
-    padding: 24px;
+    padding: 6mm;
+    border: 1px dashed #111;
     background: #fff;
     color: #111;
     font-family: Arial, sans-serif;
@@ -322,14 +356,13 @@
     text-transform: uppercase;
   }
 
-  .printPrimary {
-    display: grid;
-    gap: 3px;
-    font-size: 20pt;
+  .printStop {
+    font-size: 22pt;
     font-weight: 800;
+    line-height: 1.15;
   }
 
-  .printPrimary span {
+  .printPrimary {
     font-size: 13pt;
     font-weight: 600;
   }
@@ -349,6 +382,13 @@
     font-size: 15pt;
     font-weight: 700;
     line-height: 1.35;
+  }
+
+  .printHelp span {
+    display: block;
+    margin-top: 4px;
+    font-size: 10pt;
+    font-weight: 600;
   }
 
   .printNote {
@@ -437,6 +477,32 @@
     align-items: center;
   }
 
+  /* display: flex removes a summary's own disclosure triangle, and these
+     rows then read as plain labels. A drawn chevron puts the cue back
+     without adding text for a screen reader to announce. */
+  .backups summary::after,
+  .batteryBackup summary::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    margin-right: 4px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  .backups[open] > summary::after,
+  .batteryBackup[open] > summary::after {
+    transform: rotate(45deg);
+  }
+
+  .backups summary::-webkit-details-marker,
+  .batteryBackup summary::-webkit-details-marker {
+    display: none;
+  }
+
   .backupActions a,
   .backupActions button,
   .printButton {
@@ -472,8 +538,11 @@
 }
 
 
+/* The font shorthand sits here, ahead of the phone rules, so it cannot undo
+   the type size they give every Home action. */
 .mobileOptionsToggle {
   display: none;
+  font: inherit;
 }
 
 @media (max-width: 620px) {
@@ -544,7 +613,6 @@
     background: #fff;
     color: #294851;
     cursor: pointer;
-    font: inherit;
     font-weight: 900;
   }
 
@@ -623,5 +691,104 @@
 @media (max-width: 620px) {
   .copy .description {
     display: block;
+  }
+}
+
+/* Dark theme: tokens in App.css. Screen only, so the printed card stays
+   black on white paper. */
+/* With a stop's board open, a phone shows the card as its two actions:
+   the heading stays its name, out of sight, and Home options still opens
+   everything else. It cost a 360px screen its first departure. */
+.compactIcon {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .wrapper[data-compact="true"][data-mobile-options-open="false"] .copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .wrapper[data-compact="true"][data-mobile-options-open="false"] .destination {
+    display: none;
+  }
+
+  .wrapper[data-compact="true"] .compactIcon {
+    display: inline-flex;
+    margin-right: 0.4em;
+    vertical-align: -0.2em;
+  }
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  .wrapper {
+    border-color: var(--dm-line-strong);
+    background: linear-gradient(135deg, var(--dm-accent-surface), var(--dm-surface));
+    box-shadow: 0 10px 28px var(--dm-shadow);
+  }
+
+  .kicker,
+  .backupActions a,
+  .backupActions button {
+    color: var(--dm-accent);
+  }
+
+  .copy h2,
+  .destination strong,
+  .backupRow strong {
+    color: var(--dm-text);
+  }
+
+  .description,
+  .status,
+  .backupHint,
+  .destination small,
+  .backupRow small {
+    color: var(--dm-muted);
+  }
+
+  .routeNote,
+  .backups,
+  .batteryBackup {
+    border-top-color: var(--dm-line);
+    color: var(--dm-soft);
+  }
+
+  .destination,
+  .backupRow {
+    border-color: var(--dm-line);
+    background: var(--dm-sunken);
+  }
+
+  .homeIcon {
+    background: #1d4a50;
+    color: var(--dm-accent);
+  }
+
+  .secondaryAction,
+  .printButton,
+  .mobileOptionsToggle {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-text);
+  }
+
+  .secondaryAction:hover,
+  .printButton:hover {
+    background: var(--dm-accent-surface);
+  }
+
+  .primaryAction:focus-visible,
+  .secondaryAction:focus-visible,
+  .backupActions a:focus-visible,
+  .backupActions button:focus-visible,
+  .printButton:focus-visible,
+  .mobileOptionsToggle:focus-visible {
+    outline-color: var(--dm-focus);
   }
 }

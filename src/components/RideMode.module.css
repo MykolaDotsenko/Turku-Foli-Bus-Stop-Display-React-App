@@ -26,6 +26,58 @@
   border-color: #ffb2a4;
 }
 
+/* The stages have to look different at a glance. The words carrying the
+   action grow into a coloured block, so "press STOP" and "get off now" are
+   told apart from "sit back" across a bus, not only by a border tint. */
+.panel[data-stage="next"],
+.panel[data-stage="now"] {
+  border-width: 3px;
+}
+
+.panel[data-stage="next"] .instruction,
+.panel[data-stage="now"] .instruction {
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.panel[data-stage="next"] .instruction {
+  background: #e7b74b;
+  color: #1b1300;
+}
+
+/* "Get ready" has its own step between sitting back and pressing STOP: it
+   looked the same as the ride's start, told apart only by its words.
+   #06262a on #47c3cf is 7.6:1. */
+.panel[data-stage="soon"] {
+  border-color: #47c3cf;
+  border-width: 3px;
+}
+
+.panel[data-stage="soon"] .instruction {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #47c3cf;
+  color: #06262a;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.timetableNote {
+  margin: 8px 0 0;
+  color: #a8c4c9;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.panel[data-stage="now"] .instruction {
+  background: #ff8c5a;
+  color: #2a0d00;
+}
+
 .topline {
   display: flex;
   align-items: flex-start;
@@ -36,7 +88,7 @@
 .eyebrow {
   margin: 0 0 3px;
   color: #8ee7ee;
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   font-weight: 900;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -225,6 +277,12 @@
   color: #bdd0d4;
 }
 
+/* Waiting for the second tap: plainly not the same button any more. */
+.end[data-armed="true"] {
+  border-color: #ffb2a4;
+  color: #ffd9d1;
+}
+
 .boundary {
   margin: 10px 0 0;
   color: #8fa7ac;
@@ -233,10 +291,16 @@
 }
 
 @media (max-width: 640px) {
+  /* Not sticky on a phone. Taller than the screen, a pinned panel kept its
+     own buttons below the fold for the whole ride and hid the board and
+     Home help beneath it. It scrolls back into view as the alerts escalate
+     instead (RideMode.jsx). */
   .panel {
-    top: 4px;
+    position: relative;
+    top: auto;
     padding: 14px;
     border-radius: 16px;
+    scroll-margin-top: 8px;
   }
 
   .topline {
@@ -372,6 +436,13 @@
   gap: 8px;
 }
 
+/* On the approach the question shrinks to one line beside its answers. */
+.soundCheck[data-compact="true"] {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 12px;
+}
+
 .soundCheckActions button {
   flex: 1 1 auto;
   min-height: 44px;
@@ -388,4 +459,12 @@
 .soundCheckActions button:first-child {
   background: #47c3cf;
   color: #06282c;
+}
+
+/* On a dark page the dark panel had no edge in its calm stages (1.04:1).
+   The stages' own borders still win: they are more specific. */
+@media screen and (prefers-color-scheme: dark) {
+  .panel {
+    border-color: #3f7f86;
+  }
 }

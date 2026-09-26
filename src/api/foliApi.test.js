@@ -14,6 +14,7 @@ vi.mock("axios", () => ({
 
 import {
   fetchRouteCatalog,
+  fetchScheduledLineDepartures,
   fetchServiceBoundary,
   fetchStopCatalog,
   fetchStopCoordinates,
@@ -63,6 +64,31 @@ test("keeps the active SIRI stop catalogue independent from GTFS coordinates", a
     { id: "164", name: "Kauppatori" },
   ]);
   expect(mocks.get).toHaveBeenCalledTimes(1);
+});
+
+// Saved as the catalogue, an empty answer switched name search off for a day.
+test("treats a stop list with no stops in it as a failed answer", async () => {
+  mocks.get.mockResolvedValue({ data: { status: "OK" } });
+
+  await expect(fetchStopCatalog()).rejects.toThrow("Föli stop list is empty.");
+});
+
+test("treats an empty route list as a failed answer and asks again next time", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({ data: [] });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  await expect(fetchRouteCatalog()).rejects.toThrow("Föli GTFS route list is empty.");
+  await expect(fetchRouteCatalog()).rejects.toThrow("Föli GTFS route list is empty.");
+  expect(
+    mocks.get.mock.calls.filter(([url]) => url === `${datasetBase}/routes`)
+  ).toHaveLength(2);
 });
 
 test("normalizes valid GTFS WGS84 stop coordinates", async () => {
@@ -1071,4 +1097,289 @@ test("re-reads rows once after the pin expires, against the confirmed dataset", 
   // dataset that was just confirmed.
   expect(tripUrls).toHaveLength(2);
   expect(tripUrls[1]).toContain("/20260920-120000/");
+});
+
+// A quiet stop late in the evening: the live feed has nothing ahead and the
+// timetable lookup fails. Answered as a plain empty board, that read as "no
+// more buses tonight" when nobody had been able to check.
+test("says the timetable went unchecked when the live feed has nothing ahead", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: { status: "OK", servertime: 1900000000, result: [] },
+      });
+    }
+    return Promise.reject(new Error("GTFS unavailable"));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toEqual([]);
+  expect(result.realtimeAvailable).toBe(true);
+  expect(result.scheduleAvailable).toBe(false);
+  expect(result.scheduleFailed).toBe(true);
+});
+
+test("does not flag the timetable when the live feed already has what is next", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: 1900000000,
+          result: [
+            {
+              lineref: "1",
+              monitored: true,
+              expecteddeparturetime: 1900000300,
+            },
+          ],
+        },
+      });
+    }
+    return Promise.reject(new Error("GTFS should not be asked"));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.scheduleFailed).toBe(false);
+});
+
+function cancelledRequest() {
+  const error = new Error("canceled");
+  error.name = "CanceledError";
+  return error;
+}
+
+function timetableWithTrips(reference, trips, { status = "OK", onHang } = {}) {
+  const everyDay = {
+    monday: 1,
+    tuesday: 1,
+    wednesday: 1,
+    thursday: 1,
+    friday: 1,
+    saturday: 1,
+    sunday: 1,
+    start_date: "20260901",
+    end_date: "20260930",
+  };
+
+  mocks.get.mockImplementation((url, options) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data:
+          status === "OK"
+            ? { status, servertime: reference, result: [] }
+            : { status, servertime: reference },
+      });
+    }
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: trips.map(({ id, time }, index) => ({
+          trip_id: id,
+          arrival_time: time,
+          departure_time: time,
+          stop_sequence: 10 + index,
+          pickup_type: 0,
+          drop_off_type: 0,
+        })),
+      });
+    }
+    if (url === `${datasetBase}/calendar`) {
+      return Promise.resolve({ data: { daily: everyDay } });
+    }
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [{ route_id: "route-32", route_short_name: "32", route_type: 3 }],
+      });
+    }
+    const trip = trips.find(({ id }) => url === `${datasetBase}/trips/trip/${id}`);
+    if (trip?.hangs) {
+      // Settles only as axios does when its request is cancelled.
+      onHang?.();
+      return new Promise((resolve, reject) => {
+        const signal = options?.signal;
+        if (signal?.aborted) {
+          reject(cancelledRequest());
+          return;
+        }
+        signal?.addEventListener("abort", () => reject(cancelledRequest()));
+      });
+    }
+    if (trip && !trip.fails) {
+      return Promise.resolve({
+        data: [
+          { route_id: "route-32", service_id: "daily", trip_headsign: "Varissuo" },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unavailable: ${url}`));
+  });
+}
+
+// One trip lookup failing used to drop that departure silently, so the next
+// bus looked like the 16:10 when the 15:40 might well be running.
+test("stops the timetable list at a departure it could not check", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000; // 15:15 Helsinki
+  timetableWithTrips(reference, [
+    { id: "trip-gap-a", time: "15:20:00" },
+    { id: "trip-gap-b", time: "15:40:00", fails: true },
+    { id: "trip-gap-c", time: "16:10:00" },
+  ]);
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals.map((row) => row.tripref)).toEqual(["trip-gap-a"]);
+  expect(result.scheduleAvailable).toBe(true);
+  expect(result.scheduleIncomplete).toBe(true);
+  expect(result.scheduleFailed).toBe(false);
+});
+
+test("counts a timetable whose first departure could not be checked as unchecked", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+  timetableWithTrips(reference, [
+    { id: "trip-first-a", time: "15:20:00", fails: true },
+    { id: "trip-first-b", time: "15:40:00" },
+  ]);
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toEqual([]);
+  expect(result.scheduleFailed).toBe(true);
+});
+
+// Switching stops cancels the old stop's timetable lookups. Counted as trips
+// that could not be checked, the cancellation came back as a failed update
+// (or, at a stop with a live answer, as an unchecked timetable) and landed on
+// the stop the passenger had just opened.
+test.each(["OK", "NO_SIRI_DATA"])(
+  "a timetable lookup cancelled midway ends as cancelled at a %s stop",
+  async (status) => {
+    const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+    const controller = new AbortController();
+    timetableWithTrips(
+      reference,
+      [{ id: "trip-cancelled", time: "15:20:00", hangs: true }],
+      { status, onHang: () => globalThis.queueMicrotask(() => controller.abort()) }
+    );
+
+    const outcome = await fetchStopMonitor("621", controller.signal).then(
+      (value) => ({ value }),
+      (error) => ({ error })
+    );
+
+    expect(outcome.value).toBeUndefined();
+    expect(["CanceledError", "AbortError"]).toContain(outcome.error?.name);
+  }
+);
+
+// A busy stop's live answer can list the followed line's bus 27th. Cut to
+// 24 rows before the board's line filter saw it, the line looked idle.
+test("keeps every live row of a busy stop for the board to filter", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/164") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: now,
+          result: Array.from({ length: 45 }, (_, index) => ({
+            lineref: index === 26 || index === 44 ? "32" : "1",
+            destinationdisplay: index === 26 || index === 44 ? "Varissuo" : "Satama",
+            monitored: true,
+            expecteddeparturetime: now + 60 + index * 30,
+            aimeddeparturetime: now + 60 + index * 30,
+          })),
+        },
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("164");
+
+  expect(result.arrivals).toHaveLength(45);
+  expect(result.arrivals.filter((row) => row.lineref === "32")).toHaveLength(2);
+});
+
+test("reads a followed line's next departures from the stop's timetable", async () => {
+  const reference = Date.parse("2026-09-21T12:45:00Z") / 1000; // Mon 15:45 Helsinki
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/164`) {
+      return Promise.resolve({
+        data: [
+          // Line 1 every few minutes, which a stop-wide fallback would fill up on.
+          ...Array.from({ length: 40 }, (_, index) => ({
+            trip_id: `trip-1-${index}`,
+            arrival_time: `16:${String(index).padStart(2, "0")}:00`,
+            departure_time: `16:${String(index).padStart(2, "0")}:00`,
+            stop_sequence: 3,
+            pickup_type: 0,
+          })),
+          { trip_id: "trip-18-a", departure_time: "16:55:00", arrival_time: "16:55:00", stop_sequence: 5, pickup_type: 0 },
+          { trip_id: "trip-18-weekend", departure_time: "17:25:00", arrival_time: "17:25:00", stop_sequence: 5, pickup_type: 0 },
+          { trip_id: "trip-18-b", departure_time: "17:55:00", arrival_time: "17:55:00", stop_sequence: 5, pickup_type: 0 },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/calendar`) {
+      return Promise.resolve({
+        data: {
+          weekday: { monday: 1, tuesday: 1, wednesday: 1, thursday: 1, friday: 1, saturday: 0, sunday: 0, start_date: "20260901", end_date: "20260930" },
+          weekend: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 1, sunday: 1, start_date: "20260901", end_date: "20260930" },
+        },
+      });
+    }
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [
+          { route_id: "route-1", route_short_name: "1", route_type: 3 },
+          { route_id: "route-18", route_short_name: "18", route_type: 3 },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/trips/route/route-18`) {
+      return Promise.resolve({
+        data: [
+          { trip_id: "trip-18-a", service_id: "weekday", trip_headsign: "Lauste" },
+          { trip_id: "trip-18-weekend", service_id: "weekend", trip_headsign: "Lauste" },
+          { trip_id: "trip-18-b", service_id: "weekday", trip_headsign: "Lauste" },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const departures = await fetchScheduledLineDepartures("164", ["18"], reference);
+
+  expect(
+    departures.map((row) => [row.lineref, row.destinationdisplay, row.tripref, row.monitored])
+  ).toEqual([
+    ["18", "Lauste", "trip-18-a", false],
+    ["18", "Lauste", "trip-18-b", false],
+    ["18", "Lauste", "trip-18-a", false],
+  ]);
+  // Today's two weekday buses, then tomorrow's first: three per line, the
+  // weekend trip skipped.
+  expect(departures.map((row) => row.aimeddeparturetime)).toEqual([
+    Date.parse("2026-09-21T13:55:00Z") / 1000,
+    Date.parse("2026-09-21T14:55:00Z") / 1000,
+    Date.parse("2026-09-22T13:55:00Z") / 1000,
+  ]);
+  // No per-trip lookups: the route's own trip list carries the service.
+  expect(mocks.get.mock.calls.some(([url]) => url.includes("/trips/trip/"))).toBe(false);
 });

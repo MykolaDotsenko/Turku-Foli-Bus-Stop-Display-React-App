@@ -1,10 +1,36 @@
-import { expect, test } from "vitest";
+import { afterEach, expect, test } from "vitest";
 import {
   buildSharedPlaceUrl,
   decodeSharedPlace,
   encodeSharedPlace,
   parseSharedPlaceHash,
 } from "./sharedPlaces";
+import { resetLanguageForTests } from "../i18n";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
+
+// A link made in Finnish is opened by phones in any language, so nothing in
+// it depends on the language it was made in.
+test("makes the same link in every language, with no stand-in name for a nameless stop", () => {
+  const place = {
+    id: "home",
+    primaryStopId: "164",
+    stops: [{ id: "164", name: "Kauppatori" }, { id: "32", name: "" }],
+  };
+
+  resetLanguageForTests("fi");
+  const finnishLink = buildSharedPlaceUrl(place, "https://example.test/");
+  resetLanguageForTests("en");
+  const englishLink = buildSharedPlaceUrl(place, "https://example.test/");
+
+  expect(finnishLink).toBe(englishLink);
+  expect(parseSharedPlaceHash(new globalThis.URL(finnishLink).hash).stops).toEqual([
+    { id: "164", name: "Kauppatori" },
+    { id: "32", name: "" },
+  ]);
+});
 
 test("shares only public safe-stop identity and strips coordinates", () => {
   const token = encodeSharedPlace({

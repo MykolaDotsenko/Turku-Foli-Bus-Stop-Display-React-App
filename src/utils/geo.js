@@ -1,3 +1,5 @@
+import { intlLocale } from "../i18n";
+
 const EARTH_RADIUS_METERS = 6_371_008.8;
 
 function toRadians(value) {
@@ -76,12 +78,17 @@ export function formatDistance(distanceMeters) {
 
   if (distanceMeters < 10) return "<10 m";
 
-  if (distanceMeters < 1_000) {
-    return `${Math.round(distanceMeters / 10) * 10} m`;
-  }
+  // 996 m rounds to 1,000 m, which reads better as "1.0 km".
+  const meters = Math.round(distanceMeters / 10) * 10;
+  if (meters < 1_000) return `${meters} m`;
 
+  // "2.6 km" in English, "2,6 km" in Finnish. Written out by hand: a phone
+  // without Finnish locale data would give "2.6" from toLocaleString.
   const kilometers = distanceMeters / 1_000;
-  return `${kilometers < 10 ? kilometers.toFixed(1) : Math.round(kilometers)} km`;
+  const tenths = kilometers.toFixed(1);
+  const shown =
+    Number(tenths) < 10 ? tenths : String(Math.round(kilometers));
+  return `${intlLocale() === "fi-FI" ? shown.replace(".", ",") : shown} km`;
 }
 
 export function formatAccuracy(accuracyMeters) {

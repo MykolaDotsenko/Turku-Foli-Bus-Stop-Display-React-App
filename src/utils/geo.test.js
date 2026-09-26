@@ -6,6 +6,7 @@ import {
   hasCoordinates,
   isInsideMultiPolygon,
 } from "./geo";
+import { resetLanguageForTests } from "../i18n";
 
 test("calculates realistic short WGS84 distances", () => {
   const distance = distanceInMeters(
@@ -54,6 +55,24 @@ test("formats distance without implying false precision", () => {
   expect(formatDistance(84)).toBe("80 m");
   expect(formatDistance(1_420)).toBe("1.4 km");
   expect(formatDistance(12_400)).toBe("12 km");
+});
+
+test("rounds a distance up to the next unit instead of past it", () => {
+  expect(formatDistance(996)).toBe("1.0 km");
+  expect(formatDistance(9_950)).toBe("9.9 km");
+  expect(formatDistance(9_960)).toBe("10 km");
+  expect(formatDistance(1_150)).toBe("1.1 km");
+});
+
+test("writes a Finnish decimal comma without relying on the phone's locale data", () => {
+  resetLanguageForTests("fi");
+  try {
+    expect(formatDistance(1_420)).toBe("1,4 km");
+    expect(formatDistance(84)).toBe("80 m");
+    expect(formatDistance(12_400)).toBe("12 km");
+  } finally {
+    resetLanguageForTests("en");
+  }
 });
 
 

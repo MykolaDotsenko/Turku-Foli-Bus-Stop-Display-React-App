@@ -19,8 +19,8 @@ function encodeSharedPlaceForTest(payload) {
 }
 
 
-async function seedHome(page) {
-  await page.evaluate(() => {
+async function seedHome(page, { primaryStopId = "164" } = {}) {
+  await page.evaluate((primary) => {
     localStorage.setItem(
       "foli-stop-catalog-v2",
       JSON.stringify({
@@ -54,7 +54,7 @@ async function seedHome(page) {
           id: "home",
           label: "Home",
           icon: "⌂",
-          primaryStopId: "164",
+          primaryStopId: primary,
           stops: [
             { id: "164", name: "Kauppatori" },
             { id: "32", name: "Puistokatu" },
@@ -63,8 +63,29 @@ async function seedHome(page) {
         },
       ])
     );
-  });
+  }, primaryStopId);
   await page.reload();
+}
+
+// GTFS writes a trip's times in its service day, which runs past midnight
+// ("24:05:00") until early morning.
+function gtfsClockAt(unixSeconds) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(unixSeconds * 1000));
+  const part = (type) => Number(parts.find((item) => item.type === type).value);
+  let seconds = part("hour") * 3600 + part("minute") * 60 + part("second");
+  if (seconds < 4 * 3600) seconds += 86_400;
+  return (offset) => {
+    const at = seconds + offset;
+    return [Math.floor(at / 3600), Math.floor((at % 3600) / 60), at % 60]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  };
 }
 
 function monitorPayload(stopId) {
@@ -297,13 +318,16 @@ async function mockFoli(page) {
   await page.route(
     "https://data.foli.fi/gtfs/v0/20260920-120000/stop_times/trip/trip-164-1",
     async (route) => {
+      // Timed from the market-stop departure the board shows, so next stops
+      // and screenshots read "around 20:17" beside a 20:12 bus, not 17:46.
+      const at = gtfsClockAt(Math.floor(Date.now() / 1000) + 205);
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify([
           {
             stop_id: "164",
-            arrival_time: "17:40:00",
-            departure_time: "17:41:00",
+            arrival_time: at(-60),
+            departure_time: at(0),
             stop_sequence: 1,
             pickup_type: 0,
             drop_off_type: 0,
@@ -312,8 +336,8 @@ async function mockFoli(page) {
           },
           {
             stop_id: "32",
-            arrival_time: "17:46:00",
-            departure_time: "17:46:00",
+            arrival_time: at(300),
+            departure_time: at(300),
             stop_sequence: 2,
             pickup_type: 0,
             drop_off_type: 0,
@@ -322,8 +346,8 @@ async function mockFoli(page) {
           },
           {
             stop_id: "4",
-            arrival_time: "17:55:00",
-            departure_time: "17:55:00",
+            arrival_time: at(840),
+            departure_time: at(840),
             stop_sequence: 3,
             pickup_type: 0,
             drop_off_type: 0,
@@ -365,9 +389,17 @@ async function mockFoli(page) {
             cause: "CONSTRUCTION",
             affected_stops: [],
             affected_routes: ["1"],
-            header: "Line 1 city-centre detour",
-            message: "Line 1 uses a temporary route.",
-            information: "Stop 14 is not in use during the works.",
+            // Föli writes its notices in Finnish and translates them.
+            header: "Linjan 1 poikkeusreitti keskustassa",
+            message: "Linja 1 kulkee tilapäistä reittiä.",
+            information: "Pysäkki 14 ei ole käytössä töiden aikana.",
+            translations: {
+              en: {
+                header: "Line 1 city-centre detour",
+                message: "Line 1 uses a temporary route.",
+                information: "Stop 14 is not in use during the works.",
+              },
+            },
             repeat: [[
               Math.floor(Date.now() / 1000) - 60,
               Math.floor(Date.now() / 1000) + 3600,
@@ -387,14 +419,27 @@ async function mockFoli(page) {
             effect: "NO_SERVICE",
             affected_stops: [],
             affected_routes: ["99"],
-            header: "Line 99 service change",
-            message: "This route has no current departure row.",
+            header: "Linjan 99 muutos",
+            message: "Tällä reitillä ei ole nyt lähtöä.",
+            translations: {
+              en: {
+                header: "Line 99 service change",
+                message: "This route has no current departure row.",
+              },
+            },
           },
         ],
         cancellations: [],
       }),
     });
   });
+}
+
+// On a phone the service updates fold into one line; this opens them.
+async function openServiceUpdates(page) {
+  await page.locator("#service-alerts-list").waitFor({ state: "attached" });
+  const fold = page.locator('[aria-controls="service-alerts-list"]');
+  if (await fold.isVisible()) await fold.click();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -475,7 +520,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
 
@@ -497,22 +542,29 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await page
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
-  await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 
+  // The bus is a minute from Puistokatu but has not been seen leaving
+  // Kauppatori, the stop before it. STOP pressed now would stop it there.
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toBeVisible();
-  await expect(page.getByText("Press the STOP button now.")).toBeVisible();
+  await expect(
+    page.getByText("Press STOP when the bus leaves Kauppatori.")
+  ).toBeVisible();
   await expect(page.getByText("Puistokatu").first()).toBeVisible();
   await expect(page.locator('[data-health="live"]')).toBeVisible();
 
+  // One stray touch in a pocket must not end the ride.
   await page.getByRole("button", { name: "End ride" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Tap again to end ride" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toHaveCount(0);
 });
 
@@ -549,9 +601,24 @@ async function routeTargetStop(page, overrides = {}) {
   });
 }
 
+// iPhone Safari notifies only from an app added to the Home Screen, so on
+// an iPhone the setup explains that instead of offering the checkbox.
+async function turnOffNotifications(page) {
+  const notifications = page.getByRole("checkbox", {
+    name: /Also show notifications/i,
+  });
+  const iphoneNote = page.getByText(/On iPhone, notifications need this app/);
+  await expect(notifications.or(iphoneNote)).toBeVisible();
+  if (await iphoneNote.isVisible()) {
+    await expect(notifications).toHaveCount(0);
+    return;
+  }
+  await notifications.uncheck();
+}
+
 async function startRide(page, { gps }) {
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
 
@@ -565,9 +632,7 @@ async function startRide(page, { gps }) {
   } else {
     await gpsToggle.uncheck();
   }
-  await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 }
@@ -585,7 +650,7 @@ test("the ride can be started without scrolling for the button", async ({
   await page.goto("/?stop=164");
   await seedHome(page);
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   await expect(
@@ -629,9 +694,51 @@ test("the get-off panel fits a small phone with its button in reach", async ({
   ).toBeInViewport();
 });
 
+// The panel used to pin itself to the top of the screen for the whole ride.
+// At 836px against a 640px screen that kept "End ride" and "Test alert"
+// below the fold: scrolling moved the page under the panel, never the
+// panel's own bottom into view, and the board underneath was unusable.
+test("a ride's own controls stay reachable on a small phone", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  // Fifteen minutes out: the tallest the panel gets, sound check included.
+  await routeTargetStop(page, {
+    expectedarrivaltime: Math.floor(Date.now() / 1000) + 900,
+  });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: false });
+  const panel = page.locator('section[aria-labelledby="ride-mode-title"]');
+  await expect(
+    panel.getByRole("group", { name: "Alert sound check" })
+  ).toBeVisible();
+
+  // A thumb scrolling down one screen from the top must pass each control.
+  for (const name of ["Test alert", "End ride"]) {
+    const control = panel.getByRole("button", { name });
+    let seen = false;
+    for (let y = 0; y <= 640 && !seen; y += 160) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      seen = await control.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+      });
+    }
+    expect(seen, name).toBe(true);
+  }
+
+  // And the board is still there to use during the ride.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByRole("heading", { name: "Kauppatori" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeInViewport();
+});
+
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
   page,
-}) => {
+}, testInfo) => {
   // The vehicle being listed at the target stop is the strongest evidence
   // there is, and it is the only one that can raise the alarm without GPS.
   await routeTargetStop(page, { vehicleatstop: true, expectedarrivaltime: 0 });
@@ -642,6 +749,14 @@ test("Ride Mode says get off now once the bus is standing at the stop", async ({
 
   await expect(page.getByRole("heading", { name: "Get off now" })).toBeVisible();
   await expect(page.locator('[data-stage="now"]')).toBeVisible();
+
+  // The README's picture of the feature, taken from the real panel.
+  if (testInfo.project.name === "chromium-mobile") {
+    fs.mkdirSync("artifacts/screenshots", { recursive: true });
+    await page
+      .locator('section[aria-labelledby="ride-mode-title"]')
+      .screenshot({ path: "artifacts/screenshots/foli-ride-now.png" });
+  }
 
   // The confirmation only exists at this stage, and it has to end the ride
   // so the repeating alert stops for someone already on the pavement.
@@ -677,7 +792,7 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
   await startRide(page, { gps: true });
 
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toBeVisible();
 
   // Close enough to count as an approach, but not close enough to claim the
@@ -738,7 +853,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   const turunLinna = page.locator('input[type="radio"][value="3"]');
@@ -746,9 +861,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await page
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
-  await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   const exitStopAnswered = page.waitForResponse(
     "https://data.foli.fi/siri/sm/4"
@@ -756,9 +869,10 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
   await exitStopAnswered;
 
-  // Two planned stops out, so the timetable alone gets the passenger ready.
+  // Two planned stops out, but the bus is not due to leave Kauppatori for
+  // a few minutes yet: the timetable raises nothing before it has left.
   await expect(
-    page.getByRole("heading", { name: "Your stop is coming up" })
+    page.getByRole("heading", { name: "No need to watch for your stop" })
   ).toBeVisible();
   await expect(page.locator('[data-health="schedule"]')).toBeVisible();
   await expect(page.getByText("Looking for your bus")).toBeVisible();
@@ -771,6 +885,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "End ride" }).click();
+  await page.getByRole("button", { name: "Tap again to end ride" }).click();
 });
 
 test("an open get-off setup survives a board refresh", async ({ page }) => {
@@ -795,7 +910,7 @@ test("an open get-off setup survives a board refresh", async ({ page }) => {
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   const setupHeading = page.getByRole("heading", {
@@ -847,7 +962,7 @@ test("an open get-off setup does not follow the passenger to another stop", asyn
     name: "Where do you want to get off?",
   });
   const alertButton = page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first();
   await alertButton.click();
   await expect(setupHeading).toBeVisible();
@@ -880,7 +995,7 @@ test("Back keeps keyboard focus on the departure board", async ({ page }) => {
   await expect(page).toHaveURL(/stop=4/);
 
   await page
-    .getByRole("button", { name: "Save Turun linna to favorites" })
+    .getByRole("button", { name: "Save Turun linna to favourites" })
     .focus();
   await page.evaluate(() => globalThis.history.back());
 
@@ -889,7 +1004,7 @@ test("Back keeps keyboard focus on the departure board", async ({ page }) => {
     page.getByRole("heading", { name: "Kauppatori", exact: true })
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Save Kauppatori to favorites" })
+    page.getByRole("button", { name: "Save Kauppatori to favourites" })
   ).toBeFocused();
 });
 
@@ -906,7 +1021,7 @@ test("a phone is told what the app is until it no longer needs telling", async (
 
   const intro = page.locator(".context");
   await expect(intro).toBeVisible();
-  await expect(intro).toContainText("get told when to get off");
+  await expect(intro).toContainText("we’ll tell you when to press STOP");
 
   // These two sections are three bare rows and a lone button on a phone;
   // nothing else ever says what they are for.
@@ -921,7 +1036,7 @@ test("a phone is told what the app is until it no longer needs telling", async (
   await expect(page.getByText("Search by stop name or number.")).toBeVisible();
 
   // The departure board still has to win the top of the screen.
-  await expect(page.getByText("Bus at stop · board now")).toBeInViewport();
+  await expect(page.getByText("Bus is at the stop")).toBeInViewport();
 
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -933,13 +1048,19 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
-  const detourSummary = page.getByText("Line 1 city-centre detour");
+  await openServiceUpdates(page);
+  const alerts = page.locator('[aria-labelledby="service-alerts-title"]');
+  const detourSummary = alerts.getByText("Line 1 city-centre detour", { exact: true });
   await expect(detourSummary).toBeVisible();
-  await expect(page.getByText("Detour", { exact: true })).toBeVisible();
-  await expect(page.getByText("Line 99 service change")).toBeVisible();
+  await expect(alerts.getByText("Detour", { exact: true })).toBeVisible();
+  await expect(alerts.getByText("Line 99 service change", { exact: true })).toBeVisible();
+  // The notice is on the affected line's own buses too.
+  await expect(
+    page.locator("tbody tr").first().getByText("Detour", { exact: true })
+  ).toBeVisible();
   await expect(page.getByText("Harbour")).toBeVisible();
-  await expect(page.getByText(/Bus at stop · board now/i)).toBeVisible();
-  await expect(page.getByText("Wheelchair accessible").first()).toBeVisible();
+  await expect(page.getByText(/Bus is at the stop/i)).toBeVisible();
+  await expect(page.getByTitle("Wheelchair accessible").first()).toBeVisible();
 
   const boardPrecedesPlaceManagement = await page.evaluate(() => {
     const board = document.querySelector('[aria-labelledby="departures-title"]');
@@ -962,17 +1083,17 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByAltText("Temporary detour map")).toBeVisible();
 
   await page.getByRole("button", { name: "Next stops" }).first().click();
-  await expect(page.getByText("Planned stop sequence")).toBeVisible();
-  await expect(page.getByText("around 17:46")).toBeVisible();
+  await expect(page.getByText("Next stops · timetable times")).toBeVisible();
+  await expect(page.getByText(/^around \d\d:\d\d$/)).toBeVisible();
   await expect(page.getByText("Puistokatu")).toBeVisible();
 
   const lineOneBadge = page.getByTitle("Satama-Kauppatori-Lentoasema");
   await expect(lineOneBadge).toHaveCSS("background-color", "rgb(255, 255, 0)");
   await expect(lineOneBadge).toHaveCSS("color", "rgb(0, 0, 0)");
 
-  await page.getByRole("button", { name: "Save Kauppatori to favorites" }).click();
+  await page.getByRole("button", { name: "Save Kauppatori to favourites" }).click();
   await expect(
-    page.getByRole("button", { name: "Remove Kauppatori from favorites" })
+    page.getByRole("button", { name: "Remove Kauppatori from favourites" })
   ).toHaveAttribute("aria-pressed", "true");
 
   const search = page.getByRole("combobox", { name: "Find your stop" });
@@ -1016,7 +1137,7 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   await expect(page.getByText(/Selected stop ≈/)).toBeVisible();
 
   const walkLink = page.getByRole("link", {
-    name: "Walk to Kauppatori, stop 164, in Google Maps",
+    name: "Walk there: Kauppatori, stop 164, in Google Maps",
   });
   await expect(walkLink).toBeVisible();
   await expect(walkLink).toHaveAttribute("target", "_blank");
@@ -1028,6 +1149,56 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   expect(mapsUrl.searchParams.has("origin")).toBe(false);
 });
 
+
+// A first visit had no stop chosen, and "Near you" only appeared once one
+// was: the only way to use location was an unlabelled 11px symbol.
+test("a first visit offers the stops near you", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({ latitude: 60.45182, longitude: 22.26662 });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+});
+
+// The first visit's list was a second copy of the component, so choosing a
+// stop from it unmounted it under the passenger's finger: keyboard focus fell
+// to the page and the list they had just asked for was gone.
+test("choosing a stop from the first visit's near-you list keeps your place", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  // Approximate, so the list is offered instead of a stop being chosen.
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+    accuracy: 800,
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+
+  const choice = page.getByRole("button", { name: /^Puistokatu, stop 32/ });
+  await choice.click();
+
+  await expect(page).toHaveURL(/stop=32/);
+  await expect(choice).toBeVisible();
+  await expect(choice).toBeFocused();
+});
 
 test("saves Home as a privacy-first safe arrival zone", async ({
   page,
@@ -1046,10 +1217,10 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Set up Home from my current location" }).click();
+  await page.getByRole("button", { name: "Use my location to set up Home" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Choose safe stops for Home" })
+    page.getByRole("heading", { name: "Choose stops for Home" })
   ).toBeVisible();
   await expect(page.getByText(/Location accuracy/)).toBeVisible();
 
@@ -1057,15 +1228,16 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await expect(saveHome).toBeDisabled();
   await page
     .getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
     .check();
   await expect(saveHome).toBeEnabled();
   await saveHome.click();
 
-  const goHome = page.getByRole("link", {
-    name: "Go Home by public transit",
-  });
+  // The place card names its actions as the Get me Home card above does.
+  const goHome = page
+    .locator('[aria-labelledby="my-places-title"]')
+    .getByRole("link", { name: "Get me Home by public transit" });
   await expect(goHome).toBeVisible();
 
   const href = await goHome.getAttribute("href");
@@ -1086,7 +1258,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
 });
 
 
-test("imports a parent-shared Safe Place only after explicit confirmation", async ({
+test("imports a parent-shared place only after explicit confirmation", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-desktop");
@@ -1115,7 +1287,9 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   await page.getByRole("button", { name: "Add Home" }).click();
 
   await expect(
-    page.getByRole("link", { name: "Get me Home by public transit" })
+    page
+      .locator('[aria-labelledby="home-recovery-title"]')
+      .getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
   await expect(page).toHaveURL(/\?stop=164$/);
 
@@ -1128,6 +1302,36 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   expect(imported).not.toContain("lon");
 });
 
+
+// The shared-place token rode along into every stop URL, so after "Not now"
+// a single Back brought the "Add Home?" question straight back.
+test("a dismissed shared place stays dismissed after moving between stops", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  const token = encodeSharedPlaceForTest({
+    v: 1,
+    p: "home",
+    m: "164",
+    s: [["164", "Kauppatori"]],
+  });
+
+  await page.goto(`/?stop=164#place=${token}`);
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toBeVisible();
+
+  const input = page.getByRole("combobox", { name: "Find your stop" });
+  await input.fill("4");
+  await page.getByRole("button", { name: "Show departures" }).click();
+  await expect(page).toHaveURL(/\?stop=4$/);
+
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\?stop=164$/);
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
+});
 
 test("recovers to Home with one clear action and resilient fallbacks", async ({
   page,
@@ -1144,7 +1348,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
     })
   ).toBeVisible();
   await expect(
-    recovery.getByText(/travel help, not an emergency service/i)
+    recovery.getByText(/In an emergency, call 112/)
   ).toBeVisible();
 
   const getHome = recovery.getByRole("link", {
@@ -1161,18 +1365,18 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
-    driver.getByRole("heading", { name: "I need to get to Home" })
+    driver.getByRole("heading", { name: /Kauppatori/ })
   ).toBeVisible();
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
   await driver.getByRole("button", { name: "Close" }).click();
-  await recovery.getByText("Other saved Home stop").click();
+  await recovery.getByText("Backup Home stop").click();
 
   const backupRoute = recovery.getByRole("link", {
-    name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+    name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
   });
   const backupHref = await backupRoute.getAttribute("href");
   const backupUrl = new globalThis.URL(backupHref);
@@ -1209,10 +1413,15 @@ test("renders a public-stop-only Home backup card in print mode", async ({
   await seedHome(page);
   await page.emulateMedia({ media: "print" });
 
-  const printCard = page.getByText("Föli Home backup card");
+  const printCard = page.locator('section[aria-hidden="true"]', {
+    has: page.getByText("Home backup card", { exact: true }),
+  });
   await expect(printCard).toBeVisible();
-  await expect(page.getByText("Stop 164 · primary")).toBeVisible();
-  await expect(page.getByText("Puistokatu · Stop 32")).toBeVisible();
+  await expect(printCard.getByText("Stop 164", { exact: true })).toBeVisible();
+  await expect(printCard.getByText("Backup stops")).toBeVisible();
+  await expect(printCard.getByText("Puistokatu · Pysäkki / Stop 32")).toBeVisible();
+  // Hidden from assistive technology on screen, so found by tag, not role.
+  await expect(printCard.locator("h2")).toHaveText("Kauppatori");
 
   const headerVisibility = await page
     .locator(".topbar")
@@ -1220,9 +1429,14 @@ test("renders a public-stop-only Home backup card in print mode", async ({
       (element) => globalThis.getComputedStyle(element).visibility
     );
   expect(headerVisibility).toBe("hidden");
+
+  // Hidden, the rest of the page still took up its space, so the card came
+  // out with blank pages behind it.
+  const pdf = (await page.pdf({ format: "A4" })).toString("latin1");
+  expect(pdf.match(/\/Type\s*\/Page\b(?!s)/g)).toHaveLength(1);
 });
 
-test("production PWA reopens offline with Safe Places and driver help", async ({
+test("production PWA reopens offline with My Places and driver help", async ({
   page,
   context,
 }, testInfo) => {
@@ -1262,9 +1476,10 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Offline", { exact: true })).toBeVisible();
-  await expect(page.getByText("Offline mode", { exact: true })).toBeVisible();
+  // Announced, once, and shown once, by the banner.
+  await expect(page.getByText("Offline mode", { exact: true })).toHaveCount(1);
   await expect(
-    page.getByText(/Saved Safe Places and driver help still work/i)
+    page.getByText(/saved places and Show to driver still work/i)
   ).toBeVisible();
 
   const recovery = page.locator(
@@ -1275,14 +1490,16 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
       name: "Need help getting home?",
     })
   ).toBeVisible();
+  // No route to hand to a map with no connection; the driver card, which
+  // still works, leads instead.
   await expect(
-    recovery.getByRole("button", { name: "Get me Home" })
-  ).toBeDisabled();
+    recovery.getByRole("link", { name: "Get me Home by public transit" })
+  ).toHaveCount(0);
 
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
-    driver.getByRole("heading", { name: "I need to get to Home" })
+    driver.getByRole("heading", { name: /Kauppatori/ })
   ).toBeVisible();
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
@@ -1300,12 +1517,110 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   ).toBeVisible();
 });
 
+test("production PWA opens from its cache when the network stalls", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-pwa");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
+
+  // One bar of signal, or a captive portal: requests go out and nothing
+  // comes back. Only an outright failure used to reach the cached shell, so
+  // the page stayed blank until the browser gave up on its own.
+  await context.route(/127\.0\.0\.1:4173/, () => {});
+
+  const started = Date.now();
+  await page.reload({ waitUntil: "commit", timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Need help getting home?" })
+  ).toBeVisible({ timeout: 10_000 });
+  expect(Date.now() - started).toBeLessThan(10_000);
+});
+
+test("production PWA gives every home screen a real icon", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-pwa");
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+
+  // The browser's own reading of the manifest, not a JSON.parse of it.
+  const cdp = await page.context().newCDPSession(page);
+  const { errors, data } = await cdp.send("Page.getAppManifest");
+  expect(errors).toEqual([]);
+  const manifest = JSON.parse(data);
+
+  // Safari ignores manifest icons; without this link an iPhone's home screen
+  // gets a screenshot of the page.
+  const touchIconLink = page.locator('link[rel="apple-touch-icon"]');
+  await expect(touchIconLink).toHaveAttribute("href", /apple-touch-icon\.png$/);
+  const touchIcon = await touchIconLink.getAttribute("href");
+  const expected = [
+    ...manifest.icons
+      .filter((icon) => icon.type === "image/png")
+      .map((icon) => ({
+        src: icon.src,
+        size: Number(icon.sizes.split("x")[0]),
+        purpose: icon.purpose,
+      })),
+    { src: touchIcon, size: 180, purpose: "apple-touch-icon" },
+  ];
+  expect(expected.map((icon) => `${icon.size} ${icon.purpose}`)).toEqual([
+    "192 any",
+    "512 any",
+    "512 maskable",
+    "180 apple-touch-icon",
+  ]);
+
+  // Every file decodes as a PNG at the size it claims, so no launcher has to
+  // upscale a smaller one or fall back to a screenshot of the page.
+  for (const icon of expected) {
+    const decoded = await page.evaluate(async (src) => {
+      const response = await globalThis.fetch(
+        new globalThis.URL(src, document.baseURI)
+      );
+      const bitmap = await globalThis.createImageBitmap(await response.blob());
+      return {
+        type: response.headers.get("content-type"),
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+    }, icon.src);
+    expect(decoded, icon.src).toEqual({
+      type: "image/png",
+      width: icon.size,
+      height: icon.size,
+    });
+  }
+
+  // What Chrome checks before it offers "Install app". A test browser
+  // profile is always off the record, which is not the app's to fix.
+  const { installabilityErrors } = await cdp.send(
+    "Page.getInstallabilityErrors"
+  );
+  expect(
+    installabilityErrors
+      .map((error) => error.errorId)
+      .filter((errorId) => errorId !== "in-incognito")
+  ).toEqual([]);
+});
+
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  const alertDetails = page.getByText("Line 1 city-centre detour").first();
+  await openServiceUpdates(page);
+  const alertDetails = page.getByText("Line 1 city-centre detour", { exact: true });
   if (await alertDetails.isVisible()) {
     await alertDetails.click();
     await expect(page.getByAltText("Temporary detour map")).toBeVisible();
@@ -1314,7 +1629,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const nextStops = page.getByRole("button", { name: "Next stops" }).first();
   if (await nextStops.isVisible()) {
     await nextStops.click();
-    await expect(page.getByText("Planned stop sequence")).toBeVisible();
+    await expect(page.getByText("Next stops · timetable times")).toBeVisible();
   }
 
   const recovery = page.locator(
@@ -1324,7 +1639,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   if (await recoveryMore.isVisible()) {
     await recoveryMore.click();
   }
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
   const results = await new AxeBuilder({ page })
@@ -1332,6 +1647,171 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
     .analyze();
 
   expect(results.violations).toEqual([]);
+});
+
+// At night the page was a white sheet on a dark bus, and only Ride Mode was
+// dark. The theme now follows the phone's own setting; this holds it to the
+// same contrast bar as the light one, with every panel open.
+test("a phone in dark mode gets a dark page that is just as readable", async ({
+  page,
+}) => {
+  const axe = () =>
+    new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+  const rootBackground = () =>
+    page.evaluate(
+      () => globalThis.getComputedStyle(document.documentElement).backgroundColor
+    );
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await routeTargetStop(page);
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  // Without this a missing theme would pass as readable light pages.
+  expect(await rootBackground()).toBe("rgb(12, 20, 22)");
+
+  await openServiceUpdates(page);
+  const alertDetails = page.getByText("Line 1 city-centre detour", { exact: true });
+  if (await alertDetails.isVisible()) {
+    await alertDetails.click();
+  }
+  const nextStops = page.getByRole("button", { name: "Next stops" }).first();
+  if (await nextStops.isVisible()) {
+    await nextStops.click();
+    await expect(page.getByText("Next stops · timetable times")).toBeVisible();
+  }
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  const recoveryMore = recovery.getByRole("button", { name: "Home options" });
+  if (await recoveryMore.isVisible()) {
+    await recoveryMore.click();
+  }
+  await page
+    .getByRole("button", { name: "Get-off alert" })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+
+  expect((await axe()).violations).toEqual([]);
+
+  // A first visit: search, the stops near you, and nothing chosen yet.
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Find nearest stop" })).toBeVisible();
+  expect((await axe()).violations).toEqual([]);
+
+  // Paper stays white: a dark page printed without its backgrounds would
+  // come out as pale text on a white sheet.
+  await page.emulateMedia({ media: "print", colorScheme: "dark" });
+  expect(await rootBackground()).toBe("rgb(237, 244, 245)");
+});
+
+// A Finnish phone got an English page, whatever else it had going for it:
+// localization scored lowest of everything in the pre-release review.
+test.describe("on a Finnish phone", () => {
+  test.use({ locale: "fi-FI" });
+
+  // Words that would only be on screen if something was left in English.
+  // Names (stops, destinations, the brand, "In English" on the switch) are
+  // taken out first; STOP in capitals is the button's own label in Finnish.
+  const ENGLISH_WORDS =
+    /\b(?:[Tt]he|[Aa]nd|[Yy]ou|[Yy]our|[Ss]tops?|[Dd]epartures?|[Ll]oading|[Rr]efresh|[Nn]ext|[Hh]ome|[Ll]ive|[Uu]pdates?|[Aa]lert|[Rr]ide|[Nn]ear|[Ss]how|[Ff]ind|[Ss]earch|[Ss]aved|[Pp]laces|[Ww]ork|[Ss]chool|[Ll]ate|[Ee]arly|[Ss]cheduled|[Tt]imetable|[Dd]river|[Bb]ackup)\b/g;
+  const ALLOWED = ["Föli departures", "In English", "Google Maps", "CC BY 4.0", "GitHub", "data.foli.fi"];
+
+  async function englishLeftOnScreen(page) {
+    let text = await page.locator("body").innerText();
+    for (const allowed of ALLOWED) text = text.replaceAll(allowed, "");
+    return [...new Set(text.match(ENGLISH_WORDS) || [])];
+  }
+
+  test("the app is in Finnish, readable, and can be switched to English for good", async ({
+    page,
+  }, testInfo) => {
+    await routeTargetStop(page);
+    await page.goto("/?stop=164");
+    await seedHome(page, { primaryStopId: "32" });
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "fi");
+    await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Lähtee" })).toBeVisible();
+    await expect(page.getByLabel("Etsi pysäkki")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Liikennetiedotteet" })).toBeVisible();
+
+    // The README's Finnish picture, a phone's first screen.
+    if (testInfo.project.name === "chromium-mobile") {
+      fs.mkdirSync("artifacts/screenshots", { recursive: true });
+      await page.screenshot({ path: "artifacts/screenshots/foli-mobile-fi.png" });
+    }
+
+    const nextStops = page.getByRole("button", { name: "Seuraavat pysäkit" }).first();
+    await nextStops.click();
+    await expect(page.getByText("Seuraavat pysäkit · aikataulun ajat")).toBeVisible();
+
+    expect(await englishLeftOnScreen(page)).toEqual([]);
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
+
+    await page.getByRole("button", { name: "In English" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("columnheader", { name: "Due" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("button", { name: "Suomeksi" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Due" })).toBeVisible();
+  });
+
+  test("a first visit is in Finnish too", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Lähelläsi" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Etsi lähin pysäkki" })).toBeVisible();
+    expect(await englishLeftOnScreen(page)).toEqual([]);
+  });
+});
+
+// At a busy stop a commuter waits for one line. Following it is kept for
+// the stop, so tomorrow's glance shows the 7 without setting it again.
+test("a commuter can follow one line at a stop, and it is still followed after a reload", async ({
+  page,
+}, testInfo) => {
+  test.skip(!["chromium-mobile", "webkit-mobile"].includes(testInfo.project.name));
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  const board = page.locator('section[aria-labelledby="departures-title"]');
+  await expect(board.getByText("Satama")).toBeVisible();
+
+  await board.getByRole("button", { name: "Filter lines" }).click();
+  await board
+    .getByRole("group", { name: "Show only these lines" })
+    .getByRole("button", { name: "Line 7" })
+    .click();
+
+  await expect(board.getByText("Runosmäki")).toBeVisible();
+  await expect(board.getByText("Satama")).toHaveCount(0);
+  await expect(board.getByRole("button", { name: "Only line 7" })).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+
+  await page.reload();
+  await expect(board.getByRole("button", { name: "Only line 7" })).toBeVisible();
+  await expect(board.getByText("Runosmäki")).toBeVisible();
+  await expect(board.getByText("Satama")).toHaveCount(0);
 });
 
 test("mobile layout does not create horizontal page overflow", async ({
@@ -1352,10 +1832,10 @@ test("mobile layout does not create horizontal page overflow", async ({
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
-  await recovery.getByText("Other saved Home stop").click();
+  await recovery.getByText("Backup Home stop").click();
   await expect(
     recovery.getByRole("link", {
-      name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+      name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
     })
   ).toBeVisible();
 
@@ -1395,6 +1875,42 @@ test("mobile first screen shows a real departure without scrolling", async ({
   expect(metrics.top).toBeLessThan(metrics.viewportHeight);
 });
 
+// Stacked, Get me Home, search and service updates pushed the first
+// departure to 851px on a 1280x800 laptop, below the fold, with most of the
+// width empty. On a wide screen they now share the top in two columns.
+test("a laptop with Home saved shows a departure without scrolling", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 1366, height: 768 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/?stop=164");
+    await seedHome(page);
+    await expect(page.getByRole("heading", { name: "Service updates" })).toBeVisible();
+
+    const firstDeparture = page.locator("tbody tr").first();
+    const { top, bottom } = await firstDeparture.evaluate((row) => {
+      const rect = row.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom };
+    });
+    // Its line, destination and time, not just a sliver of the row.
+    expect(top + 60).toBeLessThanOrEqual(viewport.height);
+    expect(bottom).toBeGreaterThan(top);
+
+    // Get me Home and search share the first row.
+    const recovery = await page
+      .locator('section[aria-labelledby="home-recovery-title"]')
+      .boundingBox();
+    const search = await page.locator(".search-panel").boundingBox();
+    expect(Math.abs(recovery.y - search.y)).toBeLessThan(2);
+    expect(search.x).toBeGreaterThan(recovery.x + recovery.width - 1);
+  }
+});
+
 test("narrow 320 and 360px layouts keep core controls on-screen", async ({
   page,
 }, testInfo) => {
@@ -1423,6 +1939,79 @@ test("narrow 320 and 360px layouts keep core controls on-screen", async ({
   }
 });
 
+test("a browser that blocks site data still gets departures", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  // What Chrome does with "Don't allow sites to save data": the read of
+  // window.localStorage itself throws.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new globalThis.DOMException(
+          "Access is denied for this document.",
+          "SecurityError"
+        );
+      },
+    });
+  });
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/?stop=164");
+
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page.getByText("Harbour")).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Find your stop" })
+  ).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
+test("each stop gets its own tab title, and the app says who makes it", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/");
+  const defaultTitle = await page.title();
+  expect(defaultTitle).toContain("Föli");
+
+  await page.goto("/?stop=164");
+  await expect(page).toHaveTitle("Kauppatori (164) · Föli departures");
+
+  const about = page.locator("details.about");
+  await about.getByText("About & privacy").click();
+  await expect(about.getByText(/not made by or affiliated with Föli/)).toBeVisible();
+  await expect(about.getByText("No account, no ads, no analytics.")).toBeVisible();
+  await expect(
+    about.getByRole("link", { name: "GitHub" })
+  ).toHaveAttribute("href", /github\.com\/MykolaDotsenko\/foli-live-departures/);
+
+  // With no stop on screen the page goes back to its own title. (A bare
+  // address would now reopen Kauppatori, the stop last looked at.)
+  await page.goto("/?stop=not-a-stop");
+  await expect(page).toHaveTitle(defaultTitle);
+});
+
+// The home-screen icon opens the bare address, which started a daily
+// passenger on an empty search every time.
+test("a returning passenger opens on the stop they last looked at", async ({ page }) => {
+  await page.goto("/?stop=4");
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Find your stop" })).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+});
+
 test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
   await page.goto("/?stop=4");
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
@@ -1438,6 +2027,49 @@ test("deep links survive reload and invalid stop links recover canonically", asy
   await expect(
     page.locator('section[aria-labelledby="departures-title"]')
   ).toHaveCount(0);
+});
+
+// The stop catalogue names the stop long before its departures arrive. The
+// board used to count that name as an answer, so every slow load — and every
+// failed one — told the passenger there were no departures.
+test("a stop still loading says so instead of claiming there are no departures", async ({
+  page,
+}) => {
+  await page.route("https://data.foli.fi/siri/sm/164", () => new Promise(() => {}));
+
+  await page.goto("/?stop=164");
+
+  await expect(
+    page.getByRole("heading", { name: "Kauppatori", exact: true })
+  ).toBeVisible();
+  await expect(page.getByText("Loading departures…")).toBeVisible();
+  await expect(page.getByText("No upcoming departures.")).toHaveCount(0);
+});
+
+test("a stop whose departures fail to load says so and recovers on retry", async ({
+  page,
+}) => {
+  let failing = true;
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    if (failing) {
+      await route.fulfill({ status: 503, body: "{}" });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(monitorPayload("164")),
+    });
+  });
+
+  await page.goto("/?stop=164");
+
+  await expect(page.getByText("Couldn’t load departures.")).toBeVisible();
+  await expect(page.getByText("No upcoming departures.")).toHaveCount(0);
+
+  failing = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("Harbour")).toBeVisible();
+  await expect(page.getByText("Couldn’t load departures.")).toHaveCount(0);
 });
 
 test("ten departures remain scan-friendly without horizontal table scrolling", async ({
@@ -1496,6 +2128,99 @@ test("ten departures remain scan-friendly without horizontal table scrolling", a
     });
 });
 
+test("a departure Föli has cancelled at this stop says so on the board", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: [],
+        cancellations: [
+          {
+            id: 900,
+            line: "1",
+            cause: "TECHNICAL_PROBLEM",
+            departure: now + 100,
+            stops: [{ stop: "164", arrival: now + 205, isactive: true }],
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+
+  const lineOneRow = page.locator("tbody tr", { hasText: "Satama" });
+  await expect(
+    lineOneRow.getByRole("cell", { name: "Cancelled", exact: true })
+  ).toBeVisible();
+  await expect(lineOneRow.getByText(/Cancelled at this stop/)).toBeVisible();
+  await expect(
+    lineOneRow.getByRole("button", { name: "Get-off alert" })
+  ).toHaveCount(0);
+});
+
+test("an opened disruption notice shows its whole message on a phone", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  const message =
+    "Line 1 runs via Aurakatu because of roadworks. The Kauppatori stop " +
+    "on Eerikinkatu is not served; board at the temporary stop on " +
+    "Linnankatu instead, about 150 metres away.";
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: [
+          {
+            message_id: 700,
+            isactive: true,
+            priority: 1000,
+            effect: "DETOUR",
+            cause: "CONSTRUCTION",
+            affected_stops: ["164"],
+            affected_routes: [],
+            header: "Line 1 temporary stop",
+            message,
+            repeat: [[now - 60, now + 3600]],
+            images: [],
+          },
+        ],
+        cancellations: [],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await openServiceUpdates(page);
+  await page.getByText("Line 1 temporary stop", { exact: true }).click();
+
+  // The notice is the only place a passenger learns where the moved stop
+  // is. Cut to one line, it ended mid-sentence with no way to read on.
+  const body = page.getByText(message);
+  await expect(body).toBeVisible();
+  const clipped = await body.evaluate(
+    (element) => element.scrollHeight - element.clientHeight
+  );
+  expect(clipped).toBeLessThanOrEqual(1);
+});
+
 test("six simultaneous alerts stay compact and keep departures reachable", async ({
   page,
 }, testInfo) => {
@@ -1530,7 +2255,8 @@ test("six simultaneous alerts stay compact and keep departures reachable", async
   });
 
   await page.goto("/?stop=164");
-  await expect(page.getByLabel("6 service updates")).toBeVisible();
+  await expect(page.getByLabel("6 service updates")).toBeAttached();
+  await openServiceUpdates(page);
   await expect(
     page.getByRole("button", { name: "Show 2 more updates" })
   ).toBeVisible();
@@ -1547,6 +2273,31 @@ test("six simultaneous alerts stay compact and keep departures reachable", async
     () => document.documentElement.scrollWidth - window.innerWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("the Home actions on a phone share one type size", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.endsWith("-mobile"));
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  const primary = recovery.getByRole("link", {
+    name: "Get me Home by public transit",
+  });
+  const options = recovery.getByRole("button", { name: "Home options" });
+  await expect(primary).toBeVisible();
+  await expect(options).toBeVisible();
+
+  const fontSize = (locator) =>
+    locator.evaluate(
+      (element) => globalThis.getComputedStyle(element).fontSize
+    );
+  expect(await fontSize(options)).toBe(await fontSize(primary));
 });
 
 test("200 percent text scaling keeps core mobile controls usable", async ({
@@ -1583,7 +2334,7 @@ test("200 percent text scaling keeps core mobile controls usable", async ({
   }
 });
 
-test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
+test("captures the README's product screenshots", async ({ page }, testInfo) => {
   if (
     !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
       testInfo.project.name
@@ -1593,10 +2344,14 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   }
 
   await page.goto("/?stop=164");
-  await seedHome(page);
+  // Home is Puistokatu: offering "Get me Home" at the Home stop itself was
+  // the picture of nothing a passenger would do.
+  await seedHome(page, { primaryStopId: "32" });
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Get me Home by public transit" })
+    page
+      .locator('[aria-labelledby="home-recovery-title"]')
+      .getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });
@@ -1607,8 +2362,10 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
         ? "foli-mobile-android.png"
         : "foli-desktop.png";
 
+  // A phone is shown as a passenger first sees it, one screen; a laptop
+  // page is short enough to show whole.
   await page.screenshot({
     path: `artifacts/screenshots/${fileName}`,
-    fullPage: true,
+    fullPage: testInfo.project.name === "chromium-desktop",
   });
 });

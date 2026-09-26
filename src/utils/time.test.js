@@ -8,6 +8,7 @@ import {
   formatServiceStatus,
   getDepartureTime,
 } from "./time";
+import { resetLanguageForTests } from "../i18n";
 
 test("advances the provider clock by elapsed client time after receipt", () => {
   expect(advanceServerTime(1_000, 10_000, 190_000)).toBe(1_180);
@@ -39,6 +40,16 @@ test("shows Turku-region clock times whatever zone the device is set to", () => 
   expect(formatClock(summerNoonUtc, "en-GB")).toBe("15:00");
 });
 
+test("keeps every clock time on the 24-hour clock printed at the stop", () => {
+  // Stop timetables and the signs on the buses use the 24-hour clock. A
+  // phone set to US English used to get "02:00 PM" on the board beside
+  // "Today 19:15" and "around 17:46" elsewhere on the same screen.
+  const winterNoonUtc = Date.UTC(2026, 0, 15, 12, 0, 0) / 1000;
+
+  expect(formatClock(winterNoonUtc)).toBe("14:00");
+  expect(formatClock(winterNoonUtc, "en-US")).toBe("14:00");
+});
+
 test("labels distant scheduled departures as today or tomorrow", () => {
   const nowMs = Date.parse("2026-09-21T12:45:00Z"); // 15:45 Helsinki
 
@@ -49,6 +60,19 @@ test("labels distant scheduled departures as today or tomorrow", () => {
   expect(
     formatDue(Date.parse("2026-09-22T03:30:00Z") / 1000, nowMs)
   ).toBe("Tomorrow 06:30");
+});
+
+test("labels a later day by its weekday, capitalised like Today in Finnish too", () => {
+  const nowMs = Date.parse("2026-09-21T12:45:00Z"); // Monday 15:45 Helsinki
+  const wednesday = Date.parse("2026-09-23T04:30:00Z") / 1000; // 07:30
+
+  expect(formatDue(wednesday, nowMs)).toBe("Wed 07:30");
+  resetLanguageForTests("fi");
+  try {
+    expect(formatDue(wednesday, nowMs)).toBe("Ke 07:30");
+  } finally {
+    resetLanguageForTests("en");
+  }
 });
 
 test("still refuses to invent a clock time for missing departures", () => {
@@ -70,6 +94,30 @@ test("uses the planned departure when a realtime estimate is already stale", () 
       reference
     )
   ).toBe(1_200);
+});
+
+// Two minutes early, expected 12:08 and planned 12:10: at 12:08:45 the row
+// read "2 min · 12:10 · Live · 2 min early" for a bus that had gone.
+test("takes a tracked bus that ran a little early and whose estimate has passed as gone", () => {
+  const reference = 1_000;
+  const earlyBus = {
+    monitored: true,
+    expecteddeparturetime: 940,
+    aimeddeparturetime: 1_060,
+  };
+
+  expect(getDepartureTime(earlyBus, reference)).toBe(940);
+  // Still standing at the stop, it can still be caught.
+  expect(
+    getDepartureTime({ ...earlyBus, vehicleatstop: true }, reference)
+  ).toBe(1_060);
+  // Seven minutes ahead of the plan is a stale estimate, not an early bus.
+  expect(
+    getDepartureTime(
+      { ...earlyBus, expecteddeparturetime: 880, aimeddeparturetime: 1_300 },
+      reference
+    )
+  ).toBe(1_300);
 });
 
 test("keeps a valid future realtime estimate ahead of the plan", () => {

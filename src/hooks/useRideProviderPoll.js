@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
-import { matchRideArrival } from "../utils/rideProgress";
+import { RIDE_STAGE, matchRideArrival } from "../utils/rideProgress";
 import { ridePollDelayMs } from "../utils/retry";
 
 const REALTIME_ONLY = Object.freeze({ scheduleFallback: false });
@@ -84,13 +84,22 @@ export default function useRideProviderPoll({
           consecutiveFailures = 0;
           next.lastProviderSuccessAt = Date.now();
 
-          const target = rideSighting(targetResult.value, identity);
+          // The planned time picks the right visit when a loop lists this
+          // stop twice for one journey.
+          const target = rideSighting(targetResult.value, {
+            ...identity,
+            plannedEpochSec: current.plan?.targetPredictedEpochSec ?? null,
+          });
 
           if (target.kind === "live") {
             const targetMatch = target.match;
             next.targetListed = true;
             next.targetMatchBy = targetMatch.matchedBy;
             next.lastLiveMatchAt = Date.now();
+            // Everything read from this row ages from now on: its estimate
+            // counts down and its position grows old, whether or not the
+            // next poll gets through.
+            next.targetSeenAt = Date.now();
             next.targetMissingCount = 0;
             next.targetWasAtStop =
               next.targetWasAtStop ||
@@ -108,14 +117,27 @@ export default function useRideProviderPoll({
             // live data. A stop with nothing more coming can answer
             // NO_SIRI_DATA once the bus has left it, and holding the last
             // sighting then kept the get-off alarm repeating.
+            //
+            // While "get off now" is sounding, every answer without the bus
+            // counts, sighting or not: a page reloaded at NOW has never seen
+            // the bus, and a 20-second poll can miss a 15-second dwell
+            // entirely. Either way the alarm must still learn it has gone.
+            //
+            // An untracked row is not such an answer. It is the journey still
+            // listed, on its timetable time: the feed has lost the bus, not
+            // seen it leave. Counted, it ended the alarm while the bus was
+            // still due, just when location was the only evidence left.
             next.targetListed = false;
             next.targetMatchBy = "";
             next.targetMissingCount =
-              before.targetListed ||
-              before.targetMissingCount > 0 ||
-              before.targetWasAtStop
-                ? before.targetMissingCount + 1
-                : 0;
+              target.kind === "untracked" && current.stage === RIDE_STAGE.NOW
+                ? before.targetMissingCount
+                : before.targetListed ||
+                    before.targetMissingCount > 0 ||
+                    before.targetWasAtStop ||
+                    current.stage === RIDE_STAGE.NOW
+                  ? before.targetMissingCount + 1
+                  : 0;
             next.liveEtaSec = null;
             next.providerDistanceM = null;
             next.providerPositionAgeSec = null;
@@ -127,7 +149,10 @@ export default function useRideProviderPoll({
 
         if (previousResult.status === "fulfilled" && previousResult.value) {
           next.lastProviderSuccessAt = Date.now();
-          const previous = rideSighting(previousResult.value, identity);
+          const previous = rideSighting(previousResult.value, {
+            ...identity,
+            plannedEpochSec: current.previousStop?.predictedEpochSec ?? null,
+          });
 
           if (previous.kind === "live") {
             next.lastLiveMatchAt = Date.now();

@@ -5,45 +5,111 @@
 ![PWA](https://img.shields.io/badge/PWA-offline--ready-5A0FC8)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-**Privacy-first realtime public transport companion for Turku.**
+**Turku bus times, and an alert that tells you when to press STOP.**
 
-Live departures, hands-free **Ride Mode** get-off alerts, disruptions, nearest stops, Safe Places and resilient **Get me Home** recovery — built as a local-first accessible PWA on top of Föli open data.
+Live departures from any Föli stop, the service updates that affect them, and a phone alert before your stop. In Finnish or English, free, with no account.
 
-**Live production:** https://mykoladotsenko.github.io/foli-live-departures/
+**Open it:** https://mykoladotsenko.github.io/foli-live-departures/
 
 <p>
-  <a href="https://mykoladotsenko.github.io/foli-live-departures/"><strong>Live demo</strong></a>
+  <a href="#for-passengers"><strong>For passengers</strong></a>
   ·
-  <a href="#product-preview"><strong>Product preview</strong></a>
+  <a href="#suomeksi"><strong>Suomeksi</strong></a>
+  ·
+  <a href="#for-developers">For developers</a>
   ·
   <a href="docs/PRODUCT_AUDIT.md">Product audit</a>
   ·
   <a href="docs/RIDE_MODE_SPEC.md">Ride Mode design</a>
-  ·
-  <a href="docs/FOLI_API_REFERENCE.md">Föli API contract</a>
 </p>
+
+> An unofficial app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. The times are Föli open data.
 
 <a id="product-preview"></a>
 
 <p align="center">
   <img
-    src="docs/assets/foli-desktop.png"
-    alt="Föli Live Departures showing realtime departures, service updates and daily travel actions"
-    width="920"
+    src="docs/assets/foli-mobile.png"
+    alt="A phone showing Kauppatori stop: line 1 to Satama in 4 minutes, live and 1 minute late, with a detour notice; line 7 to Runosmäki in 9 minutes by timetable; Get me Home at the top"
+    width="260"
+  >
+  &nbsp;
+  <img
+    src="docs/assets/foli-ride-now.png"
+    alt="Ride Mode at the passenger's stop: Get off now at Puistokatu, move to the doors and step off here"
+    width="260"
+  >
+  &nbsp;
+  <img
+    src="docs/assets/foli-mobile-fi.png"
+    alt="The same stop on a Finnish phone: Kauppatori, Satama 4 min, Runosmäki 9 min, Vie minut kotiin"
+    width="260"
   >
 </p>
+
+## For passengers
+
+- **What leaves next.** Search a stop by name or number, or find the nearest one. **Live** times are Föli's estimates from the buses themselves; the rest are the timetable, and the board says which is which.
+- **Get off at the right stop.** Tap **Get-off alert** on a departure and choose your stop. The phone tells you when to get ready and when to press STOP, with sound, vibration and speech where it can. Keep the page open: a browser can pause a page it thinks you have left.
+- **Before you go.** Detours, cancellations and other service updates for your stop and your lines, above the times they change.
+- **Home, School and Work.** Save each as the public stops you use, never an address. **Get me Home** opens the route in Google Maps, **Show to driver** puts your stop on screen in large type with a request in Finnish, and a backup card can be printed for a flat battery.
+- **Just your lines.** Follow the lines you take at a stop, and the board keeps showing only them.
+- **When the network drops,** your places and the driver card still open, and the board you just looked at keeps its last times, marked as not live.
 
 <p align="center">
   <img
-    src="docs/assets/foli-mobile.png"
-    alt="Föli Live Departures mobile experience with stop search and upcoming departures"
-    width="320"
+    src="docs/assets/foli-desktop.png"
+    alt="The app on a laptop: Get me Home, stop search and two service updates above the Kauppatori departures, then Near you and My Places"
+    width="860"
   >
 </p>
 
-> **Independent portfolio project.** Not an official Föli application.
+### Add it to your home screen
 
-## What it does
+- **Android (Chrome):** open the link, then ⋮ → **Add to Home screen** (or **Install app**).
+- **iPhone (Safari):** open the link, then Share → **Add to Home Screen**. On iPhone, ride notifications need this.
+
+### Privacy
+
+- No account, no ads, no analytics.
+- Favourites, places and the lines you follow stay on your phone. Clearing the site's data removes them.
+- Your location is used only when you ask. It stays on the phone and is never saved.
+- The page is served by GitHub Pages and the times come from data.foli.fi. Both see your IP address, and data.foli.fi sees which stop you look up.
+
+The full list is under **About & privacy** at the foot of the app. Feedback is welcome in [GitHub issues](https://github.com/MykolaDotsenko/foli-live-departures/issues).
+
+## Suomeksi
+
+**Turun bussien lähtöajat ja muistutus, kun pitää painaa STOP.**
+
+Pysäkkien reaaliaikaiset lähdöt, niihin vaikuttavat liikennetiedotteet ja muistutus ennen omaa pysäkkiä. Suomeksi tai englanniksi, ilmainen, ei käyttäjätiliä.
+
+**Avaa:** https://mykoladotsenko.github.io/foli-live-departures/
+
+- **Mitä lähtee seuraavaksi.** Hae pysäkki nimellä tai numerolla tai etsi lähin pysäkki. **Reaaliaika**-merkityt ajat ovat Fölin arvioita busseista, muut aikataulun mukaisia, ja taulu kertoo, kumpi on kumpi.
+- **Jää pois oikealla pysäkillä.** Napauta lähdön kohdalla **Pysäkkihälytys** ja valitse pysäkkisi. Puhelin kertoo äänellä, värinällä ja puheella, milloin valmistautua ja milloin painaa STOP. Pidä sivu auki: selain voi keskeyttää sivun, jolta se luulee sinun poistuneen.
+- **Ennen kuin lähdet.** Pysäkkiäsi ja linjojasi koskevat poikkeusreitit, peruutukset ja muut liikennetiedotteet näkyvät lähtöaikojen yläpuolella.
+- **Koti, koulu ja työ.** Tallenna niihin käyttämäsi julkiset pysäkit, ei koskaan osoitetta. **Vie minut kotiin** avaa reitin Google Mapsissa, **Näytä kuljettajalle** näyttää pysäkkisi isolla ja pyynnön suomeksi, ja varakortin voi tulostaa tyhjän akun varalle.
+- **Vain omat linjasi.** Seuraa pysäkillä linjoja, joilla kuljet, niin taulu näyttää vain ne.
+- **Kun yhteys katkeaa,** omat paikat ja kuljettajakortti aukeavat yhä, ja juuri katsomasi taulu säilyttää viimeiset aikansa merkittynä vanhoiksi.
+
+### Lisää aloitusnäytölle
+
+- **Android (Chrome):** avaa linkki ja valitse ⋮ → **Lisää aloitusnäytölle** (tai **Asenna sovellus**).
+- **iPhone (Safari):** avaa linkki ja valitse Jaa → **Lisää Koti-valikkoon**. iPhonessa matkan ilmoitukset vaativat tämän.
+
+### Tietosuoja
+
+- Ei käyttäjätiliä, ei mainoksia, ei analytiikkaa.
+- Suosikit, paikat ja seuraamasi linjat pysyvät puhelimessasi. Ne poistuvat, kun tyhjennät sivuston tiedot.
+- Sijaintiasi käytetään vain pyynnöstäsi. Se pysyy puhelimessa eikä sitä tallenneta.
+- Sivut jakaa GitHub Pages ja ajat tulevat osoitteesta data.foli.fi. Molemmat näkevät IP-osoitteesi, ja data.foli.fi näkee, minkä pysäkin tiedot haet.
+
+Koko luettelo on sovelluksen alareunassa kohdassa **Tietoa ja tietosuoja**.
+
+> Epävirallinen sovellus. Sen tekijä ei ole Föli (Turun seudun joukkoliikenne) eikä Turun kaupunki, eikä se liity niihin.
+
+## For developers
 
 Föli Live Departures answers the everyday transit question quickly — **what leaves next, from where, and is there anything important I should know before I go?**
 
@@ -53,13 +119,14 @@ It also handles less ideal situations: poor connectivity, an unfamiliar area, a 
 
 - **Realtime departure board** with conservative Live/Scheduled semantics and stale-data handling
 - **Ride Mode get-off alerts** that warn when to get ready, press STOP and exit without continuously watching a map
-- **Stop search, favorites and recents** for fast repeat journeys
+- **Stop search, favorites and recents** for fast repeat journeys, and a **line filter** kept per stop for the lines you actually take
 - **Nearest-stop discovery** with one-time geolocation, uncertainty checks and nearby alternatives
 - **Service disruption intelligence** across stop-level, route-level and emergency alerts
-- **Safe Places** for Home, School and Work using public stop identities instead of private addresses
+- **My Places** for Home, School and Work using public stop identities instead of private addresses
 - **Get me Home** recovery with transit handoff, backup stops, driver card and printable no-battery fallback
 - **Offline-capable PWA shell** that keeps saved recovery information available when the network disappears
 - **Accessible mobile-first UX** validated with Playwright and axe across Chromium, Firefox and WebKit
+- **Finnish and English interface** that follows the phone's language, with a one-tap switch; stop and destination names stay exactly as on the bus sign ([localization notes](docs/LOCALIZATION.md))
 
 ## Why this project is more than a departure-board demo
 
@@ -109,7 +176,7 @@ Temporary provider failures keep useful same-stop data visible while clearly deg
 
 ### Ride without watching the map
 
-A passenger can choose **Alert me when to get off** on a concrete departure, select a downstream stop in real trip order and then keep Ride Mode open instead of continuously checking a map.
+A passenger can choose **Get-off alert** on a concrete departure, select a downstream stop in real trip order and then keep Ride Mode open instead of continuously checking a map.
 
 Ride Mode combines three independent signals:
 
@@ -125,13 +192,13 @@ Alerts escalate from a gentle preparation cue to **Press STOP now** on bus-like 
 
 Client-only Ride Mode is explicit about its boundary: browsers may suspend background pages, so it does not claim guaranteed lock-screen tracking. The reliability model and the backend + Web Push Phase 2 are documented in **[Ride Mode design](docs/RIDE_MODE_SPEC.md)**.
 
-### Privacy-first Safe Places
+### Privacy-first My Places
 
-Home, School and Work are represented as **Safe Arrival Zones** made from up to three public Föli stops.
+Home, School and Work are each saved as up to three public Föli stops: a main stop and backups the passenger or a parent chose.
 
 The app does not need to persist a private street address or exact setup coordinates. One-time location can help discover nearby public stops; the exact position is discarded after setup.
 
-Shared Safe Places contain public stop identity only and require explicit confirmation before replacing local data.
+A shared place contains public stop identity only and requires explicit confirmation before it replaces local data.
 
 ### Get me Home recovery
 
@@ -139,13 +206,13 @@ After Home is configured, a dedicated recovery action is promoted near the top o
 
 It provides independent fallbacks:
 
-- **Go Home** — external public-transit handoff to the primary saved stop
+- **Get me Home** — external public-transit handoff to the main Home stop
 - **Open Home stop** — reopen the local departure board
-- **Show driver** — large destination card with a simple Finnish help sentence
+- **Show to driver** — large destination card with a simple Finnish help sentence
 - **Backup Home stops** — user/parent-approved alternatives
-- **Prepare for no battery** — printable public-stop-only recovery card
+- **Print a backup card** — printable public-stop-only recovery card
 
-The interface deliberately describes this as travel help, not an emergency service.
+The interface deliberately describes this as travel help and points to 112 for emergencies.
 
 ### Location without overconfidence
 
@@ -167,6 +234,8 @@ The application includes:
 - large mobile touch targets
 - visible focus states
 - reduced-motion and forced-colors support
+- a dark theme that follows the phone's own setting, held to the same axe
+  contrast gate as the light one; printing always uses the light theme
 - runtime contrast correction for provider-supplied route colors
 - screen-reader-aware loading, invalid, busy and pressed states
 - WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical axe gates
@@ -188,7 +257,7 @@ React hooks
 ├─ useStopAlerts        disruption matching
 ├─ useServiceBoundary   local service-area checks
 ├─ useSavedStops        favorites / recents
-├─ useSavedPlaces       privacy-first Safe Places
+├─ useSavedPlaces       privacy-first My Places
 ├─ useRideMode          get-off tracking + persistence + GPS redundancy
 └─ useOnlineStatus      degraded/offline capability state
         │
@@ -251,7 +320,7 @@ Every pull request to `master` runs the same production-oriented checks:
 
 Browser scenarios mock documented Föli contracts so provider incidents cannot make CI flaky. A dedicated PWA project separately exercises the real generated service worker and offline application shell.
 
-The desktop and mobile screenshots above are generated from deterministic Playwright product flows.
+The screenshots above are generated from deterministic Playwright product flows (`npm run test:e2e` writes them to `artifacts/screenshots`).
 
 ## Data and provider semantics
 
@@ -301,6 +370,21 @@ VITE_FOLI_STOPS_URL=https://example.test/gtfs/stops npm run dev
 VITE_FOLI_ROUTES_URL=https://example.test/gtfs/routes npm run dev
 ~~~
 
+Link previews (`og:url`, `og:image`, canonical) use absolute URLs from `VITE_SITE_URL`, which defaults to the production address in `vite.config.js`. A deployment elsewhere sets it:
+
+~~~bash
+VITE_SITE_URL=https://example.test/ VITE_BASE_PATH=/ npm run build
+~~~
+
+The PNG home-screen icons, the notification badge and the link-preview card are rendered, not drawn by hand. After changing `public/foli-icon.svg` or the card's copy:
+
+~~~bash
+node scripts/build-icons.mjs
+FONT_DIR=/path/to/inter/files node scripts/build-social-card.mjs
+~~~
+
+Both take `CHROMIUM_PATH` to use a specific browser. `FONT_DIR` points at Inter's `inter-latin-*-normal.woff2` files, such as the `files` folder of the `@fontsource/inter` npm package; without it the card uses the system sans-serif.
+
 ## Repository map
 
 ~~~text
@@ -308,11 +392,12 @@ src/
 ├─ api/          Föli provider normalization and HTTP boundary
 ├─ components/   product UI
 ├─ hooks/        realtime, persistence and browser lifecycle logic
+├─ i18n/         interface language, Finnish dictionary by area
 └─ utils/        pure geo, time, route, alert and sharing helpers
 
 e2e/             cross-browser product and accessibility QA
 scripts/         production PWA / bundle / provider-contract verification
-docs/            product audit, provider reference and recruiter screenshots
+docs/            product audit, provider reference and README screenshots
 .github/         CI and live contract smoke checks
 ~~~
 

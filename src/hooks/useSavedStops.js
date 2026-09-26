@@ -1,7 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { realStopName } from "../utils/stopNames";
 
 const STORAGE_KEY = "foli-saved-stops-v1";
 const MAX_RECENTS = 5;
+// How long the stop last looked at stays the one the app opens on.
+const REOPEN_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 function normalizeStop(stop) {
   if (!stop || typeof stop !== "object") return null;
@@ -11,10 +14,15 @@ function normalizeStop(stop) {
 
   if (!/^\d+$/.test(id)) return null;
 
-  return {
+  const normalized = {
     id,
-    name: name || `Stop ${id}`,
+    // Only Föli's own name. A stand-in, including one stored by an earlier
+    // version, is left out and worked out on screen (utils/stopNames.js).
+    name: realStopName(name),
   };
+  // Kept for a recent stop, so the app knows how long ago it was looked at.
+  if (Number.isFinite(stop.viewedAt)) normalized.viewedAt = stop.viewedAt;
+  return normalized;
 }
 
 function readStoredState() {
@@ -34,6 +42,16 @@ function readStoredState() {
   }
 }
 
+// The stop a bare address opens on: the one looked at in the last 12 hours,
+// or else the first favourite. A daily passenger then sees their buses
+// without searching; a first visit still starts with the search.
+export function stopToReopen(nowMs = Date.now()) {
+  const { favorites, recents } = readStoredState();
+  const last = recents[0];
+  if (last && nowMs - last.viewedAt < REOPEN_WINDOW_MS) return last.id;
+  return favorites[0]?.id || "";
+}
+
 function persist(state) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -44,6 +62,18 @@ function persist(state) {
 
 export default function useSavedStops() {
   const [state, setState] = useState(readStoredState);
+
+  // Another tab's changes are taken in as they happen. Without this, this
+  // tab wrote its own older copy back on the next stop it opened, and a
+  // favourite starred in the other tab was gone.
+  useEffect(() => {
+    const takeOtherTabChanges = (event) => {
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      setState(readStoredState());
+    };
+    window.addEventListener("storage", takeOtherTabChanges);
+    return () => window.removeEventListener("storage", takeOtherTabChanges);
+  }, []);
 
   const commit = useCallback((updater) => {
     setState((current) => {
@@ -57,6 +87,7 @@ export default function useSavedStops() {
     (stop) => {
       const normalized = normalizeStop(stop);
       if (!normalized) return;
+      normalized.viewedAt = Date.now();
 
       commit((current) => ({
         ...current,

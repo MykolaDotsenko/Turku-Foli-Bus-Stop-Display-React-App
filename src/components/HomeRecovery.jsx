@@ -1,8 +1,23 @@
 import { useMemo, useState } from "react";
+import { placeLabel } from "../hooks/useSavedPlaces";
+import { t, useLanguage } from "../i18n";
 import { hasCoordinates } from "../utils/geo";
 import { buildTransitDirectionsUrl } from "../utils/maps";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./HomeRecovery.module.css";
+import { stopLabel } from "../utils/stopNames";
+import PlaceIcon from "./PlaceIcon";
+import StopName from "./StopName";
+
+// The request on the printed card is the driver's, so it is the same
+// whichever language the app is in, as on the driver card.
+const PRINTED_REQUEST_FINNISH =
+  "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
+const PRINTED_REQUEST_ENGLISH = "Could you help me get off at the right stop?";
+// Printed for the driver as the driver card shows it, whatever the
+// interface language: "Pysäkki / Stop 164".
+const PRINTED_STOP_FINNISH = "Pysäkki";
+const PRINTED_STOP_ENGLISH = "Stop";
 
 function resolveStops(place, stops) {
   const byId = new Map(stops.map((stop) => [stop.id, stop]));
@@ -13,7 +28,14 @@ function resolveStops(place, stops) {
   }));
 }
 
-function HomeRecovery({ home, stops, online = true, onOpenStop }) {
+function HomeRecovery({
+  home,
+  stops,
+  online = true,
+  compact = false,
+  onOpenStop,
+}) {
+  useLanguage();
   const [showDriver, setShowDriver] = useState(false);
   const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false);
   const canPrint = typeof globalThis.print === "function";
@@ -35,50 +57,71 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
     online && hasCoordinates(primaryStop)
       ? buildTransitDirectionsUrl(primaryStop)
       : "";
+  const label = placeLabel(home);
 
   return (
     <section
       className={styles.wrapper}
       data-mobile-options-open={mobileOptionsOpen ? "true" : "false"}
+      data-compact={compact ? "true" : undefined}
       aria-labelledby="home-recovery-title"
     >
       <div className={styles.copy}>
-        <p className={styles.kicker}>Travel recovery</p>
-        <h2 id="home-recovery-title">Need help getting home?</h2>
+        <p className={styles.kicker}>{t("Travel help")}</p>
+        <h2 id="home-recovery-title">{t("Need help getting home?")}</h2>
         <p className={styles.description}>
-          Travel help, not an emergency service.
+          {t("In an emergency, call 112.")}
         </p>
       </div>
 
       <div className={styles.destination}>
         <span className={styles.homeIcon} aria-hidden="true">
-          ⌂
+          <PlaceIcon id="home" />
         </span>
         <span>
-          <strong>Home</strong>
+          <strong>{label}</strong>
           <small>
-            {primaryStop.name} · stop {primaryStop.id}
+            <StopName stop={primaryStop} />{" "}
+            <span className={styles.stopNumber}>
+              · {t("stop {id}", { id: primaryStop.id })}
+            </span>
           </small>
         </span>
       </div>
 
       {home.needsReview && (
         <p className={styles.status} role="status">
-          Home needs review because a saved stop changed or disappeared from
-          the current Föli catalogue.
+          {t(
+            "Home needs review because a saved stop changed or disappeared from the current Föli catalogue."
+          )}
         </p>
       )}
 
+      {/* Offline, the one Home action that still works leads. A disabled
+          "Get me Home" in the main slot was the first thing a stranded
+          passenger with no data saw, under a banner saying driver help
+          still worked. */}
       <div className={styles.actions}>
-        {transitUrl ? (
+        {!online ? (
+          <button
+            type="button"
+            className={styles.primaryAction}
+            onClick={() => setShowDriver(true)}
+          >
+            {t("Show to driver")}
+          </button>
+        ) : transitUrl ? (
           <a
             className={styles.primaryAction}
             href={transitUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label="Get me Home by public transit"
+            aria-label={t("Get me Home by public transit")}
           >
-            Get me Home
+            <span className={styles.compactIcon} aria-hidden="true">
+              <PlaceIcon id="home" />
+            </span>
+            {t("Get me Home")}
           </a>
         ) : (
           <button
@@ -87,7 +130,10 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             disabled
             aria-describedby="home-recovery-routing-status"
           >
-            Get me Home
+            <span className={styles.compactIcon} aria-hidden="true">
+              <PlaceIcon id="home" />
+            </span>
+            {t("Get me Home")}
           </button>
         )}
 
@@ -97,7 +143,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
           aria-expanded={mobileOptionsOpen}
           onClick={() => setMobileOptionsOpen((current) => !current)}
         >
-          {mobileOptionsOpen ? "Fewer options" : "Home options"}
+          {mobileOptionsOpen ? t("Fewer options") : t("Home options")}
         </button>
 
         <button
@@ -105,41 +151,58 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
           className={styles.secondaryAction}
           onClick={() => onOpenStop(primaryStop.id)}
         >
-          Open Home stop
+          {t("Open Home stop")}
         </button>
 
-        <button
-          type="button"
-          className={styles.secondaryAction}
-          onClick={() => setShowDriver(true)}
-        >
-          Show driver
-        </button>
+        {online ? (
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            onClick={() => setShowDriver(true)}
+          >
+            {t("Show to driver")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            disabled
+            aria-describedby="home-recovery-routing-status"
+          >
+            {t("Get me Home")}
+          </button>
+        )}
       </div>
 
       {transitUrl && (
         <p className={styles.routeNote}>
-          Opens Google Maps to this saved Home stop. Check the suggested
-          itinerary before travelling.
+          {t(
+            "Get me Home opens a route in Google Maps. Check it before you travel."
+          )}
         </p>
       )}
 
       {!transitUrl && (
         <p id="home-recovery-routing-status" className={styles.status}>
           {online
-            ? "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work."
-            : "You’re offline. Your saved Home stop and driver card still work; connect to the internet for transit directions."}
+            ? t(
+                "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work."
+              )
+            : t("Directions need an internet connection.")}
         </p>
       )}
 
       {backupStops.length > 0 && (
         <details className={styles.backups}>
           <summary>
-            Other saved Home stop{backupStops.length > 1 ? "s" : ""}
+            {backupStops.length > 1
+              ? t("Backup Home stops")
+              : t("Backup Home stop")}
           </summary>
           <p className={styles.backupHint}>
-            If the usual stop is unavailable, choose another stop you approved
-            for Home.
+            {t(
+              "If the usual stop is unavailable, choose another stop you approved for Home."
+            )}
           </p>
           <div className={styles.backupList}>
             {backupStops.map((stop) => {
@@ -151,8 +214,8 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
               return (
                 <div key={stop.id} className={styles.backupRow}>
                   <span>
-                    <strong>{stop.name}</strong>
-                    <small>Stop {stop.id}</small>
+                    <strong><StopName stop={stop} /></strong>
+                    <small>{t("Stop {id}", { id: stop.id })}</small>
                   </span>
                   <div className={styles.backupActions}>
                     {backupTransitUrl && (
@@ -160,16 +223,19 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
                         href={backupTransitUrl}
                         target="_blank"
                         rel="noreferrer"
-                        aria-label={`Get to backup Home stop ${stop.name}, stop ${stop.id}, by public transit`}
+                        aria-label={t(
+                          "Route there: backup Home stop {name}, stop {id}, by public transit",
+                          { name: stopLabel(stop), id: stop.id }
+                        )}
                       >
-                        Route there
+                        {t("Route there")}
                       </a>
                     )}
                     <button
                       type="button"
                       onClick={() => onOpenStop(stop.id)}
                     >
-                      Open stop
+                      {t("Open stop")}
                     </button>
                   </div>
                 </div>
@@ -180,12 +246,11 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
       )}
 
       <details className={styles.batteryBackup}>
-        <summary>Prepare for no battery</summary>
+        <summary>{t("Print a backup card")}</summary>
         <p>
-          A web app cannot help after the phone powers off. Print or save a
-          small Home backup card in advance so the destination still exists
-          outside the phone. The card reveals the saved public Home stop area,
-          so keep it only with the intended user.
+          {t(
+            "A web app cannot help after the phone powers off. Print or save a small Home backup card in advance so the destination still exists outside the phone. The card reveals the saved public Home stop area, so keep it only with the intended user."
+          )}
         </p>
         {canPrint && (
           <button
@@ -193,34 +258,47 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             className={styles.printButton}
             onClick={() => globalThis.print()}
           >
-            Print / save Home backup card
+            {t("Print / save Home backup card")}
           </button>
         )}
       </details>
 
+      {/* Handed to a driver, so it must not read as a Föli document, and
+          it keeps to words a child holding it can follow. The request is
+          for the driver and never changes; the rest is in the passenger's
+          language. */}
       <section className={styles.printCard} aria-hidden="true">
-        <p className={styles.printKicker}>Föli Home backup card</p>
-        <h2>Home</h2>
+        <p className={styles.printKicker}>{t("Home backup card")}</p>
+        {/* The stop is the largest thing on it, as on the driver card: the
+            place's own name tells a driver nothing. */}
+        <h2 className={styles.printStop}>
+          <StopName stop={primaryStop} />
+        </h2>
         <p className={styles.printPrimary}>
-          {primaryStop.name}
-          <span>Stop {primaryStop.id} · primary</span>
+          <span lang="fi">{PRINTED_STOP_FINNISH}</span> /{" "}
+          <span lang="en">
+            {PRINTED_STOP_ENGLISH} {primaryStop.id}
+          </span>
         </p>
         {backupStops.length > 0 && (
           <div className={styles.printBackups}>
-            <strong>Other approved safe stops</strong>
+            <strong>{t("Backup stops")}</strong>
             {backupStops.map((stop) => (
               <p key={stop.id}>
-                {stop.name} · Stop {stop.id}
+                <StopName stop={stop} /> · <span lang="fi">{PRINTED_STOP_FINNISH}</span>{" "}
+                / <span lang="en">{PRINTED_STOP_ENGLISH}</span> {stop.id}
               </p>
             ))}
           </div>
         )}
-        <p className={styles.printHelp}>
-          Voitteko auttaa minua jäämään pois oikealla pysäkillä?
+        <p className={styles.printHelp} lang="fi">
+          {PRINTED_REQUEST_FINNISH}
+          <span lang="en">{PRINTED_REQUEST_ENGLISH}</span>
         </p>
         <p className={styles.printNote}>
-          Show this card to a driver or trusted adult. This card contains public
-          stop information, not a private home address.
+          {t(
+            "Show this card to a driver or trusted adult. This card contains public stop information, not a private home address."
+          )}
         </p>
       </section>
 

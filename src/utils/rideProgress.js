@@ -1,3 +1,5 @@
+import { realStopName } from "./stopNames";
+
 export const RIDE_STAGE = Object.freeze({
   BOARDED: "boarded",
   SOON: "soon",
@@ -82,7 +84,11 @@ function stopDetails(stopId, stopsById) {
 
   return {
     id: String(stopId),
-    name: String(stop?.name || `Stop ${stopId}`),
+    // A stop the catalogue does not name is shown, spoken and notified by
+    // number, in the language the ride was started in: the plan keeps it.
+    // Saved with the ride, so only Föli's own name. The screen names a
+    // nameless stop by its number, in the language of the moment.
+    name: realStopName(stop?.name),
     ...(lat !== null && lon !== null ? { lat, lon } : {}),
   };
 }
@@ -238,24 +244,74 @@ function normalizedString(value) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function rowEpochSec(row) {
+  return (
+    finiteNumber(row?.expectedarrivaltime) ??
+    finiteNumber(row?.expecteddeparturetime) ??
+    finiteNumber(row?.aimedarrivaltime) ??
+    finiteNumber(row?.aimeddeparturetime)
+  );
+}
+
+// A loop journey can serve a stop twice, and both visits carry the same
+// journey and trip reference. Taking the first row timed the alarm against
+// a visit the passenger does not want, a whole lap early, so with more than
+// one row the ride's planned time at this stop decides. Rows at the same
+// time are one visit listed twice. Visits the planned time cannot clearly
+// tell apart are not guessed at: no match leaves the timetable in charge,
+// which can warn but never says "get off now".
+function chooseVisit(candidates, plannedEpochSec) {
+  if (candidates.length <= 1) return candidates[0] || null;
+
+  const times = candidates.map(rowEpochSec);
+  const known = times.filter((time) => time !== null);
+  if (
+    known.length === times.length &&
+    Math.max(...known) - Math.min(...known) <= 60
+  ) {
+    return candidates[0];
+  }
+
+  const planned = finiteNumber(plannedEpochSec);
+  if (planned === null) return null;
+
+  const ranked = candidates
+    .map((arrival, index) => ({
+      arrival,
+      delta:
+        times[index] === null
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(times[index] - planned),
+    }))
+    .sort((a, b) => a.delta - b.delta);
+
+  return ranked[1].delta - ranked[0].delta >= 300 ? ranked[0].arrival : null;
+}
+
 export function matchRideArrival(arrivals, identity) {
   const rows = Array.isArray(arrivals) ? arrivals : [];
   if (rows.length === 0 || !identity) return null;
 
   const journey = normalizedString(identity.datedVehicleJourneyRef);
   if (journey) {
-    const arrival = rows.find(
+    const candidates = rows.filter(
       (row) => normalizedString(row?.datedvehiclejourneyref) === journey
     );
-    if (arrival) return { arrival, matchedBy: "dated-journey" };
+    if (candidates.length > 0) {
+      const arrival = chooseVisit(candidates, identity.plannedEpochSec);
+      return arrival ? { arrival, matchedBy: "dated-journey" } : null;
+    }
   }
 
   const trip = normalizedString(identity.tripRef);
   if (trip) {
-    const arrival = rows.find(
+    const candidates = rows.filter(
       (row) => normalizedString(row?.tripref) === trip
     );
-    if (arrival) return { arrival, matchedBy: "trip" };
+    if (candidates.length > 0) {
+      const arrival = chooseVisit(candidates, identity.plannedEpochSec);
+      return arrival ? { arrival, matchedBy: "trip" } : null;
+    }
   }
 
   const line = normalizedString(identity.lineRef);
@@ -340,14 +396,34 @@ export function arrivalEtaSeconds(arrival, referenceTimeSec) {
   return epoch === null ? null : Math.round(epoch - reference);
 }
 
+// A ride nobody ended: the passenger got off without tapping "I'm getting
+// off", which is likely, since the alarm silences itself. Reopened hours
+// later, it announced "Press STOP" again, and "Get off now" to someone
+// waiting at that stop the next morning.
+const RIDE_OVER_AFTER_SEC = 45 * 60;
+
+export function rideLongOver(plan, nowSec) {
+  const targetEpoch = finiteNumber(plan?.targetPredictedEpochSec);
+  const now = finiteNumber(nowSec);
+  return (
+    targetEpoch !== null && now !== null && now - targetEpoch > RIDE_OVER_AFTER_SEC
+  );
+}
+
 export function plannedRideProgress(plan, nowSec) {
   const now = finiteNumber(nowSec);
   if (!plan || now === null) {
-    return { etaSec: null, remainingStops: null };
+    return { etaSec: null, remainingStops: null, beforeDeparture: false };
   }
 
   const targetEpoch = finiteNumber(plan.targetPredictedEpochSec);
   const etaSec = targetEpoch === null ? null : Math.round(targetEpoch - now);
+
+  // Until the bus is due to leave the boarding stop, every stop is still
+  // ahead, and counting them said "Your stop is next" on a one-stop ride set
+  // up twenty minutes early. There is no count until then.
+  const departureEpoch = finiteNumber(plan.boardingStop?.predictedEpochSec);
+  const beforeDeparture = departureEpoch !== null && now < departureEpoch;
 
   const futureStops = Array.isArray(plan.stopsToTarget)
     ? plan.stopsToTarget.filter((stop) => {
@@ -358,8 +434,47 @@ export function plannedRideProgress(plan, nowSec) {
 
   return {
     etaSec,
-    remainingStops: futureStops.length,
+    remainingStops: beforeDeparture ? null : futureStops.length,
+    beforeDeparture,
   };
+}
+
+// A fresh, accurate fix matched onto the trip's own shape: the only
+// location evidence precise enough to place the passenger between stops.
+function shapeFixReliable(signals) {
+  const gpsAccuracy = finiteNumber(signals.gpsAccuracyM);
+  const gpsAge = finiteNumber(signals.gpsAgeSec);
+  return (
+    signals.gpsShapeUsable === true &&
+    signals.gpsOnRoute === true &&
+    finiteNumber(signals.gpsRouteDistanceM) !== null &&
+    gpsAccuracy !== null &&
+    gpsAccuracy <= 120 &&
+    (gpsAge === null || gpsAge <= 60)
+  );
+}
+
+// How far past the stop before the exit a fix must be to count as having
+// left it: a bus standing there is still at it.
+const LEFT_PREVIOUS_STOP_M = 30;
+
+// Pressing STOP asks for the next stop. Pressed before the bus leaves the
+// stop before the exit, it stops the bus there instead and the request is
+// spent, and a passenger who then waits for their stop rides past it. So
+// "Press STOP now" needs evidence that the bus has left that stop: it was
+// seen leaving it live, or a fix on the route is past it. A near exit alone
+// is not that: in the city centre, stops are closer than the 600 m and
+// 90 s that raise the stage.
+export function previousStopPassed(signals = {}) {
+  if (signals.previousPassedConfirmed === true) return true;
+  const gpsRouteDistance = finiteNumber(signals.gpsRouteDistanceM);
+  const previousRouteDistance = finiteNumber(signals.previousRouteDistanceM);
+  return (
+    shapeFixReliable(signals) &&
+    previousRouteDistance !== null &&
+    previousRouteDistance > 0 &&
+    gpsRouteDistance <= previousRouteDistance - LEFT_PREVIOUS_STOP_M
+  );
 }
 
 function candidateStage(signals) {
@@ -387,13 +502,7 @@ function candidateStage(signals) {
     gpsAccuracy !== null &&
     gpsAccuracy <= 120 &&
     gpsFresh;
-  const reliableShapeGps =
-    signals.gpsShapeUsable === true &&
-    signals.gpsOnRoute === true &&
-    gpsRouteDistance !== null &&
-    gpsAccuracy !== null &&
-    gpsAccuracy <= 120 &&
-    gpsFresh;
+  const reliableShapeGps = shapeFixReliable(signals);
 
   // The timetable is anchored at boarding, so it drifts by every minute the
   // bus loses in traffic. A fresh on-route fix is direct evidence about where
@@ -401,14 +510,25 @@ function candidateStage(signals) {
   // the alarm over it and send someone out a kilometre early. Straight-line
   // GPS does not count: 300 metres as the crow flies can be three kilometres
   // of one-way streets.
-  const scheduleIsAuthoritative = liveEta === null && !reliableShapeGps;
+  // A page reloaded mid-ride starts with no live answer yet. Until the first
+  // one comes back, or fails, the timetable alone may not raise the stage:
+  // it said "Press STOP" two stops early for a bus running six minutes
+  // late, and a stage is never taken back.
+  const scheduleIsAuthoritative =
+    liveEta === null && !reliableShapeGps && signals.scheduleMayRaise !== false;
   const scheduleSaysNext =
     scheduleIsAuthoritative &&
     ((remaining !== null && remaining <= 1) ||
       (scheduleEta !== null && scheduleEta <= 90));
+  // Three stops out can still be eighteen minutes out where the last stops
+  // are far apart, and "Get your things together" that early teaches the
+  // passenger to ignore it. The count raises SOON only once the time is
+  // near too, when there is a time.
   const scheduleSaysSoon =
     scheduleIsAuthoritative &&
-    ((remaining !== null && remaining <= 3) ||
+    ((remaining !== null &&
+      remaining <= 3 &&
+      (scheduleEta === null || scheduleEta <= 420)) ||
       (scheduleEta !== null && scheduleEta <= 300));
 
   const shapeSaysNext =
@@ -555,13 +675,28 @@ export function evaluateRideStage(currentStage, signals = {}) {
   // at their own destination to get off at the next stop — the worst possible
   // advice for the person this feature exists for. After NOW, only positive
   // evidence of still travelling along the route past the target counts.
+  //
+  // Even that positive evidence has a walking twin: someone who got off and
+  // walks on down the same street also ends up past the stop along the
+  // route. Only riding pace tells the two apart, and without a speed from
+  // the phone, only time does: a bus carrying someone on is well past the
+  // stop within a minute and a half, where a walker is not.
   const reachedNow =
     rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NOW);
+  const speed = finiteNumber(signals.gpsSpeedMps);
+  const stageAge = finiteNumber(signals.stageAgeSec);
+  const stillRiding =
+    speed !== null ? speed >= 3 : stageAge === null || stageAge <= 90;
+  // Straight-line distance is not evidence of passing the stop when the
+  // trip's shape is there to say where along the route the phone is: it
+  // cannot raise NOW then either. A loop that swings back past the stop
+  // looks exactly like having ridden on.
   const missedEvidence = reachedNow
-    ? signals.gpsPassedTarget === true
+    ? signals.gpsPassedTarget === true && stillRiding
     : signals.targetPassedConfirmed === true ||
       signals.gpsPassedTarget === true ||
-      signals.gpsMovedAwayAfterNear === true;
+      (signals.gpsMovedAwayAfterNear === true &&
+        signals.gpsShapeAvailable !== true);
 
   if (
     rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NEXT) &&

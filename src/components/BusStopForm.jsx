@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { findNearestStops, hasCoordinates } from "../utils/geo";
+import { msg, t, useLanguage } from "../i18n";
+import { formatAccuracy, formatDistance, hasCoordinates } from "../utils/geo";
 import {
   locationErrorMessage,
   requestOneTimePosition,
 } from "../utils/location";
+import { judgeNearestStop } from "../utils/nearestStop";
 import styles from "./BusStopForm.module.css";
+import StopName from "./StopName";
 
 const MAX_SUGGESTIONS = 6;
 
@@ -32,7 +35,7 @@ function findMatches(stops, query) {
   const normalizedQuery = normalize(query);
   if (!normalizedQuery) return [];
 
-  return stops
+  const ranked = stops
     .map((stop) => ({ stop, score: scoreStop(stop, normalizedQuery) }))
     .filter(({ score }) => Number.isFinite(score))
     .sort(
@@ -41,17 +44,90 @@ function findMatches(stops, query) {
         a.stop.name.localeCompare(b.stop.name, undefined, {
           sensitivity: "base",
         })
-    )
-    .slice(0, MAX_SUGGESTIONS)
+    );
+  // Stops sharing the exact name typed are all listed, however many: the
+  // form asks the passenger to tell them apart by number, and a hub with
+  // eight "Kauppatori" stops showed only six to choose from.
+  const exactNameCount = ranked.filter(
+    ({ stop }) => normalize(stop.name) === normalizedQuery
+  ).length;
+
+  return ranked
+    .slice(0, Math.max(MAX_SUGGESTIONS, exactNameCount))
     .map(({ stop }) => stop);
 }
 
+// A message is kept as its phrase and values, and put into words when shown,
+// so one already on screen follows a change of language. A value written
+// differently by language (a distance: "1.4 km", "1,4 km") is kept as a
+// function and worked out then too.
+const message = (text, params) => ({ text, params });
+
+function inWords({ text, params = {} }) {
+  return t(
+    text,
+    Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [
+        key,
+        typeof value === "function" ? value() : value,
+      ])
+    )
+  );
+}
+
+// Why a location did not pick a stop, in the words the passenger needs to
+// decide what to do instead.
+function locationDoubt(verdict, stop, position) {
+  if (verdict === "approximate") {
+    return message(
+      msg(
+        "Your location is too approximate{accuracy} to pick a stop for you. Search by name, or try again outdoors."
+      ),
+      {
+        accuracy: Number.isFinite(position?.accuracy)
+          ? () => ` (${formatAccuracy(position.accuracy)})`
+          : "",
+      }
+    );
+  }
+  if (verdict === "outside-area") {
+    return message(
+      msg(
+        "You appear to be outside the Föli area, so no stop was filled in. Search by name instead."
+      )
+    );
+  }
+  if (verdict === "far") {
+    return message(
+      msg(
+        "The nearest stop is {distance} away, so it was not filled in. Search by name instead."
+      ),
+      { distance: () => formatDistance(stop.distanceMeters) }
+    );
+  }
+  if (verdict === "ambiguous") {
+    return message(
+      msg(
+        "Two stops are almost equally close. Search for the one that serves your direction."
+      )
+    );
+  }
+  return message(
+    msg(
+      "No nearby Föli stop could be resolved from your location. Search manually instead."
+    )
+  );
+}
+
 function BusStopForm({
+  compact = false,
   activeStopId,
   stops,
   coordinatesStatus = "idle",
+  serviceBoundary = null,
   onSubmit,
 }) {
+  useLanguage();
   // The field accepts a name or a number equally, so it should give back
   // whichever one the person thinks in. It used to answer every entry with
   // the number: type "Kauppatori", get "164". Names are what people
@@ -64,7 +140,7 @@ function BusStopForm({
   const [value, setValue] = useState(
     () => resolveStop(activeStopId)?.name || activeStopId
   );
-  const [validationError, setValidationError] = useState("");
+  const [validationError, setValidationError] = useState(null);
   const [focused, setFocused] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [locating, setLocating] = useState(false);
@@ -95,9 +171,9 @@ function BusStopForm({
   const showSuggestions = focused && value.trim() && matches.length > 0;
 
   const chooseStop = (stop) => {
-    setValue(stop.name);
+    setValue(stop.name || stop.id);
     setResolved(stop);
-    setValidationError("");
+    setValidationError(null);
     setActiveIndex(-1);
     onSubmit(stop.id);
   };
@@ -110,13 +186,13 @@ function BusStopForm({
     // it, so submitting again means that same stop — no need to re-run the
     // name lookup, which would stumble on two stops sharing a name.
     if (resolved && normalize(query) === normalize(resolved.name)) {
-      setValidationError("");
+      setValidationError(null);
       onSubmit(resolved.id);
       return;
     }
 
     if (/^\d+$/.test(query)) {
-      setValidationError("");
+      setValidationError(null);
       onSubmit(query);
       return;
     }
@@ -134,7 +210,11 @@ function BusStopForm({
       setFocused(true);
       setActiveIndex(-1);
       setValidationError(
-        "More than one stop has this name. Choose the correct stop number from the suggestions."
+        message(
+          msg(
+            "More than one stop has this name. Choose the correct stop number from the suggestions."
+          )
+        )
       );
       return;
     }
@@ -145,24 +225,30 @@ function BusStopForm({
     }
 
     setValidationError(
-      "Choose a stop from the suggestions or enter its stop number."
+      message(msg("Choose a stop from the suggestions or enter its stop number."))
     );
   };
 
   const locateNearestStop = async () => {
-    setValidationError("");
+    setValidationError(null);
     setActiveIndex(-1);
 
     if (!navigator.geolocation) {
-      setValidationError("This browser does not support location access.");
+      setValidationError(
+        message(msg("This browser does not support location access."))
+      );
       return;
     }
 
     if (!stops.some(hasCoordinates)) {
       setValidationError(
-        coordinatesStatus === "loading"
-          ? "Stop locations are still loading. Try again in a moment."
-          : "Stop locations are temporarily unavailable. Search manually instead."
+        message(
+          coordinatesStatus === "loading"
+            ? msg("Stop locations are still loading. Try again in a moment.")
+            : msg(
+                "Stop locations are temporarily unavailable. Search manually instead."
+              )
+        )
       );
       return;
     }
@@ -171,27 +257,37 @@ function BusStopForm({
 
     try {
       const position = await requestOneTimePosition(navigator.geolocation);
-      const [nearest] = findNearestStops(stops, position, 1);
+      const { verdict, stop: nearest } = judgeNearestStop(
+        stops,
+        position,
+        serviceBoundary
+      );
 
-      if (!nearest) {
-        setValidationError(
-          "No nearby Föli stop could be resolved from your location. Search manually instead."
-        );
+      if (verdict !== "confident") {
+        setValidationError(locationDoubt(verdict, nearest, position));
         return;
       }
 
       // Location is a suggestion, not a navigation command. Fill the field
       // with the resolved public stop name and let the passenger confirm by
       // pressing "Show departures".
-      setValue(nearest.name);
+      setValue(nearest.name || nearest.id);
       setResolved(nearest);
       setFocused(false);
     } catch (error) {
-      setValidationError(locationErrorMessage(error));
+      setValidationError(message(locationErrorMessage(error)));
     } finally {
       setLocating(false);
     }
   };
+
+  // Keyboard selection can move past the visible part of a long list.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    document
+      .getElementById(`foli-stop-option-${activeIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex]);
 
   const handleKeyDown = (event) => {
     if (!showSuggestions) return;
@@ -214,9 +310,14 @@ function BusStopForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form} noValidate>
+    <form
+      onSubmit={handleSubmit}
+      className={styles.form}
+      data-compact={compact ? "true" : undefined}
+      noValidate
+    >
       <label htmlFor="stop-search" className={styles.label}>
-        Find your stop
+        {t("Find your stop")}
       </label>
 
       <div className={styles.searchWrap}>
@@ -229,7 +330,7 @@ function BusStopForm({
               setValue(event.target.value);
               // Editing the text means it is no longer the stop we resolved.
               setResolved(null);
-              setValidationError("");
+              setValidationError(null);
               setActiveIndex(-1);
             }}
             onFocus={() => setFocused(true)}
@@ -247,7 +348,7 @@ function BusStopForm({
             aria-describedby={
               validationError ? "stop-error" : "stop-search-help"
             }
-            placeholder="Stop name or number"
+            placeholder={t("e.g. Kauppatori")}
           />
           <button
             className={styles.locateButton}
@@ -255,19 +356,19 @@ function BusStopForm({
             onClick={locateNearestStop}
             disabled={locating}
             aria-busy={locating}
-            aria-label="Use current location"
-            title="Find nearest stop"
+            aria-label={t("Use current location")}
+            title={t("Use current location")}
           >
             <span aria-hidden="true">{locating ? "…" : "⌖"}</span>
           </button>
           <button
             className={styles.button}
             type="submit"
-            aria-label="Show departures"
+            aria-label={t("Show departures")}
           >
-            <span className={styles.buttonLong}>Show departures</span>
+            <span className={styles.buttonLong}>{t("Show departures")}</span>
             <span className={styles.buttonShort} aria-hidden="true">
-              Show
+              {t("Show")}
             </span>
           </button>
         </div>
@@ -277,7 +378,7 @@ function BusStopForm({
             id="foli-stop-suggestions"
             className={styles.suggestions}
             role="listbox"
-            aria-label="Matching bus stops"
+            aria-label={t("Matching bus stops")}
           >
             {matches.map((stop, index) => (
               <div
@@ -289,8 +390,10 @@ function BusStopForm({
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => chooseStop(stop)}
               >
-                <span className={styles.suggestionName}>{stop.name}</span>
-                <span className={styles.suggestionId}>Stop {stop.id}</span>
+                <span className={styles.suggestionName}><StopName stop={stop} /></span>
+                <span className={styles.suggestionId}>
+                  {t("Stop {id}", { id: stop.id })}
+                </span>
               </div>
             ))}
           </div>
@@ -298,12 +401,12 @@ function BusStopForm({
       </div>
 
       <p id="stop-search-help" className={styles.help}>
-        Search by stop name or number.
+        {t("Search by stop name or number.")}
       </p>
 
       {validationError && (
         <p id="stop-error" className={styles.error} role="alert">
-          {validationError}
+          {inWords(validationError)}
         </p>
       )}
     </form>

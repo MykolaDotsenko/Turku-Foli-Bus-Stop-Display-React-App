@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { msg, t, useLanguage } from "../i18n";
 import {
   distanceInMeters,
   findNearestStops,
@@ -9,29 +10,17 @@ import {
 } from "../utils/geo";
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildWalkingDirectionsUrl } from "../utils/maps";
+import {
+  AUTO_SELECT_MAX_ACCURACY_METERS,
+  AUTO_SELECT_MAX_DISTANCE_METERS,
+  OUTSIDE_NETWORK_WARNING_METERS,
+  nearestChoiceIsAmbiguous,
+} from "../utils/nearestStop";
 import styles from "./NearbyStops.module.css";
+import { stopLabel } from "../utils/stopNames";
+import StopName from "./StopName";
 
 const NEARBY_STOP_LIMIT = 6;
-const AUTO_SELECT_MAX_DISTANCE_METERS = 2_000;
-const OUTSIDE_NETWORK_WARNING_METERS = 10_000;
-const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
-const MIN_AMBIGUITY_GAP_METERS = 25;
-const MAX_AMBIGUITY_GAP_METERS = 150;
-function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
-  if (nearbyStops.length < 2) return false;
-
-  const uncertainty = Number.isFinite(accuracy)
-    ? Math.min(
-        MAX_AMBIGUITY_GAP_METERS,
-        Math.max(MIN_AMBIGUITY_GAP_METERS, accuracy)
-      )
-    : MIN_AMBIGUITY_GAP_METERS;
-
-  return (
-    nearbyStops[1].distanceMeters - nearbyStops[0].distanceMeters <
-    uncertainty
-  );
-}
 
 function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
   const directionsUrl = online ? buildWalkingDirectionsUrl(stop) : "";
@@ -45,17 +34,20 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
         type="button"
         className={styles.stopButton}
         onClick={() => onSelect(stop.id)}
-        aria-label={`${stop.name}, stop ${stop.id}, ${formatDistance(
-          stop.distanceMeters
-        )} away`}
+        aria-label={t("{name}, stop {id}, {distance} away", {
+          name: stopLabel(stop),
+          id: stop.id,
+          distance: formatDistance(stop.distanceMeters),
+        })}
       >
         <span className={styles.stopText}>
-          <strong>{stop.name}</strong>
+          <strong><StopName stop={stop} /></strong>
           <span>
-            Stop {stop.id} · {formatDistance(stop.distanceMeters)}
+            {t("Stop {id}", { id: stop.id })} ·{" "}
+            {formatDistance(stop.distanceMeters)}
           </span>
         </span>
-        {isNearest && <span className={styles.nearestBadge}>Nearest</span>}
+        {isNearest && <span className={styles.nearestBadge}>{t("Nearest")}</span>}
       </button>
 
       {directionsUrl && (
@@ -64,10 +56,13 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
           href={directionsUrl}
           target="_blank"
           rel="noreferrer"
-          aria-label={`Walk to ${stop.name}, stop ${stop.id}, in Google Maps`}
+          aria-label={t("Walk there: {name}, stop {id}, in Google Maps", {
+            name: stopLabel(stop),
+            id: stop.id,
+          })}
         >
           <span aria-hidden="true">↗</span>
-          Walk there
+          {t("Walk there")}
         </a>
       )}
     </article>
@@ -82,8 +77,10 @@ function NearbyStops({
   online = true,
   onSelect,
 }) {
+  useLanguage();
   const [status, setStatus] = useState("idle");
   const [position, setPosition] = useState(null);
+  // A phrase, put into words when shown, so it follows a language change.
   const [error, setError] = useState("");
 
   const hasStopCoordinates = stops.some(hasCoordinates);
@@ -112,7 +109,7 @@ function NearbyStops({
   const locate = async () => {
     if (!geolocationSupported) {
       setStatus("error");
-      setError("This browser does not support location access.");
+      setError(msg("This browser does not support location access."));
       return;
     }
 
@@ -120,8 +117,10 @@ function NearbyStops({
       setStatus("error");
       setError(
         coordinatesStatus === "loading"
-          ? "Nearby-stop data is still loading. Try again in a moment."
-          : "Stop coordinates are temporarily unavailable. Search for a stop manually and try again later."
+          ? msg("Nearby-stop data is still loading. Try again in a moment.")
+          : msg(
+              "Stop coordinates are temporarily unavailable. Search for a stop manually and try again later."
+            )
       );
       return;
     }
@@ -191,22 +190,27 @@ function NearbyStops({
 
   let locationNotice = "";
   if (lowAccuracy) {
-    locationNotice =
-      "Your location is approximate, so compare the nearby options before choosing.";
+    locationNotice = t(
+      "Your location is approximate, so compare the nearby options before choosing."
+    );
   } else if (insideServiceArea === false) {
-    locationNotice =
-      "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically.";
+    locationNotice = t(
+      "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically."
+    );
   } else if (isFarFromNetwork) {
-    locationNotice = `The nearest Föli stop is ${formatDistance(
-      nearbyStops[0].distanceMeters
-    )} away. You may be outside the Föli service area.`;
+    locationNotice = t(
+      "The nearest Föli stop is {distance} away. You may be outside the Föli service area.",
+      { distance: formatDistance(nearbyStops[0].distanceMeters) }
+    );
   } else if (isBeyondAutoSelectRange) {
-    locationNotice = `The nearest Föli stop is ${formatDistance(
-      nearbyStops[0].distanceMeters
-    )} away, so it was not selected automatically. Choose the stop that fits your journey.`;
+    locationNotice = t(
+      "The nearest Föli stop is {distance} away, so it was not selected automatically. Choose the stop that fits your journey.",
+      { distance: formatDistance(nearbyStops[0].distanceMeters) }
+    );
   } else if (ambiguousChoice) {
-    locationNotice =
-      "Two stops are almost equally close. Choose the stop that serves your travel direction.";
+    locationNotice = t(
+      "Two stops are almost equally close. Choose the stop that serves your travel direction."
+    );
   }
 
   return (
@@ -214,10 +218,10 @@ function NearbyStops({
       <div className={styles.header}>
         <div>
           <h2 id="nearby-stops-title" className={styles.heading}>
-            Near you
+            {t("Near you")}
           </h2>
           <p className={styles.description}>
-            Find the closest stop with a one-time location check.
+            {t("Find the closest stop with a one-time location check.")}
           </p>
         </div>
 
@@ -230,37 +234,45 @@ function NearbyStops({
         >
           <span aria-hidden="true">{status === "locating" ? "…" : "⌖"}</span>
           {status === "locating"
-            ? "Locating…"
+            ? t("Locating…")
             : position
-              ? "Update location"
-              : "Find nearest stop"}
+              ? t("Update location")
+              : t("Find nearest stop")}
         </button>
       </div>
 
       {!hasStopCoordinates && (
         <p className={styles.meta} role="status">
           {locationDataLoading
-            ? "Preparing stop coordinates…"
-            : "Location search is temporarily unavailable; stop search still works normally."}
+            ? t("Preparing stop coordinates…")
+            : t(
+                "Location search is temporarily unavailable; stop search still works normally."
+              )}
         </p>
       )}
 
       {error && (
         <p className={styles.error} role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
 
       {position && (
         <>
           <div className={styles.meta} role="status" aria-live="polite">
-            <span>One-time location only</span>
+            <span>{t("One-time location only")}</span>
             {position.accuracy !== null && (
-              <span>Accuracy ±{formatAccuracy(position.accuracy)}</span>
+              <span>
+                {t("Accuracy ±{accuracy}", {
+                  accuracy: formatAccuracy(position.accuracy),
+                })}
+              </span>
             )}
             {Number.isFinite(selectedStopDistance) && (
               <span>
-                Selected stop ≈ {formatDistance(selectedStopDistance)} away
+                {t("Selected stop ≈ {distance} away", {
+                  distance: formatDistance(selectedStopDistance),
+                })}
               </span>
             )}
           </div>
@@ -273,7 +285,7 @@ function NearbyStops({
             <div
               className={styles.stopGrid}
               role="group"
-              aria-label="Nearest Föli stops"
+              aria-label={t("Nearest Föli stops")}
             >
               {nearbyStops.map((stop, index) => (
                 <NearbyStopCard
@@ -290,8 +302,12 @@ function NearbyStops({
 
           <p className={styles.disclaimer}>
             {online
-              ? "Distances are approximate straight-line distances. “Walk there” opens an external walking route in Google Maps."
-              : "Distances are approximate straight-line distances. Walking route links return when you’re online."}
+              ? t(
+                  "Distances are approximate straight-line distances. “Walk there” opens an external walking route in Google Maps."
+                )
+              : t(
+                  "Distances are approximate straight-line distances. Walking route links return when you’re online."
+                )}
           </p>
         </>
       )}

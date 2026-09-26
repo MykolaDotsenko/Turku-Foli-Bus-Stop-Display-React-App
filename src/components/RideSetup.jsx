@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchTripDetails, fetchTripStopTimes } from "../api/foliApi";
+import { msg, t, useLanguage } from "../i18n";
 import {
   buildRidePlan,
   resolveRideBoardingIndex,
 } from "../utils/rideProgress";
 import { formatClock, getDepartureTime } from "../utils/time";
 import styles from "./RideSetup.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 function plannedClock(value) {
   if (typeof value !== "string") return "";
@@ -29,14 +31,38 @@ function plannedClock(value) {
 // ride each one is, so that is what this says instead.
 function stopsAwayLabel(count) {
   const stops = Number(count);
-  if (!Number.isFinite(stops) || stops <= 1) return "Next stop";
-  return `${stops} stops away`;
+  if (!Number.isFinite(stops) || stops <= 1) return t("Next stop");
+  return t("{count} stops away", { count: stops });
 }
 
 function stopName(stopsById, stopId) {
   return (
-    stopsById?.get?.(String(stopId))?.name || `Stop ${stopId}`
+    stopsById?.get?.(String(stopId))?.name || t("Stop {id}", { id: stopId })
   );
+}
+
+// An option shows the catalogue's name, or its number when the catalogue
+// does not list it. Named here, where it is shown, so the stand-in follows
+// the language.
+function optionName(item) {
+  return stopLabel(item.stop, item.stopId);
+}
+
+// "Line 1 leaves 17:41" is one phrase: in Finnish the line, the verb and the
+// time do not fall where they do in English.
+function departureContext(arrival) {
+  const leaves = getDepartureTime(arrival);
+  if (arrival.lineref) {
+    return leaves
+      ? t("Line {line} leaves {time}", {
+          line: arrival.lineref,
+          time: formatClock(leaves),
+        })
+      : t("Line {line}", { line: arrival.lineref });
+  }
+  return leaves
+    ? t("This trip leaves {time}", { time: formatClock(leaves) })
+    : t("This trip");
 }
 
 function savedPlaceLabels(placesById, stopId) {
@@ -50,6 +76,28 @@ function savedPlaceLabels(placesById, stopId) {
     .filter(Boolean);
 }
 
+const TRIP_DETAILS_RETRY_MS = 1_500;
+
+// Notifications from a web page need the Notification API, which iPhone
+// Safari only gives an app added to the Home Screen. Offering the option
+// where it cannot work promised an alert that would never come.
+function notificationSupport() {
+  if (typeof globalThis.Notification === "function") return "supported";
+
+  const navigatorRef = globalThis.navigator;
+  const ios =
+    /iPad|iPhone|iPod/.test(navigatorRef?.userAgent || "") ||
+    (navigatorRef?.platform === "MacIntel" && navigatorRef?.maxTouchPoints > 1);
+  return ios ? "home-screen-only" : "unsupported";
+}
+
+// iPhones, and most browsers on a computer, have no Vibration API: a page
+// that promised vibration there promised an alert the passenger would never
+// feel.
+function canVibrate() {
+  return typeof globalThis.navigator?.vibrate === "function";
+}
+
 export default function RideSetup({
   arrival,
   currentStopId,
@@ -57,16 +105,33 @@ export default function RideSetup({
   stopsById,
   placesById,
   routesById,
+  routesByShortName,
   onStart,
   onCancel,
 }) {
+  // Every word below follows the language, including a switch mid-choice.
+  useLanguage();
   const [status, setStatus] = useState("loading");
   const [stopTimes, setStopTimes] = useState([]);
   const [tripDetails, setTripDetails] = useState(null);
   const [targetStopSequence, setTargetStopSequence] = useState("");
   const [locationBackup, setLocationBackup] = useState(true);
-  const [notifications, setNotifications] = useState(true);
+  const [notificationsAvailable] = useState(notificationSupport);
+  const [vibrates] = useState(canVibrate);
+  // Off until asked for. On, Start raised a location prompt, a notification
+  // prompt and the test sound together, as the bus pulled in, for alerts
+  // that only work while this page is open anyway.
+  const [notifications, setNotifications] = useState(false);
   const [startError, setStartError] = useState("");
+  const panelRef = useRef(null);
+
+  // The setup opens inside the tapped row, often below the fold, while the
+  // button that starts the ride is pinned to the bottom of a phone screen.
+  // Bringing the panel into view means the stop it will start with is on
+  // screen before that button can be pressed.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, []);
 
   useEffect(() => {
     if (!arrival?.tripref) {
@@ -77,9 +142,28 @@ export default function RideSetup({
     const controller = new AbortController();
     setStatus("loading");
 
+    // The trip's details carry its route and shape. One try on a weak
+    // connection lost both for the whole ride: no "Press STOP", and no
+    // location tracking along the route. So they get a second try.
+    const tripDetailsWithRetry = () =>
+      fetchTripDetails(arrival.tripref, controller.signal).catch(
+        () =>
+          new Promise((resolve) => {
+            const timer = globalThis.setTimeout(resolve, TRIP_DETAILS_RETRY_MS);
+            controller.signal.addEventListener("abort", () => {
+              globalThis.clearTimeout(timer);
+              resolve();
+            });
+          }).then(() =>
+            controller.signal.aborted
+              ? null
+              : fetchTripDetails(arrival.tripref, controller.signal)
+          )
+      );
+
     Promise.all([
       fetchTripStopTimes(arrival.tripref, controller.signal),
-      fetchTripDetails(arrival.tripref, controller.signal).catch(() => null),
+      tripDetailsWithRetry().catch(() => null),
     ])
       .then(([items, details]) => {
         if (controller.signal.aborted) return;
@@ -119,25 +203,40 @@ export default function RideSetup({
       )
       .map(({ item, index }) => ({
         ...item,
-        stop: stopsById.get(String(item.stopId)) || {
-          id: String(item.stopId),
-          name: `Stop ${item.stopId}`,
-        },
+        // Facts only: the names are worked out where they are shown, so a
+        // stand-in like "Stop 123" follows a language switch.
+        stop: stopsById.get(String(item.stopId)) || null,
         places: savedPlaceLabels(placesById, item.stopId),
         stopsAway: index - boardingIndex,
-        previousStopName:
-          index - 1 === boardingIndex
-            ? currentStopName
-            : stopName(stopsById, stopTimes[index - 1]?.stopId),
+        previousIsBoarding: index - 1 === boardingIndex,
+        previousStopId: stopTimes[index - 1]?.stopId,
       }));
-  }, [boardingIndex, currentStopName, placesById, stopTimes, stopsById]);
+  }, [boardingIndex, placesById, stopTimes, stopsById]);
 
+  // The main Home stop is the one to preselect. A backup stop the bus happens
+  // to reach first used to win, and with the button one tap away the ride
+  // started for a stop the passenger never meant.
   useEffect(() => {
     if (targetStopSequence || downstream.length === 0) return;
 
-    const home = downstream.find((item) => item.places.includes("Home"));
-    if (home) setTargetStopSequence(String(home.stopSequence));
-  }, [downstream, targetStopSequence]);
+    const homeStops = downstream.filter((item) =>
+      item.places.includes("Home")
+    );
+    if (homeStops.length === 0) return;
+
+    const primaryStopId = String(
+      (placesById instanceof Map && placesById.get("home")?.primaryStopId) ||
+        ""
+    );
+    const home =
+      homeStops.find((item) => String(item.stopId) === primaryStopId) ||
+      homeStops[0];
+    setTargetStopSequence(String(home.stopSequence));
+  }, [downstream, placesById, targetStopSequence]);
+
+  const chosenStop = downstream.find(
+    (item) => String(item.stopSequence) === String(targetStopSequence)
+  );
 
   const start = () => {
     const departureEpochSec = getDepartureTime(arrival);
@@ -146,17 +245,20 @@ export default function RideSetup({
     );
 
     // Returning quietly here leaves an enabled button that does nothing when
-    // pressed, on the one action the whole feature hangs on.
+    // pressed, on the one action the whole feature hangs on. The error is
+    // kept as a phrase and translated where it is shown.
     if (!selectedTarget) {
       setStartError(
-        "Choose the stop you want to get off at before starting Ride Mode."
+        msg("Choose the stop you want to get off at before starting Ride Mode.")
       );
       return;
     }
 
     if (!departureEpochSec) {
       setStartError(
-        "We do not have a departure time for this bus yet. Wait for the board to refresh and try again."
+        msg(
+          "We do not have a departure time for this bus yet. Wait for the board to refresh and try again."
+        )
       );
       return;
     }
@@ -172,17 +274,25 @@ export default function RideSetup({
     });
     if (!plan) {
       setStartError(
-        "We cannot work out a reliable plan for that stop on this trip. Try another stop, or start the ride from a different departure."
+        msg(
+          "We cannot work out a reliable plan for that stop on this trip. Try another stop, or start the ride from a different departure."
+        )
       );
       return;
     }
 
     setStartError("");
 
+    // The trip's own route, or else the line's, so a ride whose details
+    // did not load still knows it is a bus.
     const exactRoute =
-      tripDetails?.routeId && routesById instanceof Map
-        ? routesById.get(tripDetails.routeId) || null
-        : null;
+      (tripDetails?.routeId && routesById instanceof Map
+        ? routesById.get(tripDetails.routeId)
+        : null) ||
+      (arrival.lineref && routesByShortName instanceof Map
+        ? routesByShortName.get(arrival.lineref)
+        : null) ||
+      null;
 
     onStart?.({
       lineRef: arrival.lineref || "",
@@ -205,7 +315,7 @@ export default function RideSetup({
       plan,
       options: {
         locationBackup,
-        notifications,
+        notifications: notificationsAvailable === "supported" && notifications,
       },
     });
   };
@@ -218,38 +328,45 @@ export default function RideSetup({
     boardingIndex < 0;
 
   return (
-    <section className={styles.panel} aria-label="Set up get-off alerts">
+    <section
+      ref={panelRef}
+      className={styles.panel}
+      aria-label={t("Set up get-off alerts")}
+    >
       <div className={styles.heading}>
         <div className={styles.headingText}>
-          <p className={styles.kicker}>Ride Mode</p>
-          <h4>Where do you want to get off?</h4>
+          <p className={styles.kicker}>{t("Ride Mode")}</p>
+          <h4>{t("Where do you want to get off?")}</h4>
           <p>
-            Pick where you get off and put your phone away. We will tell you
-            when to get ready, when to press STOP, and when to step off.
+            {t(
+              "Pick your stop and keep this page open with the sound on. You do not have to watch it: we tell you when to press STOP."
+            )}
           </p>
         </div>
         <button type="button" className={styles.close} onClick={onCancel}>
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
 
       {status === "loading" && (
         <p className={styles.status} role="status">
-          Loading this trip&apos;s planned stops…
+          {t("Loading this trip's planned stops…")}
         </p>
       )}
 
       {status === "error" && (
         <p className={styles.status} role="alert">
-          This trip&apos;s stop sequence is temporarily unavailable. Ride Mode
-          cannot start safely without it.
+          {t(
+            "This trip's stop sequence is temporarily unavailable. Ride Mode cannot start safely without it."
+          )}
         </p>
       )}
 
       {ambiguousBoarding && (
         <p className={styles.status} role="alert">
-          This bus comes back to this stop later on its route, and we cannot
-          tell which pass you are boarding. We will not guess about your stop.
+          {t(
+            "This bus comes back to this stop later on its route, and we cannot tell which pass you are boarding. We will not guess about your stop."
+          )}
         </p>
       )}
 
@@ -257,7 +374,7 @@ export default function RideSetup({
         !ambiguousBoarding &&
         downstream.length === 0 && (
           <p className={styles.status}>
-            No later drop-off stops are available for this trip.
+            {t("No later drop-off stops are available for this trip.")}
           </p>
         )}
 
@@ -266,11 +383,16 @@ export default function RideSetup({
         downstream.length > 0 && (
           <>
             <fieldset className={styles.stopList}>
-              <legend className={styles.srOnly}>Choose your exit stop</legend>
+              <legend className={styles.srOnly}>
+                {t("Choose your exit stop")}
+              </legend>
               {downstream.map((item) => {
                 const clock = plannedClock(
                   item.departureTime || item.arrivalTime
                 );
+                const previousStopName = item.previousIsBoarding
+                  ? currentStopName
+                  : stopName(stopsById, item.previousStopId);
 
                 return (
                   <label
@@ -295,18 +417,19 @@ export default function RideSetup({
                       }}
                     />
                     <span className={styles.stopCopy}>
-                      <strong>{item.stop.name}</strong>
+                      <strong>{optionName(item)}</strong>
                       <small>
                         {stopsAwayLabel(item.stopsAway)}
-                        {clock ? ` · around ${clock}` : ""}
-                        {item.previousStopName
-                          ? ` · after ${item.previousStopName}`
+                        {clock ? ` · ${t("around {time}", { time: clock })}` : ""}
+                        {previousStopName
+                          ? ` · ${t("after {name}", { name: previousStopName })}`
                           : ""}
                       </small>
                     </span>
                     {item.places.length > 0 && (
                       <span className={styles.placeBadge}>
-                        {item.places.join(" · ")}
+                        {/* The labels are My Places' own phrases ("Home"). */}
+                        {item.places.map((label) => t(label)).join(" · ")}
                       </span>
                     )}
                   </label>
@@ -322,45 +445,62 @@ export default function RideSetup({
                   onChange={(event) => setLocationBackup(event.target.checked)}
                 />
                 <span>
-                  <strong>Follow my location (recommended)</strong>
+                  <strong>{t("Follow my location (recommended)")}</strong>
                   <small>
-                    Alerts you by where you actually are, not only by where the
-                    timetable expects the bus to be. Your location stays on this
-                    phone and is forgotten when the ride ends.
+                    {t(
+                      "Times the alerts to where you really are, not only to the timetable. Your location stays on this phone and is forgotten when the ride ends."
+                    )}
                   </small>
                 </span>
               </label>
 
-              <label>
-                <input
-                  type="checkbox"
-                  checked={notifications}
-                  onChange={(event) => setNotifications(event.target.checked)}
-                />
-                <span>
-                  <strong>Alert me on the lock screen</strong>
-                  <small>
-                    Useful with the phone in a pocket. Keep this page open —
-                    a browser can pause a tab it thinks you have left.
-                  </small>
-                </span>
-              </label>
+              {notificationsAvailable === "supported" && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={notifications}
+                    onChange={(event) => setNotifications(event.target.checked)}
+                  />
+                  <span>
+                    <strong>{t("Also show notifications")}</strong>
+                    <small>
+                      {t(
+                        "Only while this page stays open: a browser can pause a page it thinks you have left, and a locked phone often does."
+                      )}
+                    </small>
+                  </span>
+                </label>
+              )}
+              {notificationsAvailable === "home-screen-only" && (
+                <p className={styles.optionNote}>
+                  {vibrates
+                    ? t(
+                        "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). Sound and vibration work here as long as this page stays open."
+                      )
+                    : t(
+                        "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). The alert sound works here as long as this page stays open, but this phone will not vibrate for it."
+                      )}
+                </p>
+              )}
             </div>
 
             <div className={styles.safetyNote}>
-              <strong>Before you rely on it</strong>
+              <strong>{t("Check your sound")}</strong>
               <span>
-                Starting plays a test alert, so you can check your sound and
-                vibration now rather than when it matters. If live tracking
-                drops out you still get the early warnings — but we will never
-                say “get off now” unless we are sure.
+                {vibrates
+                  ? t(
+                      "Starting plays a test alert, so you can check the sound and vibration now. We only say “get off now” when live bus data or your location confirms it."
+                    )
+                  : t(
+                      "Starting plays a test alert, so you can check the sound now; this phone will not vibrate for these alerts. We only say “get off now” when live bus data or your location confirms it."
+                    )}
               </span>
             </div>
 
             <div className={styles.actions}>
               {startError && (
                 <p className={styles.startError} role="alert">
-                  {startError}
+                  {t(startError)}
                 </p>
               )}
 
@@ -370,13 +510,13 @@ export default function RideSetup({
                 disabled={!targetStopSequence}
                 onClick={start}
               >
-                Start Ride Mode
+                {t("Start Ride Mode")}
               </button>
               <span className={styles.departureContext}>
-                {arrival.lineref ? `Line ${arrival.lineref}` : "This trip"}
-                {getDepartureTime(arrival)
-                  ? ` · leaves ${formatClock(getDepartureTime(arrival))}`
+                {chosenStop
+                  ? `${t("Get off at {name}", { name: optionName(chosenStop) })} · `
                   : ""}
+                {departureContext(arrival)}
               </span>
             </div>
           </>

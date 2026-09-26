@@ -19,6 +19,25 @@ describe("Ride Mode shape matching", () => {
     expect(shape.lengthM).toBe(2200);
   });
 
+  // Föli documents `traveled` only as a cumulative distance, without a unit.
+  // Every threshold here is in metres, so kilometres would put a passenger
+  // "110 m" from their stop the moment the ride began.
+  it("refuses shape distances that are not on a metre scale", () => {
+    const inKilometres = prepareRideShape([
+      { lat: 60.45, lon: 22.25, traveled: 0 },
+      { lat: 60.45, lon: 22.26, traveled: 0.55 },
+      { lat: 60.45, lon: 22.27, traveled: 1.1 },
+    ]);
+    const inCentimetres = prepareRideShape([
+      { lat: 60.45, lon: 22.25, traveled: 0 },
+      { lat: 60.45, lon: 22.26, traveled: 55_000 },
+      { lat: 60.45, lon: 22.27, traveled: 110_000 },
+    ]);
+
+    expect(inKilometres.usesGtfsDistance).toBe(false);
+    expect(inCentimetres.usesGtfsDistance).toBe(false);
+  });
+
   it("projects a GPS point onto the trip path instead of target straight-line distance", () => {
     const match = projectPositionToRideShape(
       { lat: 60.45005, lon: 22.275 },

@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import useOnlineStatus from "./useOnlineStatus";
+import useOnlineStatus, { reportProviderReached } from "./useOnlineStatus";
 
 const originalOnLine = Object.getOwnPropertyDescriptor(navigator, "onLine");
 const originalFetch = globalThis.fetch;
@@ -215,4 +215,135 @@ test("clears the marker under the deployment base path once the origin answers",
   expect(deleteEntry).toHaveBeenCalledWith(
     "/foli-live-departures/__foli_offline_shell__"
   );
+});
+
+// Chrome throws on the very read of window.localStorage when a person has
+// blocked site data, and the hook runs at the top of the app, so an unguarded
+// read took the whole page down to the error screen.
+test("keeps working when the browser refuses access to storage", async () => {
+  const storage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    get() {
+      throw new globalThis.DOMException(
+        "Access is denied for this document.",
+        "SecurityError"
+      );
+    },
+  });
+
+  try {
+    setOnline(true);
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await waitFor(() => expect(result.current).toBe(true));
+
+    act(() => {
+      setOnline(false);
+      window.dispatchEvent(new globalThis.Event("offline"));
+    });
+    expect(result.current).toBe(false);
+  } finally {
+    if (storage) {
+      Object.defineProperty(globalThis, "localStorage", storage);
+    } else {
+      delete globalThis.localStorage;
+    }
+  }
+});
+
+// Wi-Fi without internet reopens the app from its cache without the browser
+// ever saying it went offline, so no "online" event follows when the
+// connection comes back. Every later check stopped at the cache's marker
+// without testing the connection, and "Offline mode" stuck for the visit.
+test("finds the connection again after an offline reopen, with no online event", async () => {
+  setOnline(true);
+
+  const deleteEntry = vi.fn().mockResolvedValue(true);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      match: vi.fn().mockResolvedValue(new globalThis.Response("offline")),
+      keys: vi.fn().mockResolvedValue(["foli-shell-abc"]),
+      open: vi.fn().mockResolvedValue({ delete: deleteEntry }),
+    },
+  });
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+
+  // The passenger comes back to the app.
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("focus"));
+  });
+
+  await waitFor(() => expect(result.current).toBe(true));
+  expect(globalThis.fetch).toHaveBeenCalled();
+  expect(deleteEntry).toHaveBeenCalled();
+});
+
+test("stays offline after an offline reopen while the connection is still gone", async () => {
+  setOnline(true);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      match: vi.fn().mockResolvedValue(new globalThis.Response("offline")),
+      keys: vi.fn().mockResolvedValue([]),
+    },
+  });
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error("no route to host"));
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+
+  act(() => {
+    document.dispatchEvent(new globalThis.Event("visibilitychange"));
+  });
+
+  await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+  expect(result.current).toBe(false);
+});
+
+// One probe slower than three seconds on slow 3G said "Offline mode" for
+// the rest of the visit, while live departures kept arriving.
+test("an answer from Föli settles it: the phone is online", async () => {
+  setOnline(true);
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error("probe timed out"));
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+
+  act(() => {
+    reportProviderReached();
+  });
+
+  expect(result.current).toBe(true);
+  expect(localStorage.getItem("foli-offline-hint")).toBeNull();
+});
+
+test("a page that thinks it is offline keeps looking", async () => {
+  vi.useFakeTimers();
+  try {
+    setOnline(true);
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("probe timed out"))
+      .mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(result.current).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
 });

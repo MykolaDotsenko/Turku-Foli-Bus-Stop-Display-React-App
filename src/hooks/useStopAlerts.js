@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchAlerts, fetchStopServedRouteIds } from "../api/foliApi";
+import { providerLanguages, useLanguage } from "../i18n";
 import { extractStopAlerts } from "../utils/alerts";
 
 const ALERT_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -10,16 +11,22 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
   const [payload, setPayload] = useState(null);
   const [receivedAtMs, setReceivedAtMs] = useState(null);
   const [error, setError] = useState(false);
-  const [servedRouteIds, setServedRouteIds] = useState(EMPTY_ROUTE_IDS);
+  // Kept with the stop it was looked up for. Kept bare, one stop's routes
+  // stayed in use while the next stop's lookup ran, and a notice for a
+  // route that never serves the new stop appeared under it.
+  const [served, setServed] = useState({ stopId: "", ids: EMPTY_ROUTE_IDS });
+  const servedRouteIds =
+    served.stopId === stopId ? served.ids : EMPTY_ROUTE_IDS;
   const abortRef = useRef(null);
   const membershipAbortRef = useRef(null);
-  const preferredLanguages = useMemo(() => {
-    if (typeof navigator === "undefined") return ["en"];
-    const languages = Array.isArray(navigator.languages)
-      ? navigator.languages
-      : [navigator.language];
-    return languages.filter(Boolean);
-  }, []);
+  // Föli writes its notices in Finnish and translates them into Swedish and
+  // English; which one shows follows the interface (providerLanguages). A
+  // change of language also re-extracts the alerts' own labels.
+  const language = useLanguage();
+  const preferredLanguages = useMemo(
+    () => providerLanguages(language),
+    [language]
+  );
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();
@@ -77,18 +84,18 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     ];
 
     if (!stopId || candidateRouteIds.length === 0) {
-      setServedRouteIds(EMPTY_ROUTE_IDS);
+      setServed({ stopId, ids: EMPTY_ROUTE_IDS });
       return () => controller.abort();
     }
 
     fetchStopServedRouteIds(stopId, candidateRouteIds, controller.signal)
       .then((routeIds) => {
-        if (!controller.signal.aborted) setServedRouteIds(routeIds);
+        if (!controller.signal.aborted) setServed({ stopId, ids: routeIds });
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           // Realtime line matching still provides a safe partial fallback.
-          setServedRouteIds(EMPTY_ROUTE_IDS);
+          setServed({ stopId, ids: EMPTY_ROUTE_IDS });
         }
       });
 
@@ -105,12 +112,18 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    // Started offline, or after one failed check, the notices waited up to
+    // five minutes after the connection came back, and live departures
+    // showed without their cancellations in the meantime.
+    const handleOnline = () => refresh();
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
       abortRef.current?.abort();
       membershipAbortRef.current?.abort();
     };

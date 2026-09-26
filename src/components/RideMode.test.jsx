@@ -1,6 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import RideMode from "./RideMode";
+import { resetLanguageForTests } from "../i18n";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 function session(stage = "next") {
   return {
@@ -21,7 +26,7 @@ function session(stage = "next") {
 test("shows the action the passenger needs instead of a map", () => {
   render(
     <RideMode
-      session={session("next")}
+      session={{ ...session("next"), previousLeft: true }}
       runtime={{
         trackingHealth: "live",
         liveEtaSec: 70,
@@ -207,8 +212,8 @@ test("stops counting down once it is telling the passenger to get off", () => {
     />
   );
 
-  expect(screen.getByText("you are here")).toBeInTheDocument();
-  expect(screen.getByText("now")).toBeInTheDocument();
+  // The orange block says it; tiles beside it only repeated it, or worse.
+  expect(screen.queryByLabelText("Ride progress")).not.toBeInTheDocument();
   expect(screen.queryByText("1 stop")).not.toBeInTheDocument();
   expect(screen.queryByText("~2 min")).not.toBeInTheDocument();
 });
@@ -277,6 +282,54 @@ test("asks whether the test alert was actually heard, and helps when it was not"
 
   fireEvent.click(screen.getByRole("button", { name: "I can hear it now" }));
   expect(screen.queryByText(/Turn the media volume up/)).not.toBeInTheDocument();
+});
+
+// An iPhone has no vibration for a web page, and a notification needs both
+// the passenger's choice and the browser's permission. The fallback promised
+// both to everyone.
+test("promises only the backup alerts this phone can give", () => {
+  const renderSoundHelp = (options) => {
+    const view = render(
+      <RideMode
+        session={{ ...session("boarded"), options }}
+        runtime={{ trackingHealth: "live", etaSec: 600, remainingStops: 5 }}
+        gps={{ status: "off", distanceM: null, error: "" }}
+        wakeLockState="active"
+        onTestAlert={() => {}}
+        onEndRide={() => {}}
+        onOpenStop={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    return view;
+  };
+
+  const withoutVibration = renderSoundHelp({ notifications: false });
+  expect(
+    screen.getByText(
+      "Tracking is already running. Keep the sound on: this phone will not vibrate for these alerts."
+    )
+  ).toBeInTheDocument();
+  withoutVibration.unmount();
+
+  vi.stubGlobal("navigator", { ...globalThis.navigator, vibrate: () => true });
+  vi.stubGlobal("Notification", { permission: "granted" });
+  try {
+    const withBoth = renderSoundHelp({ notifications: true });
+    expect(
+      screen.getByText(
+        "Tracking is already running. Your phone will also vibrate and show a notification."
+      )
+    ).toBeInTheDocument();
+    withBoth.unmount();
+
+    renderSoundHelp({ notifications: false });
+    expect(
+      screen.getByText("Tracking is already running. Your phone will also vibrate.")
+    ).toBeInTheDocument();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 // A short hop reaches SOON within a stop or two, and that is exactly the
@@ -381,4 +434,420 @@ test("offers recovery at the next stop after a missed-stop signal", () => {
 
   expect(onEndRide).toHaveBeenCalledTimes(1);
   expect(onOpenStop).toHaveBeenCalledWith("4");
+});
+
+function renderPanel(runtime, stage = "soon") {
+  return render(
+    <RideMode
+      session={session(stage)}
+      runtime={{
+        trackingHealth: "schedule",
+        remainingStops: 2,
+        targetMatchBy: "",
+        ...runtime,
+      }}
+      gps={{ status: "off", error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+}
+
+test("never calls the bus confirmed once live tracking has been lost", () => {
+  // The last match survives failed polls. Beside "Going by the timetable"
+  // and the degraded banner, "Your bus is confirmed" said the opposite.
+  renderPanel({ trackingHealth: "schedule", targetMatchBy: "dated-journey" });
+
+  expect(screen.getByText("Going by the timetable")).toBeInTheDocument();
+  expect(screen.getByText("Looking for your bus")).toBeInTheDocument();
+  expect(screen.queryByText("Your bus is confirmed")).not.toBeInTheDocument();
+});
+
+test("agrees with its own badge when the bus is seen at the stop before", () => {
+  // Live at the stop before, not yet listed at the exit stop: the badge said
+  // "Following your bus" while the row beneath it said "Looking for it".
+  renderPanel({
+    trackingHealth: "live",
+    previousSeen: true,
+    targetLive: false,
+  });
+
+  expect(screen.getByText("Following your bus")).toBeInTheDocument();
+  expect(screen.getByText("Your bus is confirmed")).toBeInTheDocument();
+  expect(screen.getByText("on its way to Kauppatori")).toBeInTheDocument();
+  expect(screen.queryByText("Looking for your bus")).not.toBeInTheDocument();
+});
+
+test("says the live data is catching up, not that the bus is late", () => {
+  renderPanel({ trackingHealth: "delayed" });
+
+  expect(screen.getByText("Live tracking is catching up")).toBeInTheDocument();
+  expect(screen.queryByText(/lagging/i)).not.toBeInTheDocument();
+});
+
+// The timetable's count of stops left runs on the timetable's own clock, so
+// it cannot say the bus is late: with the stop before sharing the exit stop's
+// minute, it read "running late" on time and "about now" two minutes late.
+test("going by the timetable, its own time coming is about now, not late", () => {
+  renderPanel({ etaSec: 10, etaSource: "schedule", remainingStops: 2 });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.queryByText("running late")).not.toBeInTheDocument();
+});
+
+test("going by the timetable, a time well past with the stop still ahead is running late", () => {
+  renderPanel({ etaSec: -120, etaSource: "schedule", remainingStops: 0 });
+
+  expect(screen.getByText("running late")).toBeInTheDocument();
+  expect(screen.queryByText("about now")).not.toBeInTheDocument();
+});
+
+test("a live estimate that is overdue is still about now, not late", () => {
+  renderPanel({
+    trackingHealth: "live",
+    targetLive: true,
+    etaSec: -120,
+    etaSource: "live",
+    remainingStops: 0,
+  });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.queryByText("running late")).not.toBeInTheDocument();
+});
+
+test("trusts a live estimate of about now even when the timetable counts more stops", () => {
+  renderPanel({
+    trackingHealth: "live",
+    targetLive: true,
+    etaSec: 20,
+    etaSource: "live",
+    remainingStops: 2,
+  });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.getByText("Your bus is confirmed")).toBeInTheDocument();
+});
+
+function panelAt(stage) {
+  return (
+    <RideMode
+      session={session(stage)}
+      runtime={{ trackingHealth: "live", targetLive: true, remainingStops: 1 }}
+      gps={{ status: "off", error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+}
+
+test("promises nothing about a map at the start of the ride", () => {
+  render(panelAt("boarded"));
+
+  expect(screen.queryByText(/map/i)).not.toBeInTheDocument();
+});
+
+test("offers a single way out once it is time to get off", () => {
+  // "I'm getting off" and "End ride" did exactly the same thing, side by
+  // side, at the one moment there is no time to work out the difference.
+  render(panelAt("now"));
+
+  expect(
+    screen.getByRole("button", { name: "I'm getting off" })
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "End ride" })
+  ).not.toBeInTheDocument();
+});
+
+test("brings itself back into view when the stop is next", () => {
+  // On a phone the panel scrolls with the page, so a passenger reading the
+  // board below it would otherwise miss the one screen that matters.
+  const scrollIntoView = vi.fn();
+  const originalScroll = globalThis.HTMLElement.prototype.scrollIntoView;
+  const originalRect = globalThis.HTMLElement.prototype.getBoundingClientRect;
+  globalThis.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  globalThis.HTMLElement.prototype.getBoundingClientRect = () => ({
+    top: -500,
+    bottom: -20,
+    left: 0,
+    right: 360,
+    width: 360,
+    height: 480,
+  });
+
+  try {
+    const { rerender } = render(panelAt("boarded"));
+    rerender(panelAt("soon"));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(panelAt("next"));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    rerender(panelAt("now"));
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+  } finally {
+    globalThis.HTMLElement.prototype.scrollIntoView = originalScroll;
+    globalThis.HTMLElement.prototype.getBoundingClientRect = originalRect;
+  }
+});
+
+// The words that get a passenger off the bus are the ones that must be in
+// their language. The stop's own name stays as the pole and the bus say it.
+test("tells a Finnish reader to get off now, in Finnish", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("now")}
+      runtime={{ trackingHealth: "live", etaSec: 0, remainingStops: 0 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByRole("heading", { name: "Jää pois nyt" })).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Siirry ovelle ja jää pois."
+  );
+  expect(screen.getByRole("button", { name: "Jään pois" })).toBeInTheDocument();
+  expect(screen.getByText("Puistokatu")).toBeInTheDocument();
+});
+
+test("asks a Finnish bus passenger to press STOP without inflecting a stop name", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={{ ...session("next"), previousLeft: true }}
+      runtime={{
+        trackingHealth: "live",
+        targetLive: true,
+        etaSec: 200,
+        remainingStops: 2,
+      }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi on seuraavana" })
+  ).toBeInTheDocument();
+  expect(screen.getByText("Paina STOP-nappia nyt.")).toBeInTheDocument();
+  // "pysäkin Kauppatori jälkeen", never "Kauppatorin jälkeen".
+  expect(
+    screen.getByText("Pysäkki 32 · pysäkin Kauppatori jälkeen")
+  ).toBeInTheDocument();
+  expect(screen.getByText("2 pysäkkiä")).toBeInTheDocument();
+  expect(screen.getByText("~4 min")).toBeInTheDocument();
+  expect(screen.getByText("Bussi löytyi")).toBeInTheDocument();
+  expect(screen.getByLabelText("Matkan eteneminen")).toBeInTheDocument();
+});
+
+test("counts one stop left in the Finnish singular", () => {
+  resetLanguageForTests("fi");
+  render(panelAt("soon"));
+
+  expect(screen.getByText("1 pysäkki")).toBeInTheDocument();
+});
+
+test("follows a language switch in the middle of a ride", () => {
+  render(panelAt("soon"));
+  expect(
+    screen.getByRole("heading", { name: "Your stop is coming up" })
+  ).toBeInTheDocument();
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi lähestyy" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("group", { name: "Hälytysäänen tarkistus" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Lopeta matkatila" })).toBeInTheDocument();
+});
+
+test("gives a location problem in Finnish, and the destination as its sign says it", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 240, remainingStops: 2 }}
+      gps={{
+        status: "error",
+        offRouteSuspected: true,
+        error: "Location backup was not allowed.",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText(
+      "Sijainnin käyttöä ei sallittu. Matkan seuranta jatkuu ilman laitteen sijaintia."
+    )
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Et ole kahteen minuuttiin liikkunut linjan 1 reittiä suuntaan Satama. Oletko yhä tässä bussissa?"
+  );
+  expect(
+    screen.getByRole("button", { name: "Kyllä, jatka seurantaa" })
+  ).toBeInTheDocument();
+});
+
+// Going by the timetable, "~18 min" looked like any live estimate.
+test("marks a time that comes from the timetable", () => {
+  render(
+    <RideMode
+      session={session("boarded")}
+      runtime={{
+        trackingHealth: "live",
+        previousSeen: true,
+        etaSec: 1080,
+        etaSource: "schedule",
+        remainingStops: 4,
+      }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("By timetable")).toBeInTheDocument();
+  expect(screen.getByText("~18 min")).toBeInTheDocument();
+  expect(screen.getByText(/from the timetable until Föli’s live data shows your bus/)).toBeInTheDocument();
+});
+
+test("gets a bus passenger ready without sending them to the doors early", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 600, etaSource: "live", remainingStops: 3 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText("Get your things together. We will tell you when to press STOP.")
+  ).toBeInTheDocument();
+  expect(screen.getByText("Estimate")).toBeInTheDocument();
+  expect(screen.queryByText(/toward the doors/)).not.toBeInTheDocument();
+});
+
+// STOP asks for the next stop. Said before the bus has left the stop before
+// the exit, "Press STOP now" stopped it there, and the request was spent.
+test("names the stop before the exit until the bus has left it", () => {
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Your stop is after Kauppatori" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Press STOP when the bus leaves Kauppatori."
+  );
+  expect(screen.queryByText("Press the STOP button now.")).not.toBeInTheDocument();
+});
+
+test("names the stop before the exit in Finnish without inflecting it", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi on pysäkin Kauppatori jälkeen" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Paina STOP-nappia, kun bussi lähtee pysäkiltä Kauppatori."
+  );
+});
+
+test("keeps the plain wording on a waterbus, where there is no STOP to press early", () => {
+  render(
+    <RideMode
+      session={{ ...session("next"), routeType: 4 }}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByRole("heading", { name: "Your stop is next" })).toBeInTheDocument();
+  expect(screen.getByText("Get ready to exit at the next stop.")).toBeInTheDocument();
+});
+
+// Kept awake in a pocket, the screen took one stray touch as "End ride" and
+// the alert the passenger counted on was gone.
+test("ends a ride only on a second tap, and forgets the first after a moment", () => {
+  vi.useFakeTimers();
+  try {
+    const onEndRide = vi.fn();
+    render(
+      <RideMode
+        session={session("boarded")}
+        runtime={{ trackingHealth: "live", etaSec: 600, remainingStops: 5 }}
+        gps={{ status: "off", distanceM: null, error: "" }}
+        wakeLockState="active"
+        onTestAlert={() => {}}
+        onEndRide={onEndRide}
+        onOpenStop={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "End ride" }));
+    expect(onEndRide).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Tap again to end ride" })
+    ).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(4_000);
+    });
+    expect(screen.getByRole("button", { name: "End ride" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "End ride" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tap again to end ride" }));
+    expect(onEndRide).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

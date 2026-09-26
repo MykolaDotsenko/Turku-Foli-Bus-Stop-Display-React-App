@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTripStopTimes } from "../api/foliApi";
+import { t, tc } from "../i18n";
+import { resolveRideBoardingIndex } from "../utils/rideProgress";
 import styles from "./TripJourneyDetails.module.css";
+import StopName from "./StopName";
 
 const MAX_VISIBLE_NEXT_STOPS = 7;
 
@@ -21,13 +24,10 @@ function formatGtfsClock(value) {
   )}`;
 }
 
-function stopLabel(stopTime, stopsById) {
-  return stopsById.get(stopTime.stopId)?.name || `Stop ${stopTime.stopId}`;
-}
-
 export default function TripJourneyDetails({
   tripId,
   currentStopId,
+  aimedDepartureTime = null,
   stopsById,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -54,9 +54,19 @@ export default function TripJourneyDetails({
   }, [expanded, tripId]);
 
   const journey = useMemo(() => {
-    const currentIndex = stopTimes.findIndex(
-      (item) => item.stopId === String(currentStopId)
+    // A loop serves some stops twice, so the departure's own planned time
+    // picks the pass being boarded; the first match used to list stops the
+    // bus had already served. Only a pass that cannot be told apart falls
+    // back to the first.
+    const resolvedIndex = resolveRideBoardingIndex(
+      stopTimes,
+      currentStopId,
+      aimedDepartureTime
     );
+    const currentIndex =
+      resolvedIndex >= 0
+        ? resolvedIndex
+        : stopTimes.findIndex((item) => item.stopId === String(currentStopId));
     const remaining =
       currentIndex >= 0 ? stopTimes.slice(currentIndex + 1) : stopTimes;
 
@@ -68,7 +78,7 @@ export default function TripJourneyDetails({
       ),
       finalStop: remaining.at(-1) || null,
     };
-  }, [currentStopId, stopTimes]);
+  }, [aimedDepartureTime, currentStopId, stopTimes]);
 
   return (
     <div className={styles.wrapper}>
@@ -77,28 +87,36 @@ export default function TripJourneyDetails({
         className={styles.toggle}
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
+        aria-label={expanded ? t("Hide next stops") : t("Next stops")}
       >
-        {expanded ? "Hide next stops" : "Next stops"}
+        {/* A narrow phone gets the short Finnish label, so this and the
+            get-off alert share one line; its words stay in the name. */}
+        <span className={styles.toggleLong} aria-hidden="true">
+          {expanded ? t("Hide next stops") : t("Next stops")}
+        </span>
+        <span className={styles.toggleShort} aria-hidden="true">
+          {expanded ? tc("short", "Hide next stops") : tc("short", "Next stops")}
+        </span>
       </button>
 
       {expanded && (
         <div className={styles.panel}>
-          <p className={styles.kicker}>Planned stop sequence</p>
+          <p className={styles.kicker}>{t("Next stops · timetable times")}</p>
 
           {status === "loading" && (
             <p className={styles.status} role="status">
-              Loading planned stops…
+              {t("Loading planned stops…")}
             </p>
           )}
 
           {status === "error" && (
             <p className={styles.status} role="status">
-              Planned stop sequence is temporarily unavailable.
+              {t("Next stops are temporarily unavailable.")}
             </p>
           )}
 
           {status === "ready" && journey.visible.length === 0 && (
-            <p className={styles.status}>No later stops are listed.</p>
+            <p className={styles.status}>{t("No later stops are listed.")}</p>
           )}
 
           {status === "ready" && journey.visible.length > 0 && (
@@ -112,12 +130,14 @@ export default function TripJourneyDetails({
 
                   return (
                     <li key={`${item.stopId}-${item.stopSequence}`}>
-                      <span>{stopLabel(item, stopsById)}</span>
+                      <span><StopName stop={stopsById.get(item.stopId)} id={item.stopId} /></span>
                       <small>
                         {clock
-                          ? `${approximate ? "around " : ""}${clock}`
-                          : "planned"}
-                        {item.dropOffType === 1 ? " · no drop-off" : ""}
+                          ? approximate
+                            ? t("around {time}", { time: clock })
+                            : clock
+                          : t("planned")}
+                        {item.dropOffType === 1 ? ` · ${t("no drop-off")}` : ""}
                       </small>
                     </li>
                   );
@@ -126,8 +146,10 @@ export default function TripJourneyDetails({
 
               {journey.remainingCount > 0 && journey.finalStop && (
                 <p className={styles.more}>
-                  +{journey.remainingCount} more · final stop{" "}
-                  <strong>{stopLabel(journey.finalStop, stopsById)}</strong>
+                  {t("+{count} more · final stop", {
+                    count: journey.remainingCount,
+                  })}{" "}
+                  <strong><StopName stop={stopsById.get(journey.finalStop.stopId)} id={journey.finalStop.stopId} /></strong>
                 </p>
               )}
             </>

@@ -1,9 +1,53 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, expect, test } from "vitest";
-import useSavedPlaces from "./useSavedPlaces";
+import { afterEach, beforeEach, expect, test } from "vitest";
+import useSavedPlaces, { placeLabel } from "./useSavedPlaces";
+import { resetLanguageForTests } from "../i18n";
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
+
+// A place saved in one language must read correctly in the other, and code
+// that tells Home by its stored label must keep working.
+test("stores a place saved in Finnish exactly as in English, and names it in either", () => {
+  resetLanguageForTests("fi");
+  const { result } = renderHook(() => useSavedPlaces());
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      primaryStopId: "164",
+      stops: [{ id: "164", name: "Kauppatori" }, { id: "999", name: "" }],
+    });
+  });
+
+  const [stored] = JSON.parse(localStorage.getItem("foli-my-places-v1"));
+  expect(stored.label).toBe("Home");
+  // A nameless stop is stored without a stand-in, so no language is baked
+  // into it: the screen calls it "Pysäkki 999" or "Stop 999".
+  expect(stored.stops).toEqual([
+    { id: "164", name: "Kauppatori" },
+    { id: "999", name: "" },
+  ]);
+  expect(placeLabel(result.current.byId.get("home"))).toBe("Koti");
+
+  resetLanguageForTests("en");
+  const reopened = renderHook(() => useSavedPlaces()).result.current;
+  expect(reopened.byId.get("home").label).toBe("Home");
+  expect(placeLabel(reopened.byId.get("home"))).toBe("Home");
+});
+
+test("names each place by its id, whatever label it carries", () => {
+  resetLanguageForTests("fi");
+
+  expect(placeLabel({ id: "school", label: "School" })).toBe("Koulu");
+  expect(placeLabel({ id: "work", label: "anything" })).toBe("Työ");
+  expect(placeLabel({ id: "unknown", label: "Cabin" })).toBe("Cabin");
+  expect(placeLabel(null)).toBe("");
 });
 
 test("stores only public safe-stop identity and never private setup coordinates", () => {
@@ -113,7 +157,7 @@ test("revalidates saved stops against a fresh public catalogue without storing c
   expect(stored).not.toContain("22.2666");
 });
 
-test("clears Safe Place review state once every saved stop exists again", () => {
+test("clears a place's review state once every saved stop exists again", () => {
   const { result } = renderHook(() => useSavedPlaces());
 
   act(() => {
@@ -168,4 +212,46 @@ test("validates a place saved after the catalogue was already loaded", () => {
       validatedAt: 1_700_000_000_000,
     })
   );
+});
+
+// School imported in one tab was erased by any Home action in another tab,
+// which wrote its older list back.
+test("takes in a place saved in another tab before writing its own change", () => {
+  localStorage.setItem(
+    "foli-my-places-v1",
+    JSON.stringify([
+      { id: "home", stops: [{ id: "164", name: "Kauppatori" }], primaryStopId: "164" },
+    ])
+  );
+  const { result } = renderHook(() => useSavedPlaces());
+
+  const otherTab = JSON.stringify([
+    { id: "home", stops: [{ id: "164", name: "Kauppatori" }], primaryStopId: "164" },
+    { id: "school", stops: [{ id: "4", name: "Turun linna" }], primaryStopId: "4" },
+  ]);
+  localStorage.setItem("foli-my-places-v1", otherTab);
+  act(() => {
+    window.dispatchEvent(
+      new globalThis.StorageEvent("storage", {
+        key: "foli-my-places-v1",
+        newValue: otherTab,
+      })
+    );
+  });
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      stops: [
+        { id: "164", name: "Kauppatori" },
+        { id: "32", name: "Puistokatu" },
+      ],
+      primaryStopId: "164",
+    });
+  });
+
+  expect(result.current.byId.has("school")).toBe(true);
+  expect(
+    JSON.parse(localStorage.getItem("foli-my-places-v1")).map((place) => place.id)
+  ).toEqual(["school", "home"]);
 });

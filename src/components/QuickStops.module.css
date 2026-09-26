@@ -74,8 +74,8 @@
   font-size: 0.8rem;
 }
 
-.chipLabel span {
-  color: #60747d;
+.chipLabel > span {
+  color: #4d626b;
   font-size: 0.68rem;
   font-weight: 650;
 }
@@ -93,7 +93,7 @@
 
   .heading,
   .chipLabel strong,
-  .chipLabel span {
+  .chipLabel > span {
     font-size: 0.8125rem;
   }
 
@@ -106,5 +106,30 @@
     width: 28px;
     height: 28px;
     flex-basis: 28px;
+  }
+}
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .heading,
+  .chipLabel > span {
+    color: var(--dm-muted);
+  }
+
+  .chip {
+    border-color: var(--dm-line);
+    background: var(--dm-surface);
+    color: var(--dm-text);
+    box-shadow: 0 4px 14px var(--dm-shadow);
+  }
+
+  .chip:hover {
+    border-color: #5f949c;
+    background: var(--dm-raised);
+  }
+
+  .chipIcon {
+    background: var(--dm-accent-surface);
+    color: var(--dm-accent);
   }
 }

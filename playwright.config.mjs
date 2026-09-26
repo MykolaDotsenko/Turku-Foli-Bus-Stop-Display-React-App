@@ -51,7 +51,7 @@ export default defineConfig({
     },
     {
       name: "chromium-pwa",
-      grep: /production PWA reopens offline/,
+      grep: /production PWA/,
       use: {
         ...devices["Desktop Chrome"],
         serviceWorkers: "allow",

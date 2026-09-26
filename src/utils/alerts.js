@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -40,6 +42,11 @@ function translationFor(message, preferredLanguages = []) {
       return candidate === base || candidate.startsWith(`${base}-`);
     });
     if (sameLanguage) return sameLanguage[1];
+
+    // Föli's own text is Finnish, and it only translates it. A Finnish
+    // reader gets that original, not the next language the phone lists:
+    // Chrome on Android lists English after Finnish.
+    if (base === "fi") return null;
   }
 
   return null;
@@ -82,18 +89,27 @@ function messageMatchesContext(
   return routeNames.some((line) => activeLines.has(line));
 }
 
+// The app's own words for what Föli's codes mean, in the current language.
+// Alerts are extracted again whenever the language changes (useStopAlerts).
 function effectLabel(effect) {
-  const labels = {
-    NO_SERVICE: "No service",
-    REDUCED_SERVICE: "Reduced service",
-    SIGNIFICANT_DELAYS: "Significant delays",
-    DETOUR: "Detour",
-    ADDITIONAL_SERVICE: "Additional service",
-    MODIFIED_SERVICE: "Modified service",
-    STOP_MOVED: "Stop moved",
-  };
-
-  return labels[effect] || "Service update";
+  switch (effect) {
+    case "NO_SERVICE":
+      return t("No service");
+    case "REDUCED_SERVICE":
+      return t("Reduced service");
+    case "SIGNIFICANT_DELAYS":
+      return t("Significant delays");
+    case "DETOUR":
+      return t("Detour");
+    case "ADDITIONAL_SERVICE":
+      return t("Additional service");
+    case "MODIFIED_SERVICE":
+      return t("Modified service");
+    case "STOP_MOVED":
+      return t("Stop moved");
+    default:
+      return t("Service update");
+  }
 }
 
 
@@ -170,7 +186,7 @@ function normalizeMessage(
         : 9999,
     title:
       localized.header ||
-      (type === "global" ? "Föli service notice" : effectLabel(effect)),
+      (type === "global" ? t("Föli service notice") : effectLabel(effect)),
     message: localized.message,
     information: localized.information,
     effect,
@@ -259,22 +275,56 @@ export function extractStopAlerts(
   const routeMembership =
     servedRouteIds instanceof Set ? servedRouteIds : new Set(servedRouteIds);
 
+  const cancellations = asArray(payload.cancellations).flatMap(
+    (cancellation, cancellationIndex) => {
+      const matchingStops = asArray(cancellation?.stops).filter(
+        (stop) =>
+          stop?.isactive === true &&
+          String(stop.stop) === String(stopId)
+      );
+
+      return matchingStops.map((stop, stopIndex) => ({
+        id: `cancellation-${cancellation.id ?? cancellationIndex}-${stopIndex}`,
+        type: "cancellation",
+        priority: -500,
+        title: t("Cancelled departure"),
+        line:
+          cancellation?.line === null || cancellation?.line === undefined
+            ? ""
+            : String(cancellation.line),
+        cause: text(cancellation?.cause),
+        scheduledTime: Number.isFinite(Number(stop.arrival))
+          ? Number(stop.arrival)
+          : null,
+        routeNames: cancellation?.line ? [String(cancellation.line)] : [],
+        message: "",
+        information: "",
+        effect: "NO_SERVICE",
+        effectLabel: t("No service"),
+      }));
+    }
+  );
+
   const emergency = normalizeSpecial(
     payload.emergency_message,
     "emergency",
-    "Emergency service notice",
+    t("Emergency service notice"),
     preferredLanguages,
     referenceTime
   );
 
-  if (emergency) return [emergency];
+  // An emergency notice replaces Föli's ordinary notices, but a cancelled
+  // departure is not a notice: it is what the board shows on the bus's row.
+  // Dropped with the rest, a cancelled 32 kept its countdown and its
+  // "Get-off alert" through a storm warning.
+  if (emergency) return [emergency, ...cancellations];
 
   const activeLines = new Set(lineRefs.map(String));
 
   const globalMessage = normalizeSpecial(
     payload.global_message,
     "global",
-    "Föli service notice",
+    t("Föli service notice"),
     preferredLanguages,
     referenceTime
   );
@@ -301,36 +351,6 @@ export function extractStopAlerts(
         referenceTime
       )
     );
-
-  const cancellations = asArray(payload.cancellations).flatMap(
-    (cancellation, cancellationIndex) => {
-      const matchingStops = asArray(cancellation?.stops).filter(
-        (stop) =>
-          stop?.isactive === true &&
-          String(stop.stop) === String(stopId)
-      );
-
-      return matchingStops.map((stop, stopIndex) => ({
-        id: `cancellation-${cancellation.id ?? cancellationIndex}-${stopIndex}`,
-        type: "cancellation",
-        priority: -500,
-        title: "Cancelled departure",
-        line:
-          cancellation?.line === null || cancellation?.line === undefined
-            ? ""
-            : String(cancellation.line),
-        cause: text(cancellation?.cause),
-        scheduledTime: Number.isFinite(Number(stop.arrival))
-          ? Number(stop.arrival)
-          : null,
-        routeNames: cancellation?.line ? [String(cancellation.line)] : [],
-        message: "",
-        information: "",
-        effect: "NO_SERVICE",
-        effectLabel: "No service",
-      }));
-    }
-  );
 
   return [globalMessage, ...cancellations, ...messages]
     .filter(Boolean)

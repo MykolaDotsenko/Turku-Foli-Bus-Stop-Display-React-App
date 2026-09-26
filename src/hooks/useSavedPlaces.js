@@ -1,12 +1,30 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { msg, t } from "../i18n";
+import { realStopName } from "../utils/stopNames";
 
 const STORAGE_KEY = "foli-my-places-v1";
 
+// The label is saved with each place and stays English, whatever language
+// the place was saved in, so it reads the same in the other and code can
+// still tell Home by it. The screen names a place through placeLabel().
 export const PLACE_PRESETS = [
   { id: "home", label: "Home", icon: "⌂" },
   { id: "school", label: "School", icon: "▣" },
   { id: "work", label: "Work", icon: "▤" },
 ];
+
+const PLACE_LABELS = {
+  home: msg("Home"),
+  school: msg("School"),
+  work: msg("Work"),
+};
+
+// What a place is called on screen, in the passenger's language. Chosen by
+// its id, never by the label it was stored with.
+export function placeLabel(place) {
+  const label = PLACE_LABELS[place?.id];
+  return label ? t(label) : String(place?.label || "");
+}
 
 function normalizeStop(stop) {
   if (!stop || typeof stop !== "object") return null;
@@ -18,7 +36,9 @@ function normalizeStop(stop) {
 
   return {
     id,
-    name: name || `Stop ${id}`,
+    // Only Föli's own name. A stand-in is worked out on screen in the
+    // reader's language (utils/stopNames.js), never stored.
+    name: realStopName(name),
   };
 }
 
@@ -71,6 +91,18 @@ function persist(places) {
 
 export default function useSavedPlaces() {
   const [places, setPlaces] = useState(readStoredPlaces);
+
+  // A place saved or imported in another tab is taken in as it happens.
+  // Without this, any Home action here wrote this tab's older list back
+  // and the other tab's School was gone.
+  useEffect(() => {
+    const takeOtherTabChanges = (event) => {
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      setPlaces(readStoredPlaces());
+    };
+    window.addEventListener("storage", takeOtherTabChanges);
+    return () => window.removeEventListener("storage", takeOtherTabChanges);
+  }, []);
 
   const commit = useCallback((updater) => {
     setPlaces((current) => {

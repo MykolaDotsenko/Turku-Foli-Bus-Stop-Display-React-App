@@ -200,6 +200,29 @@ test("an emergency message replaces all other alert content", () => {
 });
 
 
+// A cancelled departure is not an ordinary notice: it is the bus's row on
+// the board. Dropped with the notices, a cancelled 32 kept its countdown and
+// "Get-off alert" through a storm warning.
+test("keeps cancelled departures alongside an emergency notice", () => {
+  const result = extractStopAlerts(
+    {
+      emergency_message: { header: "Storm warning" },
+      messages: [
+        { isactive: true, affected_stops: ["164"], message: "Ordinary disruption" },
+      ],
+      cancellations: [
+        { id: 9, line: "32", stops: [{ stop: "164", isactive: true, arrival: 1_000 }] },
+      ],
+    },
+    { stopId: "164", lineRefs: ["32"], routesById }
+  );
+
+  expect(result.map((alert) => [alert.type, alert.line || alert.title])).toEqual([
+    ["emergency", "Storm warning"],
+    ["cancellation", "32"],
+  ]);
+});
+
 test("uses the user's preferred provider translation when available", () => {
   const result = extractStopAlerts(
     {
@@ -347,4 +370,39 @@ test("normalizes HTTPS alert images and the active validity window", () => {
       ],
     })
   );
+});
+// Föli's shape: the main text is Finnish, with English and Swedish
+// translations beside it. With Finnish asked for first, a phone that also
+// lists English (Chrome on Android does) got the English one.
+const foliShapedNotice = {
+  messages: [
+    {
+      message_id: 60,
+      isactive: true,
+      affected_stops: ["164"],
+      header: "Linjan 1 poikkeusreitti",
+      message: "Käytä tilapäistä pysäkkiä.",
+      translations: {
+        en_GB: { header: "Line 1 detour", message: "Use the temporary stop." },
+        sv_FI: { header: "Linje 1 omledning", message: "Använd tillfällig hållplats." },
+      },
+    },
+  ],
+};
+
+test.each([
+  [["fi"], "Linjan 1 poikkeusreitti"],
+  [["fi-FI", "fi", "en-US", "en"], "Linjan 1 poikkeusreitti"],
+  [["fi-FI", "sv-FI"], "Linjan 1 poikkeusreitti"],
+  [["sv-SE", "en"], "Linje 1 omledning"],
+  [["de-DE", "en"], "Line 1 detour"],
+])("reads Föli's notice for %j as %s", (preferredLanguages, title) => {
+  const [alert] = extractStopAlerts(foliShapedNotice, {
+    stopId: "164",
+    lineRefs: [],
+    routesById,
+    preferredLanguages,
+  });
+
+  expect(alert.title).toBe(title);
 });

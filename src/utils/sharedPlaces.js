@@ -1,16 +1,20 @@
+import { realStopName } from "./stopNames";
+
 const VERSION = 1;
 const ALLOWED_PLACE_IDS = new Set(["home", "school", "work"]);
 const MAX_STOPS = 3;
 const MAX_STOP_NAME_LENGTH = 80;
 
-function cleanStopName(value, id) {
+function cleanStopName(value) {
   const cleaned = String(value || "")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_STOP_NAME_LENGTH);
 
-  return cleaned || `Stop ${id}`;
+  // Carried in the link and saved on import, so only Föli's own name: a
+  // stand-in is worked out on screen in the reader's language.
+  return realStopName(cleaned);
 }
 
 function normalizeSharedPlace(place) {
@@ -36,7 +40,7 @@ function normalizeSharedPlace(place) {
       seenStopIds.add(stopId);
       return {
         id: stopId,
-        name: cleanStopName(stop?.name, stopId),
+        name: cleanStopName(stop?.name),
       };
     })
     .filter(Boolean)

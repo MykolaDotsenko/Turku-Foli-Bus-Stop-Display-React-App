@@ -1,9 +1,15 @@
+import { intlLocale, t } from "../i18n";
+
 const DEPARTURE_TIME_FIELDS = [
   "expecteddeparturetime",
   "expectedarrivaltime",
   "aimeddeparturetime",
   "aimedarrivaltime",
 ];
+
+// How far ahead of its plan a bus plausibly runs. An estimate further ahead
+// than this is more likely stale than early.
+const PLAUSIBLY_EARLY_SECONDS = 180;
 
 export function getDepartureTime(arrival = {}, referenceTimeSec = null) {
   const values = Object.fromEntries(
@@ -21,6 +27,21 @@ export function getDepartureTime(arrival = {}, referenceTimeSec = null) {
     const aimed = values.aimeddeparturetime ?? values.aimedarrivaltime;
 
     if (expected !== null && expected >= earliestPlausible) return expected;
+    // A tracked bus whose estimate has passed a little ahead of its plan
+    // ran early and has left: its plan said "2 min" for a bus already gone,
+    // and on a board reopened offline it kept saying so until the planned
+    // time. An estimate far ahead of the plan is not believed; neither a bus
+    // still standing at the stop nor a row the feed is not tracking has
+    // left by its estimate. Those fall back to the plan.
+    if (
+      expected !== null &&
+      aimed !== null &&
+      arrival.monitored === true &&
+      arrival.vehicleatstop !== true &&
+      aimed - expected <= PLAUSIBLY_EARLY_SECONDS
+    ) {
+      return expected;
+    }
     if (aimed !== null && aimed >= earliestPlausible) return aimed;
 
     return expected ?? aimed ?? null;
@@ -51,7 +72,11 @@ export function serviceDateTimeFormat(options, locale) {
   }
 }
 
-export function formatClock(unixSeconds, locale) {
+// Stop timetables and the signs on the buses use the 24-hour clock, so every
+// transit time does too, whatever language the phone is set to.
+export const TRANSIT_CLOCK_LOCALE = "en-GB";
+
+export function formatClock(unixSeconds, locale = TRANSIT_CLOCK_LOCALE) {
   const seconds = Number(unixSeconds);
   if (!Number.isFinite(seconds) || seconds <= 0) return "—";
 
@@ -59,6 +84,7 @@ export function formatClock(unixSeconds, locale) {
     {
       hour: "2-digit",
       minute: "2-digit",
+      hourCycle: "h23",
     },
     locale
   ).format(new Date(seconds * 1000));
@@ -102,36 +128,50 @@ function dayDistance(leftKey, rightKey) {
   );
 }
 
-export function formatDue(unixSeconds, nowMs = Date.now()) {
+// "4 min", or a day and a clock time ("Tomorrow", "06:30"). The day is kept
+// apart so the board can set it smaller than the time, in any language.
+export function formatDueParts(unixSeconds, nowMs = Date.now()) {
   const minutes = minutesUntil(unixSeconds, nowMs);
-  if (minutes === null) return "—";
-  if (minutes <= 1) return "Due";
-  if (minutes <= 90) return `${minutes} min`;
+  if (minutes === null) return { day: "", time: "—" };
+  if (minutes <= 1) return { day: "", time: t("Due") };
+  if (minutes <= 90) return { day: "", time: t("{minutes} min", { minutes }) };
 
   const departureMs = Number(unixSeconds) * 1000;
   const days = dayDistance(serviceDayKey(nowMs), serviceDayKey(departureMs));
-  const clock = formatClock(unixSeconds, "en-GB");
+  const clock = formatClock(unixSeconds);
 
-  if (days === 0) return `Today ${clock}`;
-  if (days === 1) return `Tomorrow ${clock}`;
+  if (days === 0) return { day: t("Today"), time: clock };
+  if (days === 1) return { day: t("Tomorrow"), time: clock };
 
-  return serviceDateTimeFormat(
-    {
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    },
-    "en-GB"
-  ).format(new Date(departureMs));
+  // Finnish writes weekdays in lower case ("ti"); above a time, beside
+  // "Tänään" and "Huomenna", it is a label and takes a capital like them.
+  const weekday = serviceDateTimeFormat({ weekday: "short" }, intlLocale()).format(
+    new Date(departureMs)
+  );
+  return {
+    day: weekday.charAt(0).toLocaleUpperCase(intlLocale()) + weekday.slice(1),
+    time: clock,
+  };
+}
+
+export function formatDue(unixSeconds, nowMs = Date.now()) {
+  const { day, time } = formatDueParts(unixSeconds, nowMs);
+  return day ? `${day} ${time}` : time;
 }
 
 export function formatDelay(delaySeconds) {
   const seconds = Number(delaySeconds);
   if (!Number.isFinite(seconds)) return null;
-  if (Math.abs(seconds) < 30) return "on time";
+  if (Math.abs(seconds) < 30) return t("on time");
 
+  // "+1 min" is transit shorthand; "1 min late" is what it means. Kept on
+  // one line: broken as "1 min" at a line's end, it read as "due in 1 min".
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
-  return seconds > 0 ? `+${minutes} min` : `${minutes} min early`;
+  const phrase =
+    seconds > 0
+      ? t("{minutes} min late", { minutes })
+      : t("{minutes} min early", { minutes });
+  return phrase.replaceAll(" ", "\u00a0");
 }
 
 export function dataAgeSeconds(recordedAt, serverTime) {
@@ -154,18 +194,24 @@ export function formatServiceStatus(
   monitored,
   delaySeconds,
   recordedAt,
-  serverTime
+  serverTime,
+  { offline = false } = {}
 ) {
-  if (!monitored) return "Scheduled";
+  if (!monitored) return t("Scheduled");
 
   const delay = formatDelay(delaySeconds);
   const ageSeconds = dataAgeSeconds(recordedAt, serverTime);
 
-  let freshness = "Live";
-  if (ageSeconds !== null && ageSeconds > 120) {
-    freshness = `Live data · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
+  // Offline, a saved row is the last word from the bus, not a live one.
+  let freshness = offline ? t("Last live estimate") : t("Live");
+  if (offline) {
+    // Its age is said once, above the board.
+  } else if (ageSeconds !== null && ageSeconds > 120) {
+    freshness = t("Live data · {minutes} min old", {
+      minutes: Math.max(2, Math.round(ageSeconds / 60)),
+    });
   } else if (ageSeconds !== null && ageSeconds > 60) {
-    freshness = "Live data · 1 min old";
+    freshness = t("Live data · 1 min old");
   }
 
   return delay ? `${freshness} · ${delay}` : freshness;
@@ -215,7 +261,7 @@ export function formatElapsedAge(seconds) {
 
   const value = Number(seconds);
   if (!Number.isFinite(value) || value < 0) return "";
-  if (value < 60) return "just now";
-  if (value < 120) return "1 min ago";
-  return `${Math.round(value / 60)} min ago`;
+  if (value < 60) return t("just now");
+  if (value < 120) return t("1 min ago");
+  return t("{minutes} min ago", { minutes: Math.round(value / 60) });
 }

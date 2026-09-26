@@ -8,7 +8,7 @@
   border-radius: 12px;
   background: #fff9e8;
   color: #5b4c20;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 
@@ -27,5 +27,18 @@
 @media (forced-colors: active) {
   .banner {
     border-color: CanvasText;
+  }
+}
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .banner {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
+  }
+
+  .banner strong {
+    color: var(--dm-warn-text);
   }
 }
