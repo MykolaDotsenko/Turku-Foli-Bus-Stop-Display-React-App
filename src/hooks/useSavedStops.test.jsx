@@ -84,3 +84,33 @@ test("a stop looked at now is the one to reopen", () => {
 
   expect(stopToReopen()).toBe("164");
 });
+
+// Open in two tabs, a favourite starred in one was wiped out by the other
+// writing its older copy back the next time it opened a stop.
+test("takes in a favourite saved in another tab before writing its own change", () => {
+  const { result } = renderHook(() => useSavedStops());
+
+  // The other tab stars Puistokatu.
+  const otherTab = JSON.stringify({
+    favorites: [{ id: "32", name: "Puistokatu" }],
+    recents: [],
+  });
+  localStorage.setItem("foli-saved-stops-v1", otherTab);
+  act(() => {
+    window.dispatchEvent(
+      new globalThis.StorageEvent("storage", {
+        key: "foli-saved-stops-v1",
+        newValue: otherTab,
+      })
+    );
+  });
+
+  act(() => {
+    result.current.rememberRecent({ id: "164", name: "Kauppatori" });
+  });
+
+  expect(result.current.favoriteIds.has("32")).toBe(true);
+  expect(
+    JSON.parse(localStorage.getItem("foli-saved-stops-v1")).favorites
+  ).toEqual([{ id: "32", name: "Puistokatu" }]);
+});

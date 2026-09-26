@@ -275,6 +275,36 @@ export function extractStopAlerts(
   const routeMembership =
     servedRouteIds instanceof Set ? servedRouteIds : new Set(servedRouteIds);
 
+  const cancellations = asArray(payload.cancellations).flatMap(
+    (cancellation, cancellationIndex) => {
+      const matchingStops = asArray(cancellation?.stops).filter(
+        (stop) =>
+          stop?.isactive === true &&
+          String(stop.stop) === String(stopId)
+      );
+
+      return matchingStops.map((stop, stopIndex) => ({
+        id: `cancellation-${cancellation.id ?? cancellationIndex}-${stopIndex}`,
+        type: "cancellation",
+        priority: -500,
+        title: t("Cancelled departure"),
+        line:
+          cancellation?.line === null || cancellation?.line === undefined
+            ? ""
+            : String(cancellation.line),
+        cause: text(cancellation?.cause),
+        scheduledTime: Number.isFinite(Number(stop.arrival))
+          ? Number(stop.arrival)
+          : null,
+        routeNames: cancellation?.line ? [String(cancellation.line)] : [],
+        message: "",
+        information: "",
+        effect: "NO_SERVICE",
+        effectLabel: t("No service"),
+      }));
+    }
+  );
+
   const emergency = normalizeSpecial(
     payload.emergency_message,
     "emergency",
@@ -283,7 +313,11 @@ export function extractStopAlerts(
     referenceTime
   );
 
-  if (emergency) return [emergency];
+  // An emergency notice replaces Föli's ordinary notices, but a cancelled
+  // departure is not a notice: it is what the board shows on the bus's row.
+  // Dropped with the rest, a cancelled 32 kept its countdown and its
+  // "Alert me" through a storm warning.
+  if (emergency) return [emergency, ...cancellations];
 
   const activeLines = new Set(lineRefs.map(String));
 
@@ -317,36 +351,6 @@ export function extractStopAlerts(
         referenceTime
       )
     );
-
-  const cancellations = asArray(payload.cancellations).flatMap(
-    (cancellation, cancellationIndex) => {
-      const matchingStops = asArray(cancellation?.stops).filter(
-        (stop) =>
-          stop?.isactive === true &&
-          String(stop.stop) === String(stopId)
-      );
-
-      return matchingStops.map((stop, stopIndex) => ({
-        id: `cancellation-${cancellation.id ?? cancellationIndex}-${stopIndex}`,
-        type: "cancellation",
-        priority: -500,
-        title: t("Cancelled departure"),
-        line:
-          cancellation?.line === null || cancellation?.line === undefined
-            ? ""
-            : String(cancellation.line),
-        cause: text(cancellation?.cause),
-        scheduledTime: Number.isFinite(Number(stop.arrival))
-          ? Number(stop.arrival)
-          : null,
-        routeNames: cancellation?.line ? [String(cancellation.line)] : [],
-        message: "",
-        information: "",
-        effect: "NO_SERVICE",
-        effectLabel: t("No service"),
-      }));
-    }
-  );
 
   return [globalMessage, ...cancellations, ...messages]
     .filter(Boolean)

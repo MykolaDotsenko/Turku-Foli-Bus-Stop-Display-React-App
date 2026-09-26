@@ -1,7 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const CONNECTIVITY_TIMEOUT_MS = 3000;
 const OFFLINE_HINT_KEY = "foli-offline-hint";
+// How often a page that thinks it is offline looks again, while visible.
+const OFFLINE_RECHECK_MS = 30_000;
+
+// Fired when data.foli.fi has just answered: a working connection, whatever
+// the last probe said.
+export const PROVIDER_REACHED_EVENT = "foli:provider-reached";
+
+export function reportProviderReached() {
+  try {
+    globalThis.dispatchEvent?.(new globalThis.Event(PROVIDER_REACHED_EVENT));
+  } catch {
+    // Connectivity reporting is advisory.
+  }
+}
 
 // The service worker files the marker under the deployment's base path
 // (scripts/build-sw.mjs). Looked up at the origin root it never matched on
@@ -103,6 +117,8 @@ async function canReachAppOrigin() {
 
 export default function useOnlineStatus() {
   const [online, setOnline] = useState(initialOnlineState);
+  const onlineRef = useRef(online);
+  onlineRef.current = online;
 
   useEffect(() => {
     let active = true;
@@ -159,6 +175,23 @@ export default function useOnlineStatus() {
       }
     };
 
+    // One probe slower than three seconds on a slow connection said
+    // "Offline mode", hid bus positions and switched Get me Home off while
+    // live departures kept arriving. An answer from Föli settles it, and a
+    // page that thinks it is offline keeps looking.
+    const markReached = () => {
+      if (!browserSaysOnline()) return;
+      sequence += 1;
+      writeOfflineHint(false);
+      setOnline(true);
+      void clearOfflineShellMarker();
+    };
+    const recheckWhileOffline = window.setInterval(() => {
+      if (!onlineRef.current && document.visibilityState === "visible") {
+        recheck();
+      }
+    }, OFFLINE_RECHECK_MS);
+
     sync();
 
     window.addEventListener("online", markOnline);
@@ -168,10 +201,13 @@ export default function useOnlineStatus() {
     window.addEventListener("pageshow", recheck);
     window.addEventListener("focus", recheck);
     document.addEventListener("visibilitychange", recheck);
+    window.addEventListener(PROVIDER_REACHED_EVENT, markReached);
 
     return () => {
       active = false;
       sequence += 1;
+      window.clearInterval(recheckWhileOffline);
+      window.removeEventListener(PROVIDER_REACHED_EVENT, markReached);
       window.removeEventListener("online", markOnline);
       window.removeEventListener("offline", markOffline);
       window.removeEventListener("beforeunload", persistOfflineBeforeReload);

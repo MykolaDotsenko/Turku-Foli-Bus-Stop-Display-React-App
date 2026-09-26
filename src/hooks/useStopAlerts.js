@@ -112,12 +112,18 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") refresh();
     };
+    // Started offline, or after one failed check, the notices waited up to
+    // five minutes after the connection came back, and live departures
+    // showed without their cancellations in the meantime.
+    const handleOnline = () => refresh();
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
       abortRef.current?.abort();
       membershipAbortRef.current?.abort();
     };

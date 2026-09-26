@@ -70,3 +70,23 @@ test("shows a route notice once the new stop is confirmed to be on that route", 
     ])
   );
 });
+
+// Started offline, the notices, cancellations among them, waited up to
+// five minutes after the connection came back.
+test("checks the notices again as soon as the connection comes back", async () => {
+  mocks.fetchStopServedRouteIds.mockResolvedValue(new Set(["50"]));
+  mocks.fetchAlerts.mockRejectedValueOnce(new Error("offline"));
+
+  const { result } = renderHook(() => useStopAlerts("164", noLines, routesById));
+  await waitFor(() => expect(mocks.fetchAlerts).toHaveBeenCalledTimes(1));
+  expect(result.current.alerts).toEqual([]);
+
+  window.dispatchEvent(new globalThis.Event("online"));
+
+  await waitFor(() => expect(mocks.fetchAlerts).toHaveBeenCalledTimes(2));
+  await waitFor(() =>
+    expect(result.current.alerts.map((alert) => alert.title)).toEqual([
+      "Line 50 stop moved",
+    ])
+  );
+});

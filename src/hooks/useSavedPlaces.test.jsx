@@ -213,3 +213,45 @@ test("validates a place saved after the catalogue was already loaded", () => {
     })
   );
 });
+
+// School imported in one tab was erased by any Home action in another tab,
+// which wrote its older list back.
+test("takes in a place saved in another tab before writing its own change", () => {
+  localStorage.setItem(
+    "foli-my-places-v1",
+    JSON.stringify([
+      { id: "home", stops: [{ id: "164", name: "Kauppatori" }], primaryStopId: "164" },
+    ])
+  );
+  const { result } = renderHook(() => useSavedPlaces());
+
+  const otherTab = JSON.stringify([
+    { id: "home", stops: [{ id: "164", name: "Kauppatori" }], primaryStopId: "164" },
+    { id: "school", stops: [{ id: "4", name: "Turun linna" }], primaryStopId: "4" },
+  ]);
+  localStorage.setItem("foli-my-places-v1", otherTab);
+  act(() => {
+    window.dispatchEvent(
+      new globalThis.StorageEvent("storage", {
+        key: "foli-my-places-v1",
+        newValue: otherTab,
+      })
+    );
+  });
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      stops: [
+        { id: "164", name: "Kauppatori" },
+        { id: "32", name: "Puistokatu" },
+      ],
+      primaryStopId: "164",
+    });
+  });
+
+  expect(result.current.byId.has("school")).toBe(true);
+  expect(
+    JSON.parse(localStorage.getItem("foli-my-places-v1")).map((place) => place.id)
+  ).toEqual(["school", "home"]);
+});

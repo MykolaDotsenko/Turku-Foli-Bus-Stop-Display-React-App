@@ -13,6 +13,10 @@ import StopName from "./StopName";
 const PRINTED_REQUEST_FINNISH =
   "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
 const PRINTED_REQUEST_ENGLISH = "Could you help me get off at the right stop?";
+// Printed for the driver as the driver card shows it, whatever the
+// interface language: "Pysäkki / Stop 164".
+const PRINTED_STOP_FINNISH = "Pysäkki";
+const PRINTED_STOP_ENGLISH = "Stop";
 
 function resolveStops(place, stops) {
   const byId = new Map(stops.map((stop) => [stop.id, stop]));
@@ -92,8 +96,20 @@ function HomeRecovery({
         </p>
       )}
 
+      {/* Offline, the one Home action that still works leads. A disabled
+          "Get me Home" in the main slot was the first thing a stranded
+          passenger with no data saw, under a banner saying driver help
+          still worked. */}
       <div className={styles.actions}>
-        {transitUrl ? (
+        {!online ? (
+          <button
+            type="button"
+            className={styles.primaryAction}
+            onClick={() => setShowDriver(true)}
+          >
+            {t("Show to driver")}
+          </button>
+        ) : transitUrl ? (
           <a
             className={styles.primaryAction}
             href={transitUrl}
@@ -137,13 +153,24 @@ function HomeRecovery({
           {t("Open Home stop")}
         </button>
 
-        <button
-          type="button"
-          className={styles.secondaryAction}
-          onClick={() => setShowDriver(true)}
-        >
-          {t("Show to driver")}
-        </button>
+        {online ? (
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            onClick={() => setShowDriver(true)}
+          >
+            {t("Show to driver")}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles.secondaryAction}
+            disabled
+            aria-describedby="home-recovery-routing-status"
+          >
+            {t("Get me Home")}
+          </button>
+        )}
       </div>
 
       {transitUrl && (
@@ -241,17 +268,24 @@ function HomeRecovery({
           language. */}
       <section className={styles.printCard} aria-hidden="true">
         <p className={styles.printKicker}>{t("Home backup card")}</p>
-        <h2>{label}</h2>
-        <p className={styles.printPrimary}>
+        {/* The stop is the largest thing on it, as on the driver card: the
+            place's own name tells a driver nothing. */}
+        <h2 className={styles.printStop}>
           <StopName stop={primaryStop} />
-          <span>{t("Stop {id}", { id: primaryStop.id })}</span>
+        </h2>
+        <p className={styles.printPrimary}>
+          <span lang="fi">{PRINTED_STOP_FINNISH}</span> /{" "}
+          <span lang="en">
+            {PRINTED_STOP_ENGLISH} {primaryStop.id}
+          </span>
         </p>
         {backupStops.length > 0 && (
           <div className={styles.printBackups}>
             <strong>{t("Backup stops")}</strong>
             {backupStops.map((stop) => (
               <p key={stop.id}>
-                <StopName stop={stop} /> · {t("Stop {id}", { id: stop.id })}
+                <StopName stop={stop} /> · <span lang="fi">{PRINTED_STOP_FINNISH}</span>{" "}
+                / <span lang="en">{PRINTED_STOP_ENGLISH}</span> {stop.id}
               </p>
             ))}
           </div>

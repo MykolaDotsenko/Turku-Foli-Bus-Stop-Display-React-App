@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { realStopName } from "../utils/stopNames";
 
 const STORAGE_KEY = "foli-saved-stops-v1";
@@ -62,6 +62,18 @@ function persist(state) {
 
 export default function useSavedStops() {
   const [state, setState] = useState(readStoredState);
+
+  // Another tab's changes are taken in as they happen. Without this, this
+  // tab wrote its own older copy back on the next stop it opened, and a
+  // favourite starred in the other tab was gone.
+  useEffect(() => {
+    const takeOtherTabChanges = (event) => {
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      setState(readStoredState());
+    };
+    window.addEventListener("storage", takeOtherTabChanges);
+    return () => window.removeEventListener("storage", takeOtherTabChanges);
+  }, []);
 
   const commit = useCallback((updater) => {
     setState((current) => {

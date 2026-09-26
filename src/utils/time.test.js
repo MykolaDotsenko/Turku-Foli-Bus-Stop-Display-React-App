@@ -96,6 +96,30 @@ test("uses the planned departure when a realtime estimate is already stale", () 
   ).toBe(1_200);
 });
 
+// Two minutes early, expected 12:08 and planned 12:10: at 12:08:45 the row
+// read "2 min · 12:10 · Live · 2 min early" for a bus that had gone.
+test("takes a tracked bus that ran a little early and whose estimate has passed as gone", () => {
+  const reference = 1_000;
+  const earlyBus = {
+    monitored: true,
+    expecteddeparturetime: 940,
+    aimeddeparturetime: 1_060,
+  };
+
+  expect(getDepartureTime(earlyBus, reference)).toBe(940);
+  // Still standing at the stop, it can still be caught.
+  expect(
+    getDepartureTime({ ...earlyBus, vehicleatstop: true }, reference)
+  ).toBe(1_060);
+  // Seven minutes ahead of the plan is a stale estimate, not an early bus.
+  expect(
+    getDepartureTime(
+      { ...earlyBus, expecteddeparturetime: 880, aimeddeparturetime: 1_300 },
+      reference
+    )
+  ).toBe(1_300);
+});
+
 test("keeps a valid future realtime estimate ahead of the plan", () => {
   const reference = 1_000;
 

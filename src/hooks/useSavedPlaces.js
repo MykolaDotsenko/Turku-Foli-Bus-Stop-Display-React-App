@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { msg, t } from "../i18n";
 import { realStopName } from "../utils/stopNames";
 
@@ -91,6 +91,18 @@ function persist(places) {
 
 export default function useSavedPlaces() {
   const [places, setPlaces] = useState(readStoredPlaces);
+
+  // A place saved or imported in another tab is taken in as it happens.
+  // Without this, any Home action here wrote this tab's older list back
+  // and the other tab's School was gone.
+  useEffect(() => {
+    const takeOtherTabChanges = (event) => {
+      if (event.key !== null && event.key !== STORAGE_KEY) return;
+      setPlaces(readStoredPlaces());
+    };
+    window.addEventListener("storage", takeOtherTabChanges);
+    return () => window.removeEventListener("storage", takeOtherTabChanges);
+  }, []);
 
   const commit = useCallback((updater) => {
     setPlaces((current) => {

@@ -125,6 +125,11 @@
   opacity: 0.6;
 }
 
+.secondaryAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .secondaryAction {
   border: 1px solid #bfd4d7;
   background: #fff;
@@ -351,14 +356,13 @@
     text-transform: uppercase;
   }
 
-  .printPrimary {
-    display: grid;
-    gap: 3px;
-    font-size: 20pt;
+  .printStop {
+    font-size: 22pt;
     font-weight: 800;
+    line-height: 1.15;
   }
 
-  .printPrimary span {
+  .printPrimary {
     font-size: 13pt;
     font-weight: 600;
   }

@@ -153,7 +153,9 @@
   white-space: nowrap;
 }
 
-.stopText span {
+/* The line under the name. The name itself is a span too, inside the
+   <strong>, and a plain ".stopText span" greyed it like the metadata. */
+.stopText > span {
   color: #52666f;
   font-size: 0.8125rem;
   font-weight: 700;
@@ -289,7 +291,7 @@
   .notice,
   .disclaimer,
   .stopText strong,
-  .stopText span,
+  .stopText > span,
   .nearestBadge,
   .walkLink {
     font-size: 0.8125rem;
@@ -349,7 +351,7 @@
 
   .description,
   .meta,
-  .stopText span,
+  .stopText > span,
   .disclaimer {
     color: var(--dm-muted);
   }

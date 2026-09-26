@@ -74,7 +74,7 @@
   font-size: 0.8rem;
 }
 
-.chipLabel span {
+.chipLabel > span {
   color: #4d626b;
   font-size: 0.68rem;
   font-weight: 650;
@@ -93,7 +93,7 @@
 
   .heading,
   .chipLabel strong,
-  .chipLabel span {
+  .chipLabel > span {
     font-size: 0.8125rem;
   }
 
@@ -112,7 +112,7 @@
 /* Dark theme: tokens in App.css. */
 @media screen and (prefers-color-scheme: dark) {
   .heading,
-  .chipLabel span {
+  .chipLabel > span {
     color: var(--dm-muted);
   }
 

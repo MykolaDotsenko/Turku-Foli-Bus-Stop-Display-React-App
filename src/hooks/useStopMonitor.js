@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchStopMonitor } from "../api/foliApi";
+import { reportProviderReached } from "./useOnlineStatus";
 
 const REFRESH_INTERVAL_MS = 30_000;
 const MAX_RETRY_INTERVAL_MS = 5 * 60_000;
@@ -150,6 +151,7 @@ export default function useStopMonitor(stopId) {
         if (controller.signal.aborted) return null;
         const received = { stopId, ...next, receivedAtMs: Date.now() };
         consecutiveFailuresRef.current = 0;
+        reportProviderReached();
         setData(received);
         writeSnapshot(received);
         return true;

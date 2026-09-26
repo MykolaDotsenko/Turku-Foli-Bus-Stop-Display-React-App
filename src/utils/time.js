@@ -7,6 +7,10 @@ const DEPARTURE_TIME_FIELDS = [
   "aimedarrivaltime",
 ];
 
+// How far ahead of its plan a bus plausibly runs. An estimate further ahead
+// than this is more likely stale than early.
+const PLAUSIBLY_EARLY_SECONDS = 180;
+
 export function getDepartureTime(arrival = {}, referenceTimeSec = null) {
   const values = Object.fromEntries(
     DEPARTURE_TIME_FIELDS.map((field) => {
@@ -23,6 +27,21 @@ export function getDepartureTime(arrival = {}, referenceTimeSec = null) {
     const aimed = values.aimeddeparturetime ?? values.aimedarrivaltime;
 
     if (expected !== null && expected >= earliestPlausible) return expected;
+    // A tracked bus whose estimate has passed a little ahead of its plan
+    // ran early and has left: its plan said "2 min" for a bus already gone,
+    // and on a board reopened offline it kept saying so until the planned
+    // time. An estimate far ahead of the plan is not believed; neither a bus
+    // still standing at the stop nor a row the feed is not tracking has
+    // left by its estimate. Those fall back to the plan.
+    if (
+      expected !== null &&
+      aimed !== null &&
+      arrival.monitored === true &&
+      arrival.vehicleatstop !== true &&
+      aimed - expected <= PLAUSIBLY_EARLY_SECONDS
+    ) {
+      return expected;
+    }
     if (aimed !== null && aimed >= earliestPlausible) return aimed;
 
     return expected ?? aimed ?? null;

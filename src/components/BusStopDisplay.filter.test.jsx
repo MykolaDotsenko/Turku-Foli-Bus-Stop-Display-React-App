@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -185,4 +185,28 @@ test("a stored filter that is not a filter is ignored", () => {
   render(board());
 
   expect(rows()).toHaveLength(10);
+});
+
+// An hourly line whose next bus is cancelled showed only "Cancelled", with
+// nothing of the bus after it, which is past the live feed's hour.
+test("a followed line whose only live row is cancelled still shows its next bus", async () => {
+  mocks.fetchScheduledLineDepartures.mockResolvedValue([
+    { ...departure("32", "Varissuo", 70 * 60), tripref: "trip-32-next" },
+  ]);
+  follow(["32"]);
+  render(
+    board({
+      arrivals: [departure("1", "Satama", 60), departure("32", "Varissuo", 600)],
+      cancellations: [{ line: "32", scheduledTime: NOW + 600 }],
+    })
+  );
+
+  // The cancelled bus, and the one after it from the timetable.
+  await waitFor(() => expect(screen.getAllByText("Varissuo")).toHaveLength(2));
+  expect(mocks.fetchScheduledLineDepartures).toHaveBeenCalledWith(
+    "164",
+    ["32"],
+    expect.anything(),
+    expect.anything()
+  );
 });

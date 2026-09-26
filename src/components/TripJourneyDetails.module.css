@@ -78,7 +78,7 @@
   font-size: 0.8rem;
 }
 
-.list li span,
+.list li > span,
 .list li small {
   display: block;
 }

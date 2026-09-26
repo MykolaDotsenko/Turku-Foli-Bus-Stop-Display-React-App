@@ -303,9 +303,15 @@ function BusStopDisplay({
   // hour or so ahead, so an hourly line at a busy stop was missing while it
   // ran and the board said it had none. Its next buses come from the
   // timetable instead.
+  // A cancelled row is no departure: an hourly line whose next bus was
+  // cancelled showed only "Cancelled", and nothing of the one after it.
   const linesMissing = followedLines.filter(
     (line) =>
-      !upcomingArrivals.some((arrival) => String(arrival.lineref || "") === line)
+      !upcomingArrivals.some(
+        (arrival) =>
+          String(arrival.lineref || "") === line &&
+          !isCancelledHere(arrival, cancellations)
+      )
   );
   const lineTimetable = useLineTimetable(
     hasData ? stopId : "",

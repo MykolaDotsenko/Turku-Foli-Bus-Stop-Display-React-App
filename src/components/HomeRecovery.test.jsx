@@ -136,6 +136,10 @@ test("does not send a stressed user into external routing while offline", () => 
   expect(
     screen.getByText("Directions need an internet connection.")
   ).toBeInTheDocument();
+  // The action that still works offline leads.
+  expect(
+    screen.getAllByRole("button").find((button) => !button.disabled)
+  ).toHaveTextContent("Show to driver");
 
   fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));
   expect(onOpenStop).toHaveBeenCalledWith("164");
@@ -231,10 +235,27 @@ test("prints the Home card in Finnish with the driver's request unchanged", () =
   ).toHaveAttribute("lang", "en");
   expect(screen.getByText("Kotimatkakortti")).toBeInTheDocument();
   expect(screen.getByText("Varapysäkit")).toBeInTheDocument();
-  expect(screen.getByText("Pysäkki 164")).toBeInTheDocument();
+  // Stop numbers are printed for the driver, as the driver card shows them.
+  expect(
+    screen.getAllByText("Stop 164").some(
+      (number) => number.parentElement.textContent === "Pysäkki / Stop 164"
+    )
+  ).toBe(true);
   expect(
     screen
       .getAllByText("Puistokatu")
-      .some((name) => name.parentElement.textContent === "Puistokatu · Pysäkki 32")
+      .some(
+        (name) => name.parentElement.textContent === "Puistokatu · Pysäkki / Stop 32"
+      )
   ).toBe(true);
+});
+
+// The biggest word on the card was "Home", which tells a driver nothing.
+test("leads the printed card with the stop, not the place", () => {
+  const { container } = render(
+    <HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />
+  );
+
+  const printed = container.querySelector('section[aria-hidden="true"]');
+  expect(printed.querySelector("h2")).toHaveTextContent("Kauppatori");
 });

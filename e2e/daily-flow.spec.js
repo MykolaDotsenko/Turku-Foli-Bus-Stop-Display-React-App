@@ -1405,7 +1405,9 @@ test("renders a public-stop-only Home backup card in print mode", async ({
   await expect(printCard).toBeVisible();
   await expect(printCard.getByText("Stop 164", { exact: true })).toBeVisible();
   await expect(printCard.getByText("Backup stops")).toBeVisible();
-  await expect(printCard.getByText("Puistokatu · Stop 32")).toBeVisible();
+  await expect(printCard.getByText("Puistokatu · Pysäkki / Stop 32")).toBeVisible();
+  // Hidden from assistive technology on screen, so found by tag, not role.
+  await expect(printCard.locator("h2")).toHaveText("Kauppatori");
 
   const headerVisibility = await page
     .locator(".topbar")
@@ -1474,9 +1476,11 @@ test("production PWA reopens offline with My Places and driver help", async ({
       name: "Need help getting home?",
     })
   ).toBeVisible();
+  // No route to hand to a map with no connection; the driver card, which
+  // still works, leads instead.
   await expect(
-    recovery.getByRole("button", { name: "Get me Home" })
-  ).toBeDisabled();
+    recovery.getByRole("link", { name: "Get me Home by public transit" })
+  ).toHaveCount(0);
 
   await recovery.getByRole("button", { name: "Show to driver" }).click();
   const driver = recovery.getByRole("dialog");

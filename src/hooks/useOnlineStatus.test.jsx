@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
-import useOnlineStatus from "./useOnlineStatus";
+import useOnlineStatus, { reportProviderReached } from "./useOnlineStatus";
 
 const originalOnLine = Object.getOwnPropertyDescriptor(navigator, "onLine");
 const originalFetch = globalThis.fetch;
@@ -305,4 +305,45 @@ test("stays offline after an offline reopen while the connection is still gone",
 
   await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
   expect(result.current).toBe(false);
+});
+
+// One probe slower than three seconds on slow 3G said "Offline mode" for
+// the rest of the visit, while live departures kept arriving.
+test("an answer from Föli settles it: the phone is online", async () => {
+  setOnline(true);
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error("probe timed out"));
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+
+  act(() => {
+    reportProviderReached();
+  });
+
+  expect(result.current).toBe(true);
+  expect(localStorage.getItem("foli-offline-hint")).toBeNull();
+});
+
+test("a page that thinks it is offline keeps looking", async () => {
+  vi.useFakeTimers();
+  try {
+    setOnline(true);
+    globalThis.fetch = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("probe timed out"))
+      .mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(result.current).toBe(true);
+  } finally {
+    vi.useRealTimers();
+  }
 });
