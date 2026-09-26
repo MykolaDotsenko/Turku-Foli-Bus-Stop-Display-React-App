@@ -128,6 +128,12 @@ if (!sw.includes('caches.match(SHELL_URL, { ignoreVary: true })')) {
   );
 }
 
+if (!sw.includes("settleWithin(network, NAVIGATION_TIMEOUT_MS)")) {
+  throw new Error(
+    "Generated service worker waits on a stalled network forever instead of opening the cached shell."
+  );
+}
+
 if (!sw.includes('self.addEventListener("notificationclick"')) {
   throw new Error(
     "Generated service worker does not handle notification taps, so a get-off alert cannot reopen the app."

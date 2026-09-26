@@ -1350,6 +1350,33 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   ).toBeVisible();
 });
 
+test("production PWA opens from its cache when the network stalls", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-pwa");
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await expect
+    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
+    .toBe(true);
+
+  // One bar of signal, or a captive portal: requests go out and nothing
+  // comes back. Only an outright failure used to reach the cached shell, so
+  // the page stayed blank until the browser gave up on its own.
+  await context.route(/127\.0\.0\.1:4173/, () => {});
+
+  const started = Date.now();
+  await page.reload({ waitUntil: "commit", timeout: 20_000 });
+  await expect(
+    page.getByRole("heading", { name: "Need help getting home?" })
+  ).toBeVisible({ timeout: 10_000 });
+  expect(Date.now() - started).toBeLessThan(10_000);
+});
+
 test("production PWA gives every home screen a real icon", async ({
   page,
 }, testInfo) => {

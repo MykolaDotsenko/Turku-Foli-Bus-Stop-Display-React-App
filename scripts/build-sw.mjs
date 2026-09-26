@@ -97,6 +97,21 @@ async function markOfflineShell(offline) {
   }
 }
 
+// A stalled connection (one bar of signal, a captive portal) does not fail,
+// it just never answers, and only a failure reached the cached shell: the
+// page stayed blank until the browser gave up, exactly when Get me Home
+// matters most. Past this wait the saved shell opens instead, and the page
+// then checks the connection for itself.
+const NAVIGATION_TIMEOUT_MS = 4000;
+
+function settleWithin(promise, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function offlineResponse() {
   return new Response("", {
     status: 504,
@@ -115,10 +130,22 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
+        const network = fetch(request);
         try {
-          const response = await fetch(request);
-          await markOfflineShell(false);
-          return response;
+          const response = await settleWithin(network, NAVIGATION_TIMEOUT_MS);
+          if (response) {
+            await markOfflineShell(false);
+            return response;
+          }
+
+          // Still waiting. Not marked as offline: the connection may yet
+          // work, and the page decides that with its own check.
+          const shell = await caches.match(SHELL_URL, { ignoreVary: true });
+          if (shell) {
+            network.catch(() => {});
+            return shell;
+          }
+          return await network;
         } catch {
           await markOfflineShell(true);
           const shell = await caches.match(SHELL_URL, { ignoreVary: true });
