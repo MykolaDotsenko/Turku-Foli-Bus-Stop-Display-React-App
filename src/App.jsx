@@ -229,13 +229,24 @@ function App() {
             </p>
           </div>
         </div>
+        {/* It only knows whether the phone can reach the internet, so it
+            only speaks up when it cannot. "Live Föli data" stood above
+            boards that had just said their live update failed. It stays
+            in the page while online, out of sight, so going offline is
+            still announced. */}
         <span
           className="live-pill"
           data-online={online ? "true" : "false"}
           aria-live="polite"
         >
-          <span className="live-dot" aria-hidden="true" />
-          {online ? "Live Föli data" : "Offline mode"}
+          {online ? (
+            "Online"
+          ) : (
+            <>
+              <span className="live-dot" aria-hidden="true" />
+              Offline mode
+            </>
+          )}
         </span>
       </header>
 

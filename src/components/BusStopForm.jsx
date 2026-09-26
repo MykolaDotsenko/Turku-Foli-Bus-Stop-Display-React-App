@@ -288,7 +288,7 @@ function BusStopForm({
             aria-describedby={
               validationError ? "stop-error" : "stop-search-help"
             }
-            placeholder="Stop name or number"
+            placeholder="e.g. Kauppatori"
           />
           <button
             className={styles.locateButton}
