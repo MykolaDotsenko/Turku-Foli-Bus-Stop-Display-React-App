@@ -177,7 +177,11 @@ function BusStopDisplay({
         getDepartureTime(a, referenceTime) - getDepartureTime(b, referenceTime)
     )
     .slice(0, MAX_VISIBLE_DEPARTURES);
-  const hasData = Boolean(stopName || arrivals.length);
+  // Whether this stop has had a departure answer at all, fresh or saved. The
+  // stop's name is not one: the catalogue names the stop long before its board
+  // first loads, and counting it said "No upcoming departures" while loading,
+  // and again when the load failed.
+  const hasData = arrivals.length > 0 || Number(receivedAtMs) > 0;
   const realtimeCount = visibleArrivals.filter(
     (arrival) => arrival.monitored
   ).length;

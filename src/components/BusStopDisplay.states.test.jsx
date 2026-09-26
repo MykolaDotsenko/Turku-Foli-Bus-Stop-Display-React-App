@@ -1,0 +1,96 @@
+import { render, screen } from "@testing-library/react";
+import { expect, test } from "vitest";
+import BusStopDisplay from "./BusStopDisplay";
+
+const NOW = Math.floor(Date.now() / 1000);
+
+// In the app the stop catalogue names the stop at once — for a returning
+// passenger it is already cached — so every state below is rendered with the
+// name known and no departure answer yet, which is what the passenger has.
+function board(props) {
+  return (
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      stop={{ id: "164", name: "Kauppatori" }}
+      arrivals={[]}
+      routesById={new Map()}
+      routesByShortName={new Map()}
+      serverTime={null}
+      receivedAtMs={null}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      {...props}
+    />
+  );
+}
+
+const departure = {
+  lineref: "1",
+  destinationdisplay: "Satama",
+  monitored: true,
+  recordedattime: NOW - 5,
+  expecteddeparturetime: NOW + 240,
+  aimeddeparturetime: NOW + 200,
+};
+
+test("a stop that is still loading says so, even when its name is known", () => {
+  render(board({ loading: true }));
+
+  expect(screen.getByText("Loading departures…")).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("a first load that failed says so instead of claiming there are no departures", () => {
+  render(board({ error: true }));
+
+  expect(screen.getByText("Couldn’t load departures.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("an answer with nothing in it is still reported as no upcoming departures", () => {
+  render(board({ serverTime: NOW, receivedAtMs: Date.now() }));
+
+  expect(screen.getByText("No upcoming departures.")).toBeInTheDocument();
+  expect(screen.queryByText("Couldn’t load departures.")).not.toBeInTheDocument();
+});
+
+test("a failed refresh after a good answer keeps the board and says the update failed", () => {
+  render(
+    board({
+      arrivals: [departure],
+      serverTime: NOW,
+      receivedAtMs: Date.now() - 90_000,
+      error: true,
+    })
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.getByText(/Live update failed · last successful update/)).toBeInTheDocument();
+});
+
+test("a failed refresh of an empty answer does not turn it into a load failure", () => {
+  render(
+    board({ serverTime: NOW, receivedAtMs: Date.now() - 90_000, error: true })
+  );
+
+  expect(screen.getByText("No upcoming departures.")).toBeInTheDocument();
+  expect(screen.getByText(/Live update failed/)).toBeInTheDocument();
+});
+
+test("a saved board shown while reloading keeps its departures on screen", () => {
+  render(
+    board({
+      arrivals: [departure],
+      serverTime: NOW,
+      receivedAtMs: Date.now() - 60_000,
+      loading: true,
+    })
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.queryByText("Loading departures…")).not.toBeInTheDocument();
+});

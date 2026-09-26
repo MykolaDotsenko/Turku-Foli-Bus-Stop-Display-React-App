@@ -1440,6 +1440,49 @@ test("deep links survive reload and invalid stop links recover canonically", asy
   ).toHaveCount(0);
 });
 
+// The stop catalogue names the stop long before its departures arrive. The
+// board used to count that name as an answer, so every slow load — and every
+// failed one — told the passenger there were no departures.
+test("a stop still loading says so instead of claiming there are no departures", async ({
+  page,
+}) => {
+  await page.route("https://data.foli.fi/siri/sm/164", () => new Promise(() => {}));
+
+  await page.goto("/?stop=164");
+
+  await expect(
+    page.getByRole("heading", { name: "Kauppatori", exact: true })
+  ).toBeVisible();
+  await expect(page.getByText("Loading departures…")).toBeVisible();
+  await expect(page.getByText("No upcoming departures.")).toHaveCount(0);
+});
+
+test("a stop whose departures fail to load says so and recovers on retry", async ({
+  page,
+}) => {
+  let failing = true;
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    if (failing) {
+      await route.fulfill({ status: 503, body: "{}" });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(monitorPayload("164")),
+    });
+  });
+
+  await page.goto("/?stop=164");
+
+  await expect(page.getByText("Couldn’t load departures.")).toBeVisible();
+  await expect(page.getByText("No upcoming departures.")).toHaveCount(0);
+
+  failing = false;
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByText("Harbour")).toBeVisible();
+  await expect(page.getByText("Couldn’t load departures.")).toHaveCount(0);
+});
+
 test("ten departures remain scan-friendly without horizontal table scrolling", async ({
   page,
 }, testInfo) => {
