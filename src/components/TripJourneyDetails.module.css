@@ -81,3 +81,30 @@
     max-width: none;
   }
 }
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .toggle {
+    color: var(--dm-accent);
+  }
+
+  .toggle:focus-visible {
+    outline-color: var(--dm-focus);
+  }
+
+  .panel {
+    border-color: var(--dm-line);
+    background: var(--dm-sunken);
+  }
+
+  .kicker,
+  .status,
+  .more,
+  .list li small {
+    color: var(--dm-muted);
+  }
+
+  .list li {
+    color: var(--dm-soft);
+  }
+}

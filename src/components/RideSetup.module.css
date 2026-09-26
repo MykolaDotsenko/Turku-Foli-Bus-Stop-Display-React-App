@@ -289,3 +289,67 @@
   font-size: 0.82rem;
   line-height: 1.4;
 }
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .panel {
+    border-color: var(--dm-line-strong);
+    background: linear-gradient(145deg, #15343a, var(--dm-surface));
+    color: var(--dm-text);
+  }
+
+  .kicker {
+    color: var(--dm-accent) !important;
+  }
+
+  .heading p,
+  .close,
+  .status,
+  .stopCopy small,
+  .options small,
+  .departureContext,
+  .optionNote {
+    color: var(--dm-muted);
+  }
+
+  .stopOption {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-sunken);
+  }
+
+  .stopOption[data-selected="true"] {
+    border-color: var(--dm-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dm-accent) 25%, transparent);
+  }
+
+  .stopOption input,
+  .options input {
+    accent-color: var(--dm-accent);
+  }
+
+  .placeBadge {
+    background: var(--dm-accent-surface);
+    color: var(--dm-accent);
+  }
+
+  .options label {
+    background: var(--dm-sunken);
+  }
+
+  .safetyNote {
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
+  }
+
+  .startError {
+    color: var(--dm-danger-text);
+  }
+}
+
+@media screen and (prefers-color-scheme: dark) and (max-width: 640px) {
+  .actions {
+    border-top-color: var(--dm-line);
+    background: var(--dm-surface);
+    box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.45);
+  }
+}

@@ -415,3 +415,107 @@
     font-size: 1rem;
   }
 }
+
+/* Dark theme: tokens in App.css. Notices stay warm, emergencies stay red. */
+@media screen and (prefers-color-scheme: dark) {
+  .panel {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    box-shadow: 0 8px 22px var(--dm-shadow);
+  }
+
+  .emergencyPanel {
+    border-color: var(--dm-danger-line);
+    background: var(--dm-danger-surface);
+  }
+
+  .headingRow,
+  .alert,
+  .moreButton {
+    border-color: var(--dm-warn-line);
+  }
+
+  .emergencyPanel .headingRow {
+    border-bottom-color: var(--dm-danger-line);
+  }
+
+  .kicker,
+  .heading,
+  .alert strong,
+  .alert p,
+  .details,
+  .details summary,
+  .alertMeta,
+  .mediaLink,
+  .disclosureIcon,
+  .moreButton,
+  .validity {
+    color: var(--dm-warn-text) !important;
+  }
+
+  .emergencyPanel .kicker,
+  .cancellation strong,
+  .emergency strong {
+    color: var(--dm-danger-text) !important;
+  }
+
+  .emergencyPanel .heading {
+    color: #ffe1db !important;
+  }
+
+  .count,
+  .effectBadge {
+    background: #4a3b17;
+    color: var(--dm-warn-text);
+  }
+
+  .emergencyPanel .count {
+    background: var(--dm-danger-line);
+    color: #ffe1db;
+  }
+
+  .cancellation,
+  .emergency {
+    background: var(--dm-danger-surface);
+    border-left-color: var(--dm-danger-text);
+  }
+
+  .global {
+    background: #231c10;
+    border-left-color: #c9a45a;
+  }
+
+  .unavailablePanel {
+    border-color: var(--dm-line);
+    background: var(--dm-surface);
+  }
+
+  .unavailablePanel .kicker,
+  .unavailablePanel .heading {
+    color: var(--dm-soft) !important;
+  }
+
+  .feedStatus {
+    border-bottom-color: var(--dm-line);
+    background: var(--dm-sunken);
+    color: var(--dm-muted);
+  }
+
+  .moreButton {
+    background: #211a0e;
+  }
+
+  .moreButton:hover {
+    background: #30260f;
+  }
+
+  .moreButton:focus-visible,
+  .mediaLink:focus-visible,
+  .alertSummary:focus-visible {
+    outline-color: rgba(242, 212, 143, 0.5);
+  }
+
+  .mediaLink img {
+    border-color: var(--dm-warn-line);
+  }
+}

@@ -1539,6 +1539,67 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   expect(results.violations).toEqual([]);
 });
 
+// At night the page was a white sheet on a dark bus, and only Ride Mode was
+// dark. The theme now follows the phone's own setting; this holds it to the
+// same contrast bar as the light one, with every panel open.
+test("a phone in dark mode gets a dark page that is just as readable", async ({
+  page,
+}) => {
+  const axe = () =>
+    new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+  const rootBackground = () =>
+    page.evaluate(
+      () => globalThis.getComputedStyle(document.documentElement).backgroundColor
+    );
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await routeTargetStop(page);
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+
+  // Without this a missing theme would pass as readable light pages.
+  expect(await rootBackground()).toBe("rgb(12, 20, 22)");
+
+  const alertDetails = page.getByText("Line 1 city-centre detour").first();
+  if (await alertDetails.isVisible()) {
+    await alertDetails.click();
+  }
+  const nextStops = page.getByRole("button", { name: "Next stops" }).first();
+  if (await nextStops.isVisible()) {
+    await nextStops.click();
+    await expect(page.getByText("Next stops · timetable times")).toBeVisible();
+  }
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  const recoveryMore = recovery.getByRole("button", { name: "Home options" });
+  if (await recoveryMore.isVisible()) {
+    await recoveryMore.click();
+  }
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Where do you want to get off?" })
+  ).toBeVisible();
+
+  expect((await axe()).violations).toEqual([]);
+
+  // A first visit: search, the stops near you, and nothing chosen yet.
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Find nearest stop" })).toBeVisible();
+  expect((await axe()).violations).toEqual([]);
+
+  // Paper stays white: a dark page printed without its backgrounds would
+  // come out as pale text on a white sheet.
+  await page.emulateMedia({ media: "print", colorScheme: "dark" });
+  expect(await rootBackground()).toBe("rgb(237, 244, 245)");
+});
+
 test("mobile layout does not create horizontal page overflow", async ({
   page,
 }, testInfo) => {

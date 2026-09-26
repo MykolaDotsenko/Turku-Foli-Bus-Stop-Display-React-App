@@ -330,3 +330,79 @@
     text-align: center;
   }
 }
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .wrapper {
+    border-color: var(--dm-line);
+    background:
+      radial-gradient(circle at top right, rgba(95, 208, 216, 0.08), transparent 44%),
+      var(--dm-surface);
+  }
+
+  .heading {
+    color: var(--dm-soft);
+  }
+
+  .description,
+  .meta,
+  .stopText span,
+  .disclaimer {
+    color: var(--dm-muted);
+  }
+
+  .locateButton {
+    border-color: var(--dm-accent);
+    background: var(--dm-raised);
+    color: var(--dm-accent);
+  }
+
+  .locateButton:hover:not(:disabled),
+  .stopButton:hover,
+  .walkLink:hover {
+    background: var(--dm-accent-surface);
+  }
+
+  .error {
+    color: var(--dm-danger-text);
+  }
+
+  .notice {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
+  }
+
+  .stopCard {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+  }
+
+  .stopCard:hover {
+    border-color: #5f949c;
+  }
+
+  .stopCard[data-active="true"] {
+    border-color: var(--dm-accent);
+    box-shadow: inset 0 0 0 1px var(--dm-accent);
+  }
+
+  .stopButton {
+    color: var(--dm-text);
+  }
+
+  .nearestBadge {
+    background: var(--dm-accent-surface);
+    color: var(--dm-accent);
+  }
+
+  .walkLink {
+    border-color: var(--dm-line);
+    background: var(--dm-sunken);
+    color: var(--dm-accent);
+  }
+
+  .walkLink:focus-visible {
+    outline-color: var(--dm-focus);
+  }
+}

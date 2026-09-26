@@ -220,3 +220,77 @@
     font-size: 0.78rem;
   }
 }
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .label {
+    color: var(--dm-soft);
+  }
+
+  .input {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-sunken);
+    color: var(--dm-text);
+  }
+
+  .input::placeholder {
+    color: var(--dm-muted);
+  }
+
+  .input:hover {
+    border-color: #5f949c;
+  }
+
+  .input[aria-invalid="true"] {
+    border-color: var(--dm-danger-text);
+  }
+
+  .button {
+    box-shadow: 0 6px 16px var(--dm-shadow);
+  }
+
+  .locateButton {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-accent);
+  }
+
+  .locateButton:hover:not(:disabled) {
+    border-color: #5f949c;
+    background: var(--dm-accent-surface);
+  }
+
+  .locateButton:focus-visible,
+  .button:focus-visible,
+  .input:focus-visible {
+    outline-color: var(--dm-focus);
+  }
+
+  .suggestions {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    box-shadow: 0 16px 36px var(--dm-shadow);
+  }
+
+  .suggestion {
+    border-bottom-color: var(--dm-line);
+  }
+
+  .suggestion:hover,
+  .suggestion[aria-selected="true"] {
+    background: var(--dm-accent-surface);
+  }
+
+  .suggestionName {
+    color: var(--dm-text);
+  }
+
+  .suggestionId,
+  .help {
+    color: var(--dm-muted);
+  }
+
+  .error {
+    color: var(--dm-danger-text);
+  }
+}

@@ -173,6 +173,8 @@ The application includes:
 - large mobile touch targets
 - visible focus states
 - reduced-motion and forced-colors support
+- a dark theme that follows the phone's own setting, held to the same axe
+  contrast gate as the light one; printing always uses the light theme
 - runtime contrast correction for provider-supplied route colors
 - screen-reader-aware loading, invalid, busy and pressed states
 - WCAG 2 A/AA, 2.1 AA and 2.2 AA serious/critical axe gates

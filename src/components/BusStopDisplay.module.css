@@ -526,3 +526,120 @@
     padding: 0 10px 12px;
   }
 }
+
+/* Dark theme: tokens in App.css. Route badge colours stay the provider's. */
+@media screen and (prefers-color-scheme: dark) {
+  .board {
+    border-color: var(--dm-line);
+    background: var(--dm-surface);
+    box-shadow: 0 14px 34px var(--dm-shadow);
+  }
+
+  .header,
+  .table th,
+  .table td,
+  .summary,
+  .legend {
+    border-color: var(--dm-line);
+  }
+
+  .stopName,
+  .state strong {
+    color: var(--dm-text);
+  }
+
+  .stopMeta,
+  .state,
+  .tripMeta,
+  .dueDay,
+  .legend,
+  .legend summary,
+  .destinationTranslation {
+    color: var(--dm-muted);
+  }
+
+  .favoriteButton,
+  .refreshButton,
+  .retryButton {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-soft);
+  }
+
+  .favoriteButton {
+    color: var(--dm-accent);
+  }
+
+  .favoriteButton[aria-pressed="true"] {
+    border-color: #3f7f86;
+    background: var(--dm-accent-surface);
+  }
+
+  .refreshButton:hover:not(:disabled),
+  .retryButton:hover {
+    border-color: #5f949c;
+    background: var(--dm-accent-surface);
+  }
+
+  .summary,
+  .table th,
+  .legend {
+    background: var(--dm-sunken);
+    color: var(--dm-muted);
+  }
+
+  .summary strong,
+  .stateKicker {
+    color: var(--dm-accent);
+  }
+
+  .staleNotice {
+    border-bottom-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
+  }
+
+  .table tbody tr:hover,
+  .rideSetupRow > td,
+  .rideSetupRow:hover {
+    background: var(--dm-raised) !important;
+  }
+
+  .destination {
+    color: var(--dm-text);
+  }
+
+  .accessibility {
+    background: var(--dm-ok-surface);
+    color: var(--dm-ok-text);
+  }
+
+  .accessibility[data-accessible="false"] {
+    background: var(--dm-danger-surface);
+    color: var(--dm-danger-text);
+  }
+
+  .proximity {
+    color: var(--dm-soft);
+  }
+
+  .due {
+    color: var(--dm-accent);
+  }
+
+  .table tr[data-cancelled="true"] .due,
+  .table tr[data-cancelled="true"] .tripMeta {
+    color: var(--dm-danger-text);
+  }
+
+  .rideButton {
+    border-color: #3f7f86;
+    background: var(--dm-accent-surface);
+    color: var(--dm-accent);
+  }
+
+  .rideButton:hover:not(:disabled) {
+    border-color: #5f949c;
+    background: #184a50;
+  }
+}

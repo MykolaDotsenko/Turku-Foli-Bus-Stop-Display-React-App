@@ -29,3 +29,16 @@
     border-color: CanvasText;
   }
 }
+
+/* Dark theme: tokens in App.css. */
+@media screen and (prefers-color-scheme: dark) {
+  .banner {
+    border-color: var(--dm-warn-line);
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
+  }
+
+  .banner strong {
+    color: var(--dm-warn-text);
+  }
+}
