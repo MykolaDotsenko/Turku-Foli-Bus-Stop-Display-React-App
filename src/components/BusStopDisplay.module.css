@@ -89,6 +89,7 @@
 .summary {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px 16px;
   padding: 9px 18px;
   border-bottom: 1px solid #edf1f2;
@@ -100,6 +101,86 @@
 
 .summary strong {
   color: #007985;
+}
+
+.filterButton {
+  min-height: 30px;
+  margin-left: auto;
+  padding: 0 11px;
+  border: 1px solid #bfd0d4;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #00656f;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.filterButton[data-active="true"] {
+  border-color: #007985;
+  background: #e6f5f5;
+}
+
+.lineFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 9px 18px 11px;
+  border-bottom: 1px solid #edf1f2;
+  background: #fbfdfd;
+}
+
+/* A pressed chip gets a tick as well as a colour, so it reads without
+   colour vision and in forced colours. */
+.lineChip {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid #c5d6da;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #20343b;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lineChip:has(.lineChipBadge) {
+  padding-left: 4px;
+}
+
+.lineChip[aria-pressed="true"] {
+  border-color: #007985;
+  box-shadow: inset 0 0 0 1px #007985;
+  background: #eaf7f7;
+}
+
+.lineChipBadge {
+  display: inline-grid;
+  min-width: 26px;
+  height: 24px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: #007985;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.lineChipCheck {
+  color: #00656f;
+  font-weight: 900;
+}
+
+.filterButton:focus-visible,
+.lineChip:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
 }
 
 .staleNotice {
@@ -461,6 +542,25 @@
     display: none;
   }
 
+  /* The counts stay off a phone's board, but the line filter does not: it
+     is where a commuter needs it, and it must say when it hides buses. */
+  .summary[data-filterable="true"] {
+    display: flex;
+    padding: 5px 12px;
+  }
+
+  .summary[data-filterable="true"] > span {
+    display: none;
+  }
+
+  .filterButton {
+    margin-left: 0;
+  }
+
+  .lineFilter {
+    padding: 8px 12px 10px;
+  }
+
   .table thead {
     position: absolute;
     width: 1px;
@@ -641,5 +741,40 @@
   .rideButton:hover:not(:disabled) {
     border-color: #5f949c;
     background: #184a50;
+  }
+
+  .filterButton,
+  .lineChip {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-text);
+  }
+
+  .filterButton {
+    color: var(--dm-accent);
+  }
+
+  .filterButton[data-active="true"],
+  .lineChip[aria-pressed="true"] {
+    border-color: var(--dm-accent);
+    background: var(--dm-accent-surface);
+  }
+
+  .lineChip[aria-pressed="true"] {
+    box-shadow: inset 0 0 0 1px var(--dm-accent);
+  }
+
+  .lineFilter {
+    border-color: var(--dm-line);
+    background: var(--dm-sunken);
+  }
+
+  .lineChipCheck {
+    color: var(--dm-accent);
+  }
+
+  .filterButton:focus-visible,
+  .lineChip:focus-visible {
+    outline-color: var(--dm-focus);
   }
 }

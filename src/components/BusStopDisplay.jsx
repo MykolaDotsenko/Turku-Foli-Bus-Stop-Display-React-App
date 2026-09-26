@@ -3,6 +3,7 @@ import styles from "./BusStopDisplay.module.css";
 import TripJourneyDetails from "./TripJourneyDetails";
 import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
+import useLineFilter from "../hooks/useLineFilter";
 import useTripEnrichment from "../hooks/useTripEnrichment";
 import { msg, t, tc, useLanguage } from "../i18n";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
@@ -256,7 +257,8 @@ function BusStopDisplay({
   const dataIsStale =
     receiptAgeSeconds !== null && receiptAgeSeconds > 120;
   const referenceTime = effectiveServerTime;
-  const visibleArrivals = [...arrivals]
+  // Every departure still ahead, whatever the line filter shows.
+  const upcomingArrivals = [...arrivals]
     .filter((arrival) => {
       const departureTime = getDepartureTime(arrival, referenceTime);
       return (
@@ -267,8 +269,32 @@ function BusStopDisplay({
     .sort(
       (a, b) =>
         getDepartureTime(a, referenceTime) - getDepartureTime(b, referenceTime)
-    )
-    .slice(0, MAX_VISIBLE_DEPARTURES);
+    );
+  // A commuter waiting for the 32 at a busy stop saw mostly other lines, and
+  // the 32 after next not at all. The lines followed here are kept per stop.
+  const [followedLines, setFollowedLines] = useLineFilter(stopId);
+  const [lineFilterOpen, setLineFilterOpen] = useState(false);
+  const linesOnOffer = [
+    ...new Set([
+      ...upcomingArrivals.map((arrival) => String(arrival.lineref || "")),
+      ...followedLines,
+    ]),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const visibleArrivals = (
+    followedLines.length > 0
+      ? upcomingArrivals.filter((arrival) =>
+          followedLines.includes(String(arrival.lineref || ""))
+        )
+      : upcomingArrivals
+  ).slice(0, MAX_VISIBLE_DEPARTURES);
+  const toggleLine = (line) =>
+    setFollowedLines(
+      followedLines.includes(line)
+        ? followedLines.filter((followed) => followed !== line)
+        : [...followedLines, line]
+    );
   // Whether this stop has had a departure answer at all, fresh or saved. The
   // stop's name is not one: the catalogue names the stop long before its board
   // first loads, and counting it said "No upcoming departures" while loading,
@@ -278,8 +304,9 @@ function BusStopDisplay({
   // whose buses have all left since says nothing about what comes after
   // them: the timetable was never asked, because they were still ahead.
   const answerWasEmpty = hasData && arrivals.length === 0;
+  // The filter hiding them is not them leaving.
   const listedBusesHaveLeft =
-    arrivals.length > 0 && visibleArrivals.length === 0;
+    arrivals.length > 0 && upcomingArrivals.length === 0;
   // So ask again as the last one leaves, instead of calling the stop empty
   // until the next poll half a minute later. Once per set of departed buses,
   // not per answer: at the end of the day the feed can keep listing a bus
@@ -326,6 +353,7 @@ function BusStopDisplay({
   if (candidateStopId !== stopId) {
     setCandidateStopId(stopId);
     setRideCandidateKey("");
+    setLineFilterOpen(false);
   }
   const rowKeys = departureKeys(visibleArrivals, referenceTime, stopId);
 
@@ -382,8 +410,12 @@ function BusStopDisplay({
         </button>
       </header>
 
-      {visibleArrivals.length > 0 && (
-        <div className={styles.summary} aria-label={t("Departure data summary")}>
+      {upcomingArrivals.length > 0 && (
+        <div
+          className={styles.summary}
+          aria-label={t("Departure data summary")}
+          data-filterable={linesOnOffer.length > 1 ? "true" : "false"}
+        >
           <span>{t("{count} upcoming", { count: visibleArrivals.length })}</span>
           <span>
             <strong>{realtimeCount}</strong>{" "}
@@ -394,6 +426,68 @@ function BusStopDisplay({
               count: visibleArrivals.length - realtimeCount,
             })}
           </span>
+          {/* In the row that is already there, so a phone gives up no
+              departure for it. */}
+          {linesOnOffer.length > 1 && (
+            <button
+              type="button"
+              className={styles.filterButton}
+              aria-expanded={lineFilterOpen}
+              aria-controls="line-filter"
+              data-active={followedLines.length > 0 ? "true" : "false"}
+              onClick={() => setLineFilterOpen((open) => !open)}
+            >
+              {followedLines.length === 1
+                ? t("Only line {line}", { line: followedLines[0] })
+                : followedLines.length > 1
+                  ? t("Only lines {lines}", { lines: followedLines.join(", ") })
+                  : t("Filter lines")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {lineFilterOpen && linesOnOffer.length > 1 && upcomingArrivals.length > 0 && (
+        <div
+          id="line-filter"
+          className={styles.lineFilter}
+          role="group"
+          aria-label={t("Show only these lines")}
+        >
+          <button
+            type="button"
+            className={styles.lineChip}
+            aria-pressed={followedLines.length === 0}
+            onClick={() => setFollowedLines([])}
+          >
+            {t("All lines")}
+          </button>
+          {linesOnOffer.map((line) => {
+            const followed = followedLines.includes(line);
+            return (
+              <button
+                key={line}
+                type="button"
+                className={styles.lineChip}
+                aria-pressed={followed}
+                aria-label={t("Line {line}", { line })}
+                onClick={() => toggleLine(line)}
+              >
+                <span
+                  className={styles.lineChipBadge}
+                  style={routeBadgeStyle(routesByShortName?.get(line))}
+                  aria-hidden="true"
+                >
+                  {line}
+                </span>
+                {followed && (
+                  <span className={styles.lineChipCheck} aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -429,12 +523,12 @@ function BusStopDisplay({
           A saved board whose buses have all left is no answer: while this
           visit's first update loads, or after it fails, it said "No upcoming
           departures" about a stop nobody had checked. */}
-      {loading && visibleArrivals.length === 0 ? (
+      {loading && upcomingArrivals.length === 0 ? (
         <div className={styles.state} role="status">
           <span className={styles.stateKicker}>{t("Connecting to Föli")}</span>
           <strong>{t("Loading departures…")}</strong>
         </div>
-      ) : error && visibleArrivals.length === 0 && !answerWasEmpty ? (
+      ) : error && upcomingArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="alert">
           <strong>{t("Couldn’t load departures.")}</strong>
           <span>{t("Check the stop number or connection and try again.")}</span>
@@ -442,7 +536,7 @@ function BusStopDisplay({
             {t("Try again")}
           </button>
         </div>
-      ) : visibleArrivals.length === 0 && (scheduleFailed || scheduleIncomplete) ? (
+      ) : upcomingArrivals.length === 0 && (scheduleFailed || scheduleIncomplete) ? (
         // The live feed only looks an hour or so ahead. With the timetable
         // unread, or read only up to a trip that could not be checked, an
         // empty board is not "no more buses".
@@ -457,15 +551,36 @@ function BusStopDisplay({
             {t("Try again")}
           </button>
         </div>
-      ) : visibleArrivals.length === 0 && !answerWasEmpty ? (
+      ) : upcomingArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="status">
           <span className={styles.stateKicker}>{t("Updating")}</span>
           <strong>{t("Checking for the next departures…")}</strong>
         </div>
-      ) : visibleArrivals.length === 0 ? (
+      ) : upcomingArrivals.length === 0 ? (
         <div className={styles.state} role="status">
           <strong>{t("No upcoming departures.")}</strong>
           <span>{t("Try refreshing or choosing another nearby stop.")}</span>
+        </div>
+      ) : visibleArrivals.length === 0 ? (
+        // Buses are leaving here, just not on the lines followed.
+        <div className={styles.state} role="status">
+          <strong>
+            {followedLines.length === 1
+              ? t("No departures on line {line} right now.", {
+                  line: followedLines[0],
+                })
+              : t("No departures on lines {lines} right now.", {
+                  lines: followedLines.join(", "),
+                })}
+          </strong>
+          <span>{t("Other lines are leaving from this stop.")}</span>
+          <button
+            type="button"
+            className={styles.retryButton}
+            onClick={() => setFollowedLines([])}
+          >
+            {t("Show all lines")}
+          </button>
         </div>
       ) : (
         <div className={styles.tableWrap}>

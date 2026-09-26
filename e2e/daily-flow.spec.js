@@ -1690,6 +1690,43 @@ test.describe("on a Finnish phone", () => {
   });
 });
 
+// At a busy stop a commuter waits for one line. Following it is kept for
+// the stop, so tomorrow's glance shows the 7 without setting it again.
+test("a commuter can follow one line at a stop, and it is still followed after a reload", async ({
+  page,
+}, testInfo) => {
+  test.skip(!["chromium-mobile", "webkit-mobile"].includes(testInfo.project.name));
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  const board = page.locator('section[aria-labelledby="departures-title"]');
+  await expect(board.getByText("Satama")).toBeVisible();
+
+  await board.getByRole("button", { name: "Filter lines" }).click();
+  await board
+    .getByRole("group", { name: "Show only these lines" })
+    .getByRole("button", { name: "Line 7" })
+    .click();
+
+  await expect(board.getByText("Runosmäki")).toBeVisible();
+  await expect(board.getByText("Satama")).toHaveCount(0);
+  await expect(board.getByRole("button", { name: "Only line 7" })).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+
+  await page.reload();
+  await expect(board.getByRole("button", { name: "Only line 7" })).toBeVisible();
+  await expect(board.getByText("Runosmäki")).toBeVisible();
+  await expect(board.getByText("Satama")).toHaveCount(0);
+});
+
 test("mobile layout does not create horizontal page overflow", async ({
   page,
 }, testInfo) => {

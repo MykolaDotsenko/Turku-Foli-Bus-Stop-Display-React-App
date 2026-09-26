@@ -45,6 +45,18 @@ export default {
   Refresh: "Päivitä",
   "Departure data summary": "Lähtötietojen yhteenveto",
   "{count} upcoming": "{count} tulossa",
+  "Filter lines": "Suodata linjoja",
+  "Only line {line}": "Vain linja {line}",
+  "Only lines {lines}": "Vain linjat {lines}",
+  "Show only these lines": "Näytä vain nämä linjat",
+  "All lines": "Kaikki linjat",
+  "No departures on line {line} right now.":
+    "Linjalla {line} ei ole lähtöjä juuri nyt.",
+  "No departures on lines {lines} right now.":
+    "Linjoilla {lines} ei ole lähtöjä juuri nyt.",
+  "Other lines are leaving from this stop.":
+    "Tältä pysäkiltä lähtee muita linjoja.",
+  "Show all lines": "Näytä kaikki linjat",
   realtime: ({ count }) => (count === 1 ? "reaaliaikainen" : "reaaliaikaista"),
   "{count} scheduled": ({ count }) =>
     count === 1 ? "1 aikataulun mukainen" : `${count} aikataulun mukaista`,
