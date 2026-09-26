@@ -60,6 +60,32 @@ function vehicleProximity(arrival, stop, route, serverTime) {
   return `${vehicle} ≈${formatDistance(distance)} from stop`;
 }
 
+// A departure keeps one identity across refreshes. The live estimate moves on
+// nearly every poll and the index moves whenever an earlier bus leaves, so a
+// row keyed on either was remounted: an open "Next stops" list or get-off
+// setup closed mid-choice, taking the chosen stop with it. The planned time
+// stays put, and still tells two visits of one looping trip apart.
+function departureKeys(arrivals, referenceTime) {
+  const seen = new Map();
+
+  return arrivals.map((arrival) => {
+    const planned =
+      Number(arrival.aimeddeparturetime) ||
+      Number(arrival.aimedarrivaltime) ||
+      getDepartureTime(arrival, referenceTime);
+    const identity = [
+      arrival.lineref,
+      arrival.tripref || arrival.destinationdisplay,
+      planned,
+    ].join("-");
+    // Identical rows would be a feed quirk, but keys must still be unique.
+    const repeat = seen.get(identity) || 0;
+    seen.set(identity, repeat + 1);
+
+    return repeat === 0 ? identity : `${identity}#${repeat}`;
+  });
+}
+
 function routeBadgeStyle(route) {
   if (!route?.color) return undefined;
 
@@ -159,6 +185,7 @@ function BusStopDisplay({
   );
   const preferredLanguages = useMemo(browserLanguages, []);
   const [rideCandidateKey, setRideCandidateKey] = useState("");
+  const rowKeys = departureKeys(visibleArrivals, referenceTime);
 
   return (
     <section
@@ -297,15 +324,8 @@ function BusStopDisplay({
                   tripDetails?.wheelchairAccessible
                 );
 
-                const rowKey = [
-                  arrival.lineref,
-                  arrival.tripref || arrival.destinationdisplay,
-                  departureTime,
-                  index,
-                ].join("-");
-                const rideKey = arrival.tripref
-                  ? `${arrival.tripref}-${departureTime}`
-                  : "";
+                const rowKey = rowKeys[index];
+                const rideKey = arrival.tripref ? rowKey : "";
                 const rideSetupOpen =
                   Boolean(rideKey) && rideCandidateKey === rideKey;
                 const sameRideActive =
