@@ -141,8 +141,21 @@ function destinationNames(arrival, preferredLanguages) {
 
 function wheelchairLabel(value) {
   if (value === 1) return "Wheelchair accessible";
-  if (value === 2) return "Wheelchair access not available";
+  if (value === 2) return "Not wheelchair accessible";
   return "";
+}
+
+// "Today 19:15" and "Tomorrow 06:30" set in the countdown's size would take
+// half a phone's width from the destination, so the day sits above the time.
+function DueLabel({ label }) {
+  const match = /^(Today|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun) (.+)$/.exec(label);
+  if (!match) return label;
+
+  return (
+    <>
+      <span className={styles.dueDay}>{match[1]}</span> {match[2]}
+    </>
+  );
 }
 
 function BusStopDisplay({
@@ -425,7 +438,7 @@ function BusStopDisplay({
                         <span className={styles.proximity}>{proximity}</span>
                       )}
                       {arrival.tripref && (
-                        <>
+                        <div className={styles.rowActions}>
                           <TripJourneyDetails
                             tripId={arrival.tripref}
                             currentStopId={stopId}
@@ -449,11 +462,16 @@ function BusStopDisplay({
                                 ? "Close get-off setup"
                                 : "Alert me when to get off"}
                           </button>
-                        </>
+                        </div>
                       )}
                     </td>
                     <td className={styles.due}>
-                      {formatDue(departureTime, effectiveServerTime * 1000)}
+                      <DueLabel
+                        label={formatDue(
+                          departureTime,
+                          effectiveServerTime * 1000
+                        )}
+                      />
                     </td>
                   </tr>
                   {rideSetupOpen && !sameRideActive && (

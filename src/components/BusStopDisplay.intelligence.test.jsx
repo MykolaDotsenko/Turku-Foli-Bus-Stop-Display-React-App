@@ -436,7 +436,7 @@ test("shows tomorrow's next scheduled service instead of an empty board", () => 
   );
 
   expect(screen.getByText("Varissuo")).toBeInTheDocument();
-  expect(screen.getByText("Tomorrow 06:30")).toBeInTheDocument();
+  expect(screen.getByRole("cell", { name: "Tomorrow 06:30" })).toBeInTheDocument();
   expect(
     screen.getByText(/No live departure is published right now.*next scheduled Föli times/i)
   ).toBeInTheDocument();

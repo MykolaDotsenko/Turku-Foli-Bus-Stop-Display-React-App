@@ -148,11 +148,18 @@
   border-collapse: collapse;
 }
 
+/* Top-aligned, so the line, the destination and the countdown read as one
+   line, as on a stop display. Centred, the badge and the time floated
+   level with the row's buttons, a hand's width below the name. */
 .table th,
 .table td {
   padding: 13px 16px;
   border-bottom: 1px solid #edf1f2;
   text-align: left;
+  vertical-align: top;
+}
+
+.table th {
   vertical-align: middle;
 }
 
@@ -221,8 +228,8 @@
 
 .accessibility {
   width: fit-content;
-  padding: 2px 6px;
-  border-radius: 999px;
+  padding: 1px 6px;
+  border-radius: 6px;
   background: #edf7f4;
   color: #285b4e;
 }
@@ -236,11 +243,41 @@
   color: #3f626b;
 }
 
+/* The answer to "when does it leave" is the largest thing in the row. */
 .due {
-  color: #007985;
-  font-size: 1.04rem;
+  color: #006f79;
+  font-size: 1.3rem;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
   white-space: nowrap;
+}
+
+.dueDay {
+  display: block;
+  color: #52666f;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* "Next stops" and the get-off alert share one line instead of stacking,
+   which took two full-width rows of every departure. */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 14px;
+  margin-top: 2px;
+}
+
+.rowActions > :first-child {
+  display: contents;
+}
+
+.rowActions > :first-child > :not(button) {
+  flex-basis: 100%;
+  order: 3;
 }
 
 .legend {
@@ -261,6 +298,28 @@
   cursor: pointer;
   color: #52666f;
   font-weight: 800;
+}
+
+/* display: flex removes a summary's own disclosure triangle, and these
+   rows then read as plain labels. A drawn chevron puts the cue back
+   without adding text for a screen reader to announce. */
+.legend summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.legend[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.legend summary::-webkit-details-marker {
+  display: none;
 }
 
 .legend p {
@@ -409,14 +468,15 @@
   }
 
   .due {
-    font-size: 1rem;
+    font-size: 1.2rem;
   }
 }
 
 
 .rideButton {
+  order: 2;
   min-height: 40px;
-  margin-top: 8px;
+  margin-top: 0;
   padding: 0.48rem 0.72rem;
   border: 1px solid #9bc6ca;
   border-radius: 10px;
@@ -449,8 +509,7 @@
 @media (max-width: 620px) {
   .rideButton {
     min-height: 44px;
-    width: 100%;
-    margin-top: 7px;
+    margin-top: 0;
     font-size: 0.8125rem;
   }
 
