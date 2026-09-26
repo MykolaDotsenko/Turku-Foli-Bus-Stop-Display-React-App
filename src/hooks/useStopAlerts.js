@@ -10,7 +10,12 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
   const [payload, setPayload] = useState(null);
   const [receivedAtMs, setReceivedAtMs] = useState(null);
   const [error, setError] = useState(false);
-  const [servedRouteIds, setServedRouteIds] = useState(EMPTY_ROUTE_IDS);
+  // Kept with the stop it was looked up for. Kept bare, one stop's routes
+  // stayed in use while the next stop's lookup ran, and a notice for a
+  // route that never serves the new stop appeared under it.
+  const [served, setServed] = useState({ stopId: "", ids: EMPTY_ROUTE_IDS });
+  const servedRouteIds =
+    served.stopId === stopId ? served.ids : EMPTY_ROUTE_IDS;
   const abortRef = useRef(null);
   const membershipAbortRef = useRef(null);
   const preferredLanguages = useMemo(() => {
@@ -77,18 +82,18 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     ];
 
     if (!stopId || candidateRouteIds.length === 0) {
-      setServedRouteIds(EMPTY_ROUTE_IDS);
+      setServed({ stopId, ids: EMPTY_ROUTE_IDS });
       return () => controller.abort();
     }
 
     fetchStopServedRouteIds(stopId, candidateRouteIds, controller.signal)
       .then((routeIds) => {
-        if (!controller.signal.aborted) setServedRouteIds(routeIds);
+        if (!controller.signal.aborted) setServed({ stopId, ids: routeIds });
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           // Realtime line matching still provides a safe partial fallback.
-          setServedRouteIds(EMPTY_ROUTE_IDS);
+          setServed({ stopId, ids: EMPTY_ROUTE_IDS });
         }
       });
 
