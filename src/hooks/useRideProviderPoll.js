@@ -84,7 +84,12 @@ export default function useRideProviderPoll({
           consecutiveFailures = 0;
           next.lastProviderSuccessAt = Date.now();
 
-          const target = rideSighting(targetResult.value, identity);
+          // The planned time picks the right visit when a loop lists this
+          // stop twice for one journey.
+          const target = rideSighting(targetResult.value, {
+            ...identity,
+            plannedEpochSec: current.plan?.targetPredictedEpochSec ?? null,
+          });
 
           if (target.kind === "live") {
             const targetMatch = target.match;
@@ -137,7 +142,10 @@ export default function useRideProviderPoll({
 
         if (previousResult.status === "fulfilled" && previousResult.value) {
           next.lastProviderSuccessAt = Date.now();
-          const previous = rideSighting(previousResult.value, identity);
+          const previous = rideSighting(previousResult.value, {
+            ...identity,
+            plannedEpochSec: current.previousStop?.predictedEpochSec ?? null,
+          });
 
           if (previous.kind === "live") {
             next.lastLiveMatchAt = Date.now();

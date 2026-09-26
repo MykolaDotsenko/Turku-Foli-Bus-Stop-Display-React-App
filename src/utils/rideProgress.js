@@ -238,24 +238,74 @@ function normalizedString(value) {
   return value === null || value === undefined ? "" : String(value).trim();
 }
 
+function rowEpochSec(row) {
+  return (
+    finiteNumber(row?.expectedarrivaltime) ??
+    finiteNumber(row?.expecteddeparturetime) ??
+    finiteNumber(row?.aimedarrivaltime) ??
+    finiteNumber(row?.aimeddeparturetime)
+  );
+}
+
+// A loop journey can serve a stop twice, and both visits carry the same
+// journey and trip reference. Taking the first row timed the alarm against
+// a visit the passenger does not want, a whole lap early, so with more than
+// one row the ride's planned time at this stop decides. Rows at the same
+// time are one visit listed twice. Visits the planned time cannot clearly
+// tell apart are not guessed at: no match leaves the timetable in charge,
+// which can warn but never says "get off now".
+function chooseVisit(candidates, plannedEpochSec) {
+  if (candidates.length <= 1) return candidates[0] || null;
+
+  const times = candidates.map(rowEpochSec);
+  const known = times.filter((time) => time !== null);
+  if (
+    known.length === times.length &&
+    Math.max(...known) - Math.min(...known) <= 60
+  ) {
+    return candidates[0];
+  }
+
+  const planned = finiteNumber(plannedEpochSec);
+  if (planned === null) return null;
+
+  const ranked = candidates
+    .map((arrival, index) => ({
+      arrival,
+      delta:
+        times[index] === null
+          ? Number.POSITIVE_INFINITY
+          : Math.abs(times[index] - planned),
+    }))
+    .sort((a, b) => a.delta - b.delta);
+
+  return ranked[1].delta - ranked[0].delta >= 300 ? ranked[0].arrival : null;
+}
+
 export function matchRideArrival(arrivals, identity) {
   const rows = Array.isArray(arrivals) ? arrivals : [];
   if (rows.length === 0 || !identity) return null;
 
   const journey = normalizedString(identity.datedVehicleJourneyRef);
   if (journey) {
-    const arrival = rows.find(
+    const candidates = rows.filter(
       (row) => normalizedString(row?.datedvehiclejourneyref) === journey
     );
-    if (arrival) return { arrival, matchedBy: "dated-journey" };
+    if (candidates.length > 0) {
+      const arrival = chooseVisit(candidates, identity.plannedEpochSec);
+      return arrival ? { arrival, matchedBy: "dated-journey" } : null;
+    }
   }
 
   const trip = normalizedString(identity.tripRef);
   if (trip) {
-    const arrival = rows.find(
+    const candidates = rows.filter(
       (row) => normalizedString(row?.tripref) === trip
     );
-    if (arrival) return { arrival, matchedBy: "trip" };
+    if (candidates.length > 0) {
+      const arrival = chooseVisit(candidates, identity.plannedEpochSec);
+      return arrival ? { arrival, matchedBy: "trip" } : null;
+    }
   }
 
   const line = normalizedString(identity.lineRef);

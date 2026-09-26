@@ -219,6 +219,71 @@ describe("ride progress", () => {
     expect(stage.reason).toBe("planned-stop-count");
   });
 
+  it("follows the visit the passenger chose when a loop lists the stop twice", () => {
+    // Both laps carry the same journey reference. The first row used to win,
+    // so a passenger riding to the second visit had the first lap's "bus at
+    // stop" read as theirs: "Get off now" a full lap early.
+    const firstLap = {
+      datedvehiclejourneyref: "journey-1",
+      expectedarrivaltime: 1_000,
+      vehicleatstop: true,
+    };
+    const secondLap = {
+      datedvehiclejourneyref: "journey-1",
+      expectedarrivaltime: 2_200,
+    };
+
+    expect(
+      matchRideArrival([firstLap, secondLap], {
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 2_150,
+      })?.arrival
+    ).toBe(secondLap);
+    expect(
+      matchRideArrival([firstLap, secondLap], {
+        tripRef: "",
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 1_060,
+      })?.arrival
+    ).toBe(firstLap);
+    expect(
+      matchRideArrival(
+        [
+          { tripref: "trip-1", expectedarrivaltime: 1_000 },
+          { tripref: "trip-1", expectedarrivaltime: 2_200 },
+        ],
+        { tripRef: "trip-1", plannedEpochSec: 2_150 }
+      )?.arrival.expectedarrivaltime
+    ).toBe(2_200);
+  });
+
+  it("does not guess between two visits the plan cannot tell apart", () => {
+    const rows = [
+      { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 1_000 },
+      { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 2_200 },
+    ];
+
+    expect(
+      matchRideArrival(rows, {
+        datedVehicleJourneyRef: "journey-1",
+        plannedEpochSec: 1_620,
+      })
+    ).toBeNull();
+    expect(
+      matchRideArrival(rows, { datedVehicleJourneyRef: "journey-1" })
+    ).toBeNull();
+  });
+
+  it("still matches a journey the feed lists twice at the same time", () => {
+    const row = { datedvehiclejourneyref: "journey-1", expectedarrivaltime: 1_000 };
+    const duplicate = { ...row };
+
+    expect(
+      matchRideArrival([row, duplicate], { datedVehicleJourneyRef: "journey-1" })
+        ?.arrival
+    ).toBe(row);
+  });
+
   it("declines a line and time match when two visits both fit", () => {
     // A loop journey serves this stop twice and both rows carry the same
     // origin time. Answering with the earlier visit would alarm a passenger
