@@ -1662,6 +1662,31 @@ test("six simultaneous alerts stay compact and keep departures reachable", async
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
+test("the Home actions on a phone share one type size", async ({
+  page,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.endsWith("-mobile"));
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  const recovery = page.locator(
+    'section[aria-labelledby="home-recovery-title"]'
+  );
+  const primary = recovery.getByRole("link", {
+    name: "Get me Home by public transit",
+  });
+  const options = recovery.getByRole("button", { name: "Home options" });
+  await expect(primary).toBeVisible();
+  await expect(options).toBeVisible();
+
+  const fontSize = (locator) =>
+    locator.evaluate(
+      (element) => globalThis.getComputedStyle(element).fontSize
+    );
+  expect(await fontSize(options)).toBe(await fontSize(primary));
+});
+
 test("200 percent text scaling keeps core mobile controls usable", async ({
   page,
 }, testInfo) => {

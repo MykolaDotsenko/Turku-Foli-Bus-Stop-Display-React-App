@@ -472,8 +472,11 @@
 }
 
 
+/* The font shorthand sits here, ahead of the phone rules, so it cannot undo
+   the type size they give every Home action. */
 .mobileOptionsToggle {
   display: none;
+  font: inherit;
 }
 
 @media (max-width: 620px) {
@@ -544,7 +547,6 @@
     background: #fff;
     color: #294851;
     cursor: pointer;
-    font: inherit;
     font-weight: 900;
   }
 
