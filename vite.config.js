@@ -29,10 +29,10 @@ export default defineConfig({
       // Set just under what the suite currently reaches, so the numbers can
       // only be argued upwards. They are a ratchet, not a target.
       thresholds: {
-        statements: 77,
-        branches: 71,
-        functions: 80,
-        lines: 81,
+        statements: 82,
+        branches: 75,
+        functions: 85,
+        lines: 86,
       },
     },
   },
