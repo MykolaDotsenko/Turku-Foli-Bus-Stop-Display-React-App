@@ -148,14 +148,14 @@
 
 .stopText strong {
   overflow: hidden;
-  font-size: 0.76rem;
+  font-size: 0.875rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .stopText span {
   color: #52666f;
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -181,7 +181,7 @@
   border-top: 1px solid #e1ecee;
   background: #fbfdfd;
   color: #00656f;
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   font-weight: 850;
   text-decoration: none;
 }

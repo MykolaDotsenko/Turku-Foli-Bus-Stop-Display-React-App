@@ -515,8 +515,10 @@
     outline-color: rgba(242, 212, 143, 0.5);
   }
 
+  /* A map with a transparent edge stood in a white frame on a dark page. */
   .mediaLink img {
     border-color: var(--dm-warn-line);
+    background: var(--dm-raised);
   }
 }
 

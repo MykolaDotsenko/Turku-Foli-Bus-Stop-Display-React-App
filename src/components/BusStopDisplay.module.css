@@ -298,18 +298,19 @@
   font-weight: 650;
 }
 
+/* 13px at the least, on a laptop too: 11.5px read as fine print. */
 .tripMeta {
   display: block;
   margin-top: 3px;
   color: #4d626b;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 600;
 }
 
 .proximity {
   display: block;
   margin-top: 3px;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 780;
 }
 
