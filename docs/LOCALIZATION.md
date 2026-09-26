@@ -81,12 +81,14 @@ English left on the Finnish screens.
 | offline | ei yhteyttä |
 | near you | lähelläsi |
 | Ride Mode | matkatila |
+| Get-off alert (the board's button) | Pysäkkihälytys |
 | get off | jäädä pois |
 | press STOP | paina STOP-nappia |
 | My Places | Omat paikat |
 | Home, School, Work | Koti, Koulu, Työ |
 | primary stop | pääpysäkki |
 | backup stop | varapysäkki |
+| backup card (printed) | varakortti |
 | driver | kuljettaja |
 | Get me Home | Vie minut kotiin |
 | recent (stops) | viimeksi käytetyt |

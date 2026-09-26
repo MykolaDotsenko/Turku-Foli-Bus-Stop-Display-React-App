@@ -78,7 +78,13 @@ function writeSnapshot(data) {
       receivedAtMs: data.receivedAtMs,
     };
 
+    // Boards past their 15 minutes go now, as About says, rather than
+    // staying until five newer ones push them out.
     const mostRecent = Object.entries(snapshots)
+      .filter(
+        ([, entry]) =>
+          Date.now() - (Number(entry?.receivedAtMs) || 0) <= SNAPSHOT_TTL_MS
+      )
       .sort(
         ([, a], [, b]) =>
           (Number(b?.receivedAtMs) || 0) - (Number(a?.receivedAtMs) || 0)

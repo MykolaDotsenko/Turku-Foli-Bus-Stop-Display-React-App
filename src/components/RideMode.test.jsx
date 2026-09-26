@@ -729,7 +729,7 @@ test("marks a time that comes from the timetable", () => {
 
   expect(screen.getByText("By timetable")).toBeInTheDocument();
   expect(screen.getByText("~18 min")).toBeInTheDocument();
-  expect(screen.getByText(/from the timetable until Föli’s live data lists your bus/)).toBeInTheDocument();
+  expect(screen.getByText(/from the timetable until Föli’s live data shows your bus/)).toBeInTheDocument();
 });
 
 test("gets a bus passenger ready without sending them to the doors early", () => {

@@ -19,8 +19,8 @@ function encodeSharedPlaceForTest(payload) {
 }
 
 
-async function seedHome(page) {
-  await page.evaluate(() => {
+async function seedHome(page, { primaryStopId = "164" } = {}) {
+  await page.evaluate((primary) => {
     localStorage.setItem(
       "foli-stop-catalog-v2",
       JSON.stringify({
@@ -54,7 +54,7 @@ async function seedHome(page) {
           id: "home",
           label: "Home",
           icon: "⌂",
-          primaryStopId: "164",
+          primaryStopId: primary,
           stops: [
             { id: "164", name: "Kauppatori" },
             { id: "32", name: "Puistokatu" },
@@ -63,7 +63,7 @@ async function seedHome(page) {
         },
       ])
     );
-  });
+  }, primaryStopId);
   await page.reload();
 }
 
@@ -389,9 +389,17 @@ async function mockFoli(page) {
             cause: "CONSTRUCTION",
             affected_stops: [],
             affected_routes: ["1"],
-            header: "Line 1 city-centre detour",
-            message: "Line 1 uses a temporary route.",
-            information: "Stop 14 is not in use during the works.",
+            // Föli writes its notices in Finnish and translates them.
+            header: "Linjan 1 poikkeusreitti keskustassa",
+            message: "Linja 1 kulkee tilapäistä reittiä.",
+            information: "Pysäkki 14 ei ole käytössä töiden aikana.",
+            translations: {
+              en: {
+                header: "Line 1 city-centre detour",
+                message: "Line 1 uses a temporary route.",
+                information: "Stop 14 is not in use during the works.",
+              },
+            },
             repeat: [[
               Math.floor(Date.now() / 1000) - 60,
               Math.floor(Date.now() / 1000) + 3600,
@@ -411,8 +419,14 @@ async function mockFoli(page) {
             effect: "NO_SERVICE",
             affected_stops: [],
             affected_routes: ["99"],
-            header: "Line 99 service change",
-            message: "This route has no current departure row.",
+            header: "Linjan 99 muutos",
+            message: "Tällä reitillä ei ole nyt lähtöä.",
+            translations: {
+              en: {
+                header: "Line 99 service change",
+                message: "This route has no current departure row.",
+              },
+            },
           },
         ],
         cancellations: [],
@@ -506,7 +520,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
 
@@ -604,7 +618,7 @@ async function turnOffNotifications(page) {
 
 async function startRide(page, { gps }) {
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
 
@@ -636,7 +650,7 @@ test("the ride can be started without scrolling for the button", async ({
   await page.goto("/?stop=164");
   await seedHome(page);
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   await expect(
@@ -839,7 +853,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   const turunLinna = page.locator('input[type="radio"][value="3"]');
@@ -896,7 +910,7 @@ test("an open get-off setup survives a board refresh", async ({ page }) => {
   await seedHome(page);
 
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   const setupHeading = page.getByRole("heading", {
@@ -948,7 +962,7 @@ test("an open get-off setup does not follow the passenger to another stop", asyn
     name: "Where do you want to get off?",
   });
   const alertButton = page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first();
   await alertButton.click();
   await expect(setupHeading).toBeVisible();
@@ -1007,7 +1021,7 @@ test("a phone is told what the app is until it no longer needs telling", async (
 
   const intro = page.locator(".context");
   await expect(intro).toBeVisible();
-  await expect(intro).toContainText("get told when to get off");
+  await expect(intro).toContainText("we’ll tell you when to press STOP");
 
   // These two sections are three bare rows and a lone button on a phone;
   // nothing else ever says what they are for.
@@ -1465,7 +1479,7 @@ test("production PWA reopens offline with My Places and driver help", async ({
   // Announced, once, and shown once, by the banner.
   await expect(page.getByText("Offline mode", { exact: true })).toHaveCount(1);
   await expect(
-    page.getByText(/saved places and driver help still work/i)
+    page.getByText(/saved places and Show to driver still work/i)
   ).toBeVisible();
 
   const recovery = page.locator(
@@ -1677,7 +1691,7 @@ test("a phone in dark mode gets a dark page that is just as readable", async ({
     await recoveryMore.click();
   }
   await page
-    .getByRole("button", { name: "Alert me when to get off" })
+    .getByRole("button", { name: "Get-off alert" })
     .first()
     .click();
   await expect(
@@ -1720,7 +1734,7 @@ test.describe("on a Finnish phone", () => {
   }, testInfo) => {
     await routeTargetStop(page);
     await page.goto("/?stop=164");
-    await seedHome(page);
+    await seedHome(page, { primaryStopId: "32" });
 
     await expect(page.locator("html")).toHaveAttribute("lang", "fi");
     await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -2149,7 +2163,7 @@ test("a departure Föli has cancelled at this stop says so on the board", async 
   ).toBeVisible();
   await expect(lineOneRow.getByText(/Cancelled at this stop/)).toBeVisible();
   await expect(
-    lineOneRow.getByRole("button", { name: "Alert me when to get off" })
+    lineOneRow.getByRole("button", { name: "Get-off alert" })
   ).toHaveCount(0);
 });
 
@@ -2330,7 +2344,9 @@ test("captures the README's product screenshots", async ({ page }, testInfo) => 
   }
 
   await page.goto("/?stop=164");
-  await seedHome(page);
+  // Home is Puistokatu: offering "Get me Home" at the Home stop itself was
+  // the picture of nothing a passenger would do.
+  await seedHome(page, { primaryStopId: "32" });
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
     page

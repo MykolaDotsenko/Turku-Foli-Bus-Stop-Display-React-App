@@ -9,7 +9,7 @@ function ConnectivityStatus({ online }) {
       <strong>{t("Offline")}</strong>
       <span>
         {t(
-          "Your saved places and driver help still work. Live departures and external route planning need an internet connection."
+          "Your saved places and Show to driver still work. Live departures and route directions need an internet connection."
         )}
       </span>
     </aside>

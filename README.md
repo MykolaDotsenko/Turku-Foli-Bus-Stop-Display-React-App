@@ -50,7 +50,7 @@ Live departures from any Föli stop, the service updates that affect them, and a
 ## For passengers
 
 - **What leaves next.** Search a stop by name or number, or find the nearest one. **Live** times are Föli's estimates from the buses themselves; the rest are the timetable, and the board says which is which.
-- **Get off at the right stop.** Tap **Alert me when to get off** on a departure and choose your stop. The phone tells you when to get ready and when to press STOP, with sound, vibration and speech where it can. Keep the page open: a browser can pause a page it thinks you have left.
+- **Get off at the right stop.** Tap **Get-off alert** on a departure and choose your stop. The phone tells you when to get ready and when to press STOP, with sound, vibration and speech where it can. Keep the page open: a browser can pause a page it thinks you have left.
 - **Before you go.** Detours, cancellations and other service updates for your stop and your lines, above the times they change.
 - **Home, School and Work.** Save each as the public stops you use, never an address. **Get me Home** opens the route in Google Maps, **Show to driver** puts your stop on screen in large type with a request in Finnish, and a backup card can be printed for a flat battery.
 - **Just your lines.** Follow the lines you take at a stop, and the board keeps showing only them.
@@ -87,7 +87,7 @@ Pysäkkien reaaliaikaiset lähdöt, niihin vaikuttavat liikennetiedotteet ja mui
 **Avaa:** https://mykoladotsenko.github.io/foli-live-departures/
 
 - **Mitä lähtee seuraavaksi.** Hae pysäkki nimellä tai numerolla tai etsi lähin pysäkki. **Reaaliaika**-merkityt ajat ovat Fölin arvioita busseista, muut aikataulun mukaisia, ja taulu kertoo, kumpi on kumpi.
-- **Jää pois oikealla pysäkillä.** Napauta lähdön kohdalla **Muistuta, kun pitää jäädä pois** ja valitse pysäkkisi. Puhelin kertoo äänellä, värinällä ja puheella, milloin valmistautua ja milloin painaa STOP. Pidä sivu auki: selain voi keskeyttää sivun, jolta se luulee sinun poistuneen.
+- **Jää pois oikealla pysäkillä.** Napauta lähdön kohdalla **Pysäkkihälytys** ja valitse pysäkkisi. Puhelin kertoo äänellä, värinällä ja puheella, milloin valmistautua ja milloin painaa STOP. Pidä sivu auki: selain voi keskeyttää sivun, jolta se luulee sinun poistuneen.
 - **Ennen kuin lähdet.** Pysäkkiäsi ja linjojasi koskevat poikkeusreitit, peruutukset ja muut liikennetiedotteet näkyvät lähtöaikojen yläpuolella.
 - **Koti, koulu ja työ.** Tallenna niihin käyttämäsi julkiset pysäkit, ei koskaan osoitetta. **Vie minut kotiin** avaa reitin Google Mapsissa, **Näytä kuljettajalle** näyttää pysäkkisi isolla ja pyynnön suomeksi, ja varakortin voi tulostaa tyhjän akun varalle.
 - **Vain omat linjasi.** Seuraa pysäkillä linjoja, joilla kuljet, niin taulu näyttää vain ne.
@@ -176,7 +176,7 @@ Temporary provider failures keep useful same-stop data visible while clearly deg
 
 ### Ride without watching the map
 
-A passenger can choose **Alert me when to get off** on a concrete departure, select a downstream stop in real trip order and then keep Ride Mode open instead of continuously checking a map.
+A passenger can choose **Get-off alert** on a concrete departure, select a downstream stop in real trip order and then keep Ride Mode open instead of continuously checking a map.
 
 Ride Mode combines three independent signals:
 

@@ -13,8 +13,8 @@ export default {
   "Save Home, School or Work as public stops — no address to type or remember.":
     "Tallenna kodin, koulun tai työpaikan lähin pysäkki – osoitetta ei tarvita.",
   "Finding the closest Föli stops…": "Etsitään lähimpiä Fölin pysäkkejä…",
-  "Transit links open externally with only the public destination stop. Your starting location is not embedded in the link.":
-    "Reittilinkit avautuvat toisessa palvelussa, ja niissä on vain julkinen määränpääpysäkki. Lähtösijaintiasi ei lisätä linkkiin.",
+  "Route links give Google Maps only the stop you’re going to, not where you are.":
+    "Reittilinkit kertovat Google Mapsille vain määränpääpysäkin, eivät sijaintiasi.",
   "Stop locations are temporarily unavailable.":
     "Pysäkkien sijainnit eivät ole tilapäisesti saatavilla.",
   "This location appears outside Föli’s published service area. Choose a public stop manually instead.":
@@ -63,13 +63,13 @@ export default {
   "Manage Home": "Kodin asetukset",
   "Manage School": "Koulun asetukset",
   "Manage Work": "Työpaikan asetukset",
-  "Sharing Home reveals its saved public stop names and IDs, which can indicate the general area.":
+  "Sharing Home reveals its saved public stop names and numbers, which can indicate the general area.":
     "Jakaminen paljastaa kodin tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
-  "Sharing School reveals its saved public stop names and IDs, which can indicate the general area.":
+  "Sharing School reveals its saved public stop names and numbers, which can indicate the general area.":
     "Jakaminen paljastaa koulun tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
-  "Sharing Work reveals its saved public stop names and IDs, which can indicate the general area.":
+  "Sharing Work reveals its saved public stop names and numbers, which can indicate the general area.":
     "Jakaminen paljastaa työpaikan tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
-  "Only public stop IDs and names are saved; your exact location is discarded.":
+  "Only public stop numbers and names are saved; your exact location is discarded.":
     "Vain julkisten pysäkkien numerot ja nimet tallennetaan. Tarkkaa sijaintiasi ei tallenneta.",
   "Using the stop you selected manually": "Käytetään itse valitsemaasi pysäkkiä",
   "Location accuracy ±{accuracy}": "Sijainnin tarkkuus ±{accuracy}",
@@ -87,17 +87,12 @@ export default {
   "Yes, this is the right stop for Work.": "Kyllä, tämä on oikea pysäkki töihin.",
   "Yes, these are the right stops for Work.":
     "Kyllä, nämä ovat oikeat pysäkit töihin.",
-  "Save {label}": "Tallenna {label}",
 
   // A place shared by link
   "Shared place": "Jaettu paikka",
-  "Add {label}?": "Lisätäänkö {label}?",
-  "Replace {label}?": "Korvataanko {label}?",
-  "This link contains public Föli stop IDs and names, not an exact private address. Those stops can still reveal the general area of this place. The app cannot verify who created the link, so accept shared places only from someone you trust.":
-    "Linkissä on Fölin julkisten pysäkkien numerot ja nimet, ei tarkkaa yksityistä osoitetta. Pysäkeistä voi silti päätellä paikan likimääräisen alueen. Sovellus ei voi tarkistaa, kuka linkin teki, joten hyväksy jaettuja paikkoja vain henkilöltä, johon luotat.",
-  primary: "pääpysäkki",
-  "Add {label}": "Lisää {label}",
-  "Replace {label}": "Korvaa {label}",
+  "Only add places from people you trust. The stops show roughly where this place is, though never an address.":
+    "Lisää paikkoja vain henkilöiltä, joihin luotat. Pysäkeistä näkee suunnilleen, missä paikka on, mutta ei koskaan osoitetta.",
+  "main stop": "pääpysäkki",
   "Not now": "Ei nyt",
 
   // A saved place
@@ -124,16 +119,14 @@ export default {
   "Remove {label}": "Poista {label}",
   "Share link for {label}": "Jakolinkki: {label}",
   "{label} · My Places": "{label} · Omat paikat",
-  "Add {label} to My Places": "Lisää {label} Omiin paikkoihin",
   "Link shared.": "Linkki jaettu.",
   "Share link copied.": "Jakolinkki kopioitu.",
   "Copy the share link below.": "Kopioi jakolinkki alta.",
 
   // Get me Home
-  "Travel recovery": "Matka-apu",
+  "Travel help": "Matka-apu",
   "Need help getting home?": "Tarvitsetko apua kotimatkalla?",
-  "Travel help. In an emergency, call 112.":
-    "Matka-apua. Hätätilanteessa soita 112.",
+  "In an emergency, call 112.": "Hätätilanteessa soita 112.",
   "Home needs review because a saved stop changed or disappeared from the current Föli catalogue.":
     "Tarkista Koti: tallennettu pysäkki on muuttunut tai poistunut Fölin nykyisestä pysäkkiluettelosta.",
   "Get me Home": "Vie minut kotiin",
@@ -142,7 +135,7 @@ export default {
   "Fewer options": "Näytä vähemmän",
   "Open Home stop": "Avaa kotipysäkki",
   "Get me Home opens a route in Google Maps. Check it before you travel.":
-    "Vie minut kotiin avaa reitin Google Mapsissa. Tarkista reitti ennen lähtöä.",
+    "”Vie minut kotiin” avaa reitin Google Mapsissa. Tarkista reitti ennen lähtöä.",
   "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work.":
     "Reittiohjeet eivät ole saatavilla, ennen kuin pysäkkien sijainnit latautuvat. Tallennettu pysäkkisi ja kuljettajalle näytettävä kortti toimivat silti.",
   "Directions need an internet connection.": "Reittiohjeet tarvitsevat verkkoyhteyden.",
@@ -156,11 +149,11 @@ export default {
   "Open stop": "Avaa pysäkki",
   "Print a backup card": "Tulosta varakortti",
   "A web app cannot help after the phone powers off. Print or save a small Home backup card in advance so the destination still exists outside the phone. The card reveals the saved public Home stop area, so keep it only with the intended user.":
-    "Verkkosovellus ei voi auttaa, kun puhelimesta on loppunut virta. Tulosta tai tallenna etukäteen pieni kotimatkakortti, niin määränpää on tallessa myös puhelimen ulkopuolella. Kortista näkee tallennetun kotipysäkin alueen, joten anna se vain sille, jolle se on tarkoitettu.",
-  "Print / save Home backup card": "Tulosta / tallenna kotimatkakortti",
+    "Verkkosovellus ei voi auttaa, kun puhelimesta on loppunut virta. Tulosta tai tallenna etukäteen pieni varakortti, niin määränpää on tallessa myös puhelimen ulkopuolella. Kortista näkee tallennetun kotipysäkin alueen, joten anna se vain sille, jolle se on tarkoitettu.",
+  "Print / save Home backup card": "Tulosta / tallenna kodin varakortti",
 
   // The printed Home card (its request to the driver stays Finnish)
-  "Home backup card": "Kotimatkakortti",
+  "Home backup card": "Kodin varakortti",
   "Backup stops": "Varapysäkit",
   "Show this card to a driver or trusted adult. This card contains public stop information, not a private home address.":
     "Näytä tämä kortti kuljettajalle tai luotettavalle aikuiselle. Kortissa on julkisen pysäkin tiedot, ei kotiosoitetta.",
@@ -169,4 +162,24 @@ export default {
   "Show this screen to the driver": "Näytä tämä kuljettajalle",
   "Read aloud in Finnish": "Lue ääneen suomeksi",
   Close: "Sulje",
+
+  // Each place as the object of a button: lower case, as Finnish takes it.
+  "Save Home": "Tallenna koti",
+  "Add Home": "Lisää koti",
+  "Replace Home": "Korvaa koti",
+  "Add Home?": "Lisätäänkö koti?",
+  "Replace Home?": "Korvataanko koti?",
+  "Add Home to My Places": "Lisää koti Omiin paikkoihin",
+  "Save School": "Tallenna koulu",
+  "Add School": "Lisää koulu",
+  "Replace School": "Korvaa koulu",
+  "Add School?": "Lisätäänkö koulu?",
+  "Replace School?": "Korvataanko koulu?",
+  "Add School to My Places": "Lisää koulu Omiin paikkoihin",
+  "Save Work": "Tallenna työpaikka",
+  "Add Work": "Lisää työpaikka",
+  "Replace Work": "Korvaa työpaikka",
+  "Add Work?": "Lisätäänkö työpaikka?",
+  "Replace Work?": "Korvataanko työpaikka?",
+  "Add Work to My Places": "Lisää työpaikka Omiin paikkoihin",
 };

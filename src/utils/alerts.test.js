@@ -202,7 +202,7 @@ test("an emergency message replaces all other alert content", () => {
 
 // A cancelled departure is not an ordinary notice: it is the bus's row on
 // the board. Dropped with the notices, a cancelled 32 kept its countdown and
-// "Alert me" through a storm warning.
+// "Get-off alert" through a storm warning.
 test("keeps cancelled departures alongside an emergency notice", () => {
   const result = extractStopAlerts(
     {

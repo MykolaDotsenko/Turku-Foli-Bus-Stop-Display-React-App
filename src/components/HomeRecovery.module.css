@@ -719,8 +719,9 @@
   }
 
   .wrapper[data-compact="true"] .compactIcon {
-    display: inline;
+    display: inline-flex;
     margin-right: 0.4em;
+    vertical-align: -0.2em;
   }
 }
 

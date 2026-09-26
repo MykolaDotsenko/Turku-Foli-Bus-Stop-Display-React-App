@@ -233,7 +233,7 @@ test("prints the Home card in Finnish with the driver's request unchanged", () =
   expect(
     screen.getByText("Could you help me get off at the right stop?")
   ).toHaveAttribute("lang", "en");
-  expect(screen.getByText("Kotimatkakortti")).toBeInTheDocument();
+  expect(screen.getByText("Kodin varakortti")).toBeInTheDocument();
   expect(screen.getByText("Varapysäkit")).toBeInTheDocument();
   // Stop numbers are printed for the driver, as the driver card shows them.
   expect(

@@ -69,7 +69,7 @@ function setupPanels() {
 
 async function openSetupAndChooseTurunLinna(buttonIndex = 0) {
   fireEvent.click(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })[
+    screen.getAllByRole("button", { name: "Get-off alert" })[
       buttonIndex
     ]
   );
@@ -141,12 +141,12 @@ test("two visits of one looping trip keep separate rows and panels", async () =>
   );
 
   fireEvent.click(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })[0]
+    screen.getAllByRole("button", { name: "Get-off alert" })[0]
   );
 
   expect(setupPanels()).toHaveLength(1);
   expect(
-    screen.getAllByRole("button", { name: "Alert me when to get off" })
+    screen.getAllByRole("button", { name: "Get-off alert" })
   ).toHaveLength(1);
   expect(
     consoleError.mock.calls.some((call) =>
@@ -158,7 +158,7 @@ test("two visits of one looping trip keep separate rows and panels", async () =>
 test("a different departure taking the slot does not inherit an open setup", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(
-    screen.getByRole("button", { name: "Alert me when to get off" })
+    screen.getByRole("button", { name: "Get-off alert" })
   );
   expect(setupPanels()).toHaveLength(1);
 
@@ -173,7 +173,7 @@ test("a different departure taking the slot does not inherit an open setup", asy
 test("switching stops closes an open setup, and coming back does not reopen it", () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(
-    screen.getByRole("button", { name: "Alert me when to get off" })
+    screen.getByRole("button", { name: "Get-off alert" })
   );
   expect(setupPanels()).toHaveLength(1);
 

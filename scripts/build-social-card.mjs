@@ -32,7 +32,10 @@ async function fontFaces() {
 }
 
 // The card leads with what no other departure board does: the get-off
-// alert, drawn as the panel a passenger sees at their stop.
+// alert, drawn as the panel a passenger sees one stop before theirs. It
+// promises what the app does, telling you when to press STOP, not "never
+// miss your stop", which the app itself says it cannot guarantee. A Finnish
+// line follows, for the city most links are shared in.
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"><style>
 ${await fontFaces()}
@@ -49,11 +52,12 @@ body {
 .copy { display: flex; flex-direction: column; justify-content: center; }
 .brand { display: flex; align-items: center; gap: 16px; font-size: 30px; font-weight: 800; letter-spacing: -0.02em; }
 .brand svg { width: 56px; height: 56px; border-radius: 13px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18); }
-h1 { margin-top: 40px; font-size: 76px; font-weight: 900; line-height: 1.02; letter-spacing: -0.045em; }
-.lede { margin-top: 26px; max-width: 30ch; color: #d9f3f5; font-size: 29px; font-weight: 600; line-height: 1.35; }
+h1 { margin-top: 36px; font-size: 72px; font-weight: 900; line-height: 1.02; letter-spacing: -0.045em; }
+.lede { margin-top: 24px; max-width: 30ch; color: #d9f3f5; font-size: 28px; font-weight: 600; line-height: 1.35; }
+.lede-fi { margin-top: 12px; max-width: 34ch; color: #b6e6ea; font-size: 22px; font-weight: 600; line-height: 1.35; }
 .fine { margin-top: auto; color: #a9dce0; font-size: 20px; font-weight: 600; }
 .panel {
-  align-self: center; padding: 30px 30px 32px; border: 4px solid #ff8c5a; border-radius: 30px;
+  align-self: center; padding: 30px 30px 32px; border: 4px solid #e7b74b; border-radius: 30px;
   background: radial-gradient(circle at top right, rgba(34, 211, 238, 0.16), transparent 16rem), #10191c;
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
 }
@@ -61,23 +65,24 @@ h1 { margin-top: 40px; font-size: 76px; font-weight: 900; line-height: 1.02; let
 .title { margin-top: 6px; font-size: 38px; font-weight: 900; letter-spacing: -0.03em; }
 .label { margin-top: 22px; color: #93abb1; font-size: 18px; font-weight: 600; }
 .stop { font-size: 50px; font-weight: 900; letter-spacing: -0.045em; line-height: 1.05; }
-.instruction { margin-top: 22px; padding: 16px 18px; border-radius: 16px; background: #ff8c5a; color: #2a0d00; font-size: 29px; font-weight: 900; line-height: 1.18; }
-.button { margin-top: 20px; padding: 16px; border-radius: 14px; background: #fff3ef; color: #5a241a; font-size: 23px; font-weight: 800; text-align: center; }
+.instruction { margin-top: 22px; padding: 16px 18px; border-radius: 16px; background: #e7b74b; color: #1b1300; font-size: 31px; font-weight: 900; line-height: 1.18; }
+.meta { margin-top: 18px; color: #b9ccd0; font-size: 20px; font-weight: 700; }
 </style></head>
 <body><div class="card">
   <div class="copy">
     <div class="brand">${icon.replace("<svg ", '<svg aria-hidden="true" ')}Föli departures</div>
-    <h1>Never miss your stop.</h1>
-    <p class="lede">Live Turku bus times, disruption notices, and an alert that tells you when to press STOP.</p>
-    <p class="fine">Free · No account · No tracking · Not an official Föli app</p>
+    <h1>Know when to press STOP.</h1>
+    <p class="lede">Live Turku bus times, service updates, and an alert before your stop.</p>
+    <p class="lede-fi" lang="fi">Turun bussien lähtöajat ja muistutus, kun pitää painaa STOP.</p>
+    <p class="fine">Free · No account · No ads · Not an official Föli app</p>
   </div>
   <div class="panel">
-    <div class="eyebrow">This is your stop</div>
-    <div class="title">Get off now</div>
+    <div class="eyebrow">Next stop</div>
+    <div class="title">Your stop is next</div>
     <div class="label">Your stop</div>
     <div class="stop">Puistokatu</div>
-    <div class="instruction">Move to the doors and step off here.</div>
-    <div class="button">I'm getting off</div>
+    <div class="instruction">Press the STOP button now.</div>
+    <div class="meta">Line 1 · 1 stop · ~1 min</div>
   </div>
 </div></body></html>`;
 

@@ -262,7 +262,7 @@ test("requires explicit confirmation before importing a shared Home", () => {
     screen.getByRole("heading", { name: "Add Home?" })
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/can still reveal the general area/i)
+    screen.getByText(/The stops show roughly where this place is/i)
   ).toBeInTheDocument();
   expect(onImportSharedPlace).not.toHaveBeenCalled();
 
@@ -456,7 +456,7 @@ test("warns that sharing a place can reveal its general area", () => {
 
   fireEvent.click(screen.getByText("Manage Home"));
   expect(
-    screen.getByText(/Sharing Home reveals its saved public stop names and IDs/i)
+    screen.getByText(/Sharing Home reveals its saved public stop names and numbers/i)
   ).toBeInTheDocument();
 });
 
@@ -678,7 +678,7 @@ test("sets up a place in Finnish, confirming it in the place's own words", () =>
   expect(
     screen.getByRole("heading", { name: "Valitse koulun pysäkit" })
   ).toBeInTheDocument();
-  const save = screen.getByRole("button", { name: "Tallenna Koulu" });
+  const save = screen.getByRole("button", { name: "Tallenna koulu" });
   expect(save).toBeDisabled();
 
   fireEvent.click(
@@ -716,7 +716,7 @@ test("shares and removes in Finnish, with the same link as in English", async ()
 
   const [englishShare, finnishShare] = share.mock.calls.map(([data]) => data);
   expect(finnishShare.title).toBe("Koti · Omat paikat");
-  expect(finnishShare.text).toBe("Lisää Koti Omiin paikkoihin");
+  expect(finnishShare.text).toBe("Lisää koti Omiin paikkoihin");
   expect(finnishShare.url).toBe(englishShare.url);
 
   fireEvent.click(screen.getByRole("button", { name: "Poista Koti" }));

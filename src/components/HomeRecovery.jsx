@@ -6,6 +6,7 @@ import { buildTransitDirectionsUrl } from "../utils/maps";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./HomeRecovery.module.css";
 import { stopLabel } from "../utils/stopNames";
+import PlaceIcon from "./PlaceIcon";
 import StopName from "./StopName";
 
 // The request on the printed card is the driver's, so it is the same
@@ -66,16 +67,16 @@ function HomeRecovery({
       aria-labelledby="home-recovery-title"
     >
       <div className={styles.copy}>
-        <p className={styles.kicker}>{t("Travel recovery")}</p>
+        <p className={styles.kicker}>{t("Travel help")}</p>
         <h2 id="home-recovery-title">{t("Need help getting home?")}</h2>
         <p className={styles.description}>
-          {t("Travel help. In an emergency, call 112.")}
+          {t("In an emergency, call 112.")}
         </p>
       </div>
 
       <div className={styles.destination}>
         <span className={styles.homeIcon} aria-hidden="true">
-          {"⌂"}
+          <PlaceIcon id="home" />
         </span>
         <span>
           <strong>{label}</strong>
@@ -118,7 +119,7 @@ function HomeRecovery({
             aria-label={t("Get me Home by public transit")}
           >
             <span className={styles.compactIcon} aria-hidden="true">
-              {"⌂"}
+              <PlaceIcon id="home" />
             </span>
             {t("Get me Home")}
           </a>
@@ -130,7 +131,7 @@ function HomeRecovery({
             aria-describedby="home-recovery-routing-status"
           >
             <span className={styles.compactIcon} aria-hidden="true">
-              {"⌂"}
+              <PlaceIcon id="home" />
             </span>
             {t("Get me Home")}
           </button>

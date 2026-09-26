@@ -586,10 +586,10 @@ test("marks a departure Föli has cancelled at this stop instead of counting it 
   const [cancelledRow, runningRow] = screen.getAllByRole("row").slice(1);
   expect(within(cancelledRow).getByText("Cancelled", { selector: "td" })).toBeInTheDocument();
   expect(
-    within(cancelledRow).queryByRole("button", { name: "Alert me when to get off" })
+    within(cancelledRow).queryByRole("button", { name: "Get-off alert" })
   ).not.toBeInTheDocument();
   expect(within(runningRow).getByText("15 min")).toBeInTheDocument();
   expect(
-    within(runningRow).getByRole("button", { name: "Alert me when to get off" })
+    within(runningRow).getByRole("button", { name: "Get-off alert" })
   ).toBeInTheDocument();
 });

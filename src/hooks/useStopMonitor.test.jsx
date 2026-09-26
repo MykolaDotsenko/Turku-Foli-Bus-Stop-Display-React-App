@@ -279,6 +279,24 @@ test("stores each successful board, keeping only the most recent stops", async (
   expect(Number(stored["164"].receivedAtMs)).toBeGreaterThan(0);
 });
 
+// About says boards stay "for up to 15 minutes": an older one waited in
+// storage until five newer boards pushed it out.
+test("drops boards past their 15 minutes when it stores a new one", async () => {
+  seedSnapshot("32", { ageMs: 16 * 60_000, stopName: "Puistokatu" });
+  vi.mocked(fetchStopMonitor).mockResolvedValue({
+    stopName: "Kauppatori",
+    arrivals: [{ lineref: "1" }],
+    serverTime: 1_900_000_000,
+  });
+
+  render(<Harness stopId="164" />);
+  expect(await screen.findByText("Kauppatori")).toBeInTheDocument();
+
+  expect(Object.keys(JSON.parse(localStorage.getItem(SNAPSHOT_KEY)))).toEqual([
+    "164",
+  ]);
+});
+
 test("discards a stored board that claims to come from the future", async () => {
   seedSnapshot("164", { ageMs: -60_000 });
   vi.mocked(fetchStopMonitor).mockRejectedValue(new Error("offline"));

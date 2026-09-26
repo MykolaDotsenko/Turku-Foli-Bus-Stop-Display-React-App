@@ -843,34 +843,21 @@ function BusStopDisplay({
                             className={styles.rideButton}
                             disabled={sameRideActive}
                             aria-expanded={rideSetupOpen}
-                            aria-label={
-                              sameRideActive || rideSetupOpen
-                                ? undefined
-                                : t("Alert me when to get off")
-                            }
                             onClick={() =>
                               setRideCandidateKey((current) =>
                                 current === rideKey ? "" : rideKey
                               )
                             }
                           >
-                            {sameRideActive ? (
-                              t("Ride Mode active")
-                            ) : rideSetupOpen ? (
-                              t("Close get-off setup")
-                            ) : (
-                              // Both actions fit one line of a phone only
-                              // with the short label, whose words start the
-                              // full one (WCAG 2.5.3).
-                              <>
-                                <span className={styles.rideLong} aria-hidden="true">
-                                  {t("Alert me when to get off")}
-                                </span>
-                                <span className={styles.rideShort} aria-hidden="true">
-                                  {t("Alert me")}
-                                </span>
-                              </>
-                            )}
+                            {/* One name at every width. "Alert me" beside a
+                                departure read as "remind me before this bus
+                                leaves", and the feature that sets the app
+                                apart went unfound on the phones it is for. */}
+                            {sameRideActive
+                              ? t("Ride Mode active")
+                              : rideSetupOpen
+                                ? t("Close get-off setup")
+                                : t("Get-off alert")}
                           </button>
                         </div>
                       )}

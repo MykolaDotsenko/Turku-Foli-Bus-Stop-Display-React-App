@@ -103,11 +103,11 @@ export default {
   "Cancelled at this stop · was due {time}":
     "Peruttu tällä pysäkillä · aikataulun mukaan klo {time}",
   "Ride Mode active": "Matkatila käytössä",
-  "Close get-off setup": "Sulje asetukset",
-  "Alert me when to get off": "Muistuta, kun pitää jäädä pois",
-  // The same button on a phone, where both of a row's actions share a line.
-  // Its words must start the full phrase, which stays its accessible name.
-  "Alert me": "Muistuta",
+  // U8: "Sulje asetukset" did not say which settings.
+  "Close get-off setup": "Sulje hälytyksen asetukset",
+  // The ride setup is already "Aseta pysäkkihälytys": the button uses the
+  // same word, at every width.
+  "Get-off alert": "Pysäkkihälytys",
   Cancelled: "Peruttu",
   "About live estimates": "Tietoa reaaliaika-arvioista",
   "Live times are estimates from vehicle data. Vehicle distance is a straight-line estimate from the latest reported position. Scheduled means no current realtime feed is available for that trip.":

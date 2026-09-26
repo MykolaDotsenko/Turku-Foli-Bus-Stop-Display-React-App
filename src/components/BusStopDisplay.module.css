@@ -680,10 +680,6 @@
   opacity: 0.7;
 }
 
-.rideShort {
-  display: none;
-}
-
 .rideSetupRow > td {
   padding: 0 14px 14px;
   background: #fbfdfd;
@@ -698,14 +694,6 @@
     min-height: 44px;
     margin-top: 0;
     font-size: 0.8125rem;
-  }
-
-  .rideLong {
-    display: none;
-  }
-
-  .rideShort {
-    display: inline;
   }
 
   .rowActions {

@@ -164,11 +164,14 @@ export function formatDelay(delaySeconds) {
   if (!Number.isFinite(seconds)) return null;
   if (Math.abs(seconds) < 30) return t("on time");
 
-  // "+1 min" is transit shorthand; "1 min late" is what it means.
+  // "+1 min" is transit shorthand; "1 min late" is what it means. Kept on
+  // one line: broken as "1 min" at a line's end, it read as "due in 1 min".
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
-  return seconds > 0
-    ? t("{minutes} min late", { minutes })
-    : t("{minutes} min early", { minutes });
+  const phrase =
+    seconds > 0
+      ? t("{minutes} min late", { minutes })
+      : t("{minutes} min early", { minutes });
+  return phrase.replaceAll(" ", "\u00a0");
 }
 
 export function dataAgeSeconds(recordedAt, serverTime) {

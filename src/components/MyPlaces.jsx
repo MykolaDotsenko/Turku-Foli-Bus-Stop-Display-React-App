@@ -14,6 +14,7 @@ import { PLACE_PRESETS, placeLabel } from "../hooks/useSavedPlaces";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./MyPlaces.module.css";
 import { stopLabel } from "../utils/stopNames";
+import PlaceIcon from "./PlaceIcon";
 import StopName from "./StopName";
 
 const MAX_SETUP_DISTANCE_METERS = 10_000;
@@ -39,8 +40,16 @@ const PLACE_PHRASES = {
     useStop: msg("Use {name} for Home"),
     manage: msg("Manage Home"),
     sharing: msg(
-      "Sharing Home reveals its saved public stop names and IDs, which can indicate the general area."
+      "Sharing Home reveals its saved public stop names and numbers, which can indicate the general area."
     ),
+    // Finnish takes these as objects, "Tallenna koulu", not "Tallenna
+    // Koulu", which read like a name.
+    save: msg("Save Home"),
+    add: msg("Add Home"),
+    replace: msg("Replace Home"),
+    addQuestion: msg("Add Home?"),
+    replaceQuestion: msg("Replace Home?"),
+    shareText: msg("Add Home to My Places"),
   },
   school: {
     go: msg("Go to School"),
@@ -56,8 +65,16 @@ const PLACE_PHRASES = {
     useStop: msg("Use {name} for School"),
     manage: msg("Manage School"),
     sharing: msg(
-      "Sharing School reveals its saved public stop names and IDs, which can indicate the general area."
+      "Sharing School reveals its saved public stop names and numbers, which can indicate the general area."
     ),
+    // Finnish takes these as objects, "Tallenna koulu", not "Tallenna
+    // Koulu", which read like a name.
+    save: msg("Save School"),
+    add: msg("Add School"),
+    replace: msg("Replace School"),
+    addQuestion: msg("Add School?"),
+    replaceQuestion: msg("Replace School?"),
+    shareText: msg("Add School to My Places"),
   },
   work: {
     go: msg("Go to Work"),
@@ -73,8 +90,16 @@ const PLACE_PHRASES = {
     useStop: msg("Use {name} for Work"),
     manage: msg("Manage Work"),
     sharing: msg(
-      "Sharing Work reveals its saved public stop names and IDs, which can indicate the general area."
+      "Sharing Work reveals its saved public stop names and numbers, which can indicate the general area."
     ),
+    // Finnish takes these as objects, "Tallenna koulu", not "Tallenna
+    // Koulu", which read like a name.
+    save: msg("Save Work"),
+    add: msg("Add Work"),
+    replace: msg("Replace Work"),
+    addQuestion: msg("Add Work?"),
+    replaceQuestion: msg("Replace Work?"),
+    shareText: msg("Add Work to My Places"),
   },
 };
 
@@ -133,7 +158,6 @@ function SetupPlace({
 
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
   const phrases = PLACE_PHRASES[preset.id];
-  const label = placeLabel(preset);
   // Plain words, and no "safe": a parent reads that as a promise about the
   // stop itself, which no app can make.
   const confirmationLabel = t(
@@ -180,7 +204,7 @@ function SetupPlace({
       </details>
       <p className={styles.privacy}>
         {t(
-          "Only public stop IDs and names are saved; your exact location is discarded."
+          "Only public stop numbers and names are saved; your exact location is discarded."
         )}
       </p>
 
@@ -273,7 +297,7 @@ function SetupPlace({
             })
           }
         >
-          {t("Save {label}", { label })}
+          {t(phrases.save)}
         </button>
       </div>
     </section>
@@ -288,7 +312,7 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
   const preset = PLACE_PRESETS.find((candidate) => candidate.id === place.id);
   if (!preset) return null;
 
-  const label = placeLabel(preset);
+  const phrases = PLACE_PHRASES[preset.id];
 
   return (
     <section
@@ -297,31 +321,29 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
     >
       <p className={styles.kicker}>{t("Shared place")}</p>
       <h3 id="shared-place-title">
-        {replacing
-          ? t("Replace {label}?", { label })
-          : t("Add {label}?", { label })}
+        {replacing ? t(phrases.replaceQuestion) : t(phrases.addQuestion)}
       </h3>
-      <p className={styles.helper}>
-        {t(
-          "This link contains public Föli stop IDs and names, not an exact private address. Those stops can still reveal the general area of this place. The app cannot verify who created the link, so accept shared places only from someone you trust."
-        )}
-      </p>
+      {/* What is being added comes first; the warning a passenger acts on
+          follows it, in one sentence each. */}
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
           <span key={stop.id}>
             <strong><StopName stop={stop} /></strong>
             <small>
               {t("Stop {id}", { id: stop.id })}
-              {stop.id === place.primaryStopId ? ` · ${t("primary")}` : ""}
+              {stop.id === place.primaryStopId ? ` · ${t("main stop")}` : ""}
             </small>
           </span>
         ))}
       </div>
+      <p className={styles.helper}>
+        {t(
+          "Only add places from people you trust. The stops show roughly where this place is, though never an address."
+        )}
+      </p>
       <div className={styles.setupActions}>
         <button type="button" className={styles.primaryButton} onClick={onImport}>
-          {replacing
-            ? t("Replace {label}", { label })
-            : t("Add {label}", { label })}
+          {replacing ? t(phrases.replace) : t(phrases.add)}
         </button>
         <button type="button" className={styles.textButton} onClick={onDismiss}>
           {t("Not now")}
@@ -367,7 +389,7 @@ function PlaceCard({
       if (typeof navigator?.share === "function") {
         await navigator.share({
           title: t("{label} · My Places", { label }),
-          text: t("Add {label} to My Places", { label }),
+          text: t(PLACE_PHRASES[place.id].shareText),
           url,
         });
         setShareFeedback(msg("Link shared."));
@@ -404,7 +426,7 @@ function PlaceCard({
         aria-expanded={mobileExpanded}
       >
         <span className={styles.placeIcon} aria-hidden="true">
-          {place.icon}
+          <PlaceIcon id={place.id} />
         </span>
         <span className={styles.mobileSummaryText}>
           <strong>{label}</strong>
@@ -420,7 +442,7 @@ function PlaceCard({
 
       <div className={styles.placeHeading}>
         <span className={styles.placeIcon} aria-hidden="true">
-          {place.icon}
+          <PlaceIcon id={place.id} />
         </span>
         <div>
           <h3>{label}</h3>
@@ -589,7 +611,7 @@ function EmptyPlaceCard({
         aria-expanded={mobileExpanded}
       >
         <span className={styles.placeIcon} aria-hidden="true">
-          {preset.icon}
+          <PlaceIcon id={preset.id} />
         </span>
         <span className={styles.mobileSummaryText}>
           <strong>{label}</strong>
@@ -602,7 +624,7 @@ function EmptyPlaceCard({
 
       <div className={styles.emptyBody}>
         <span className={styles.placeIcon} aria-hidden="true">
-          {preset.icon}
+          <PlaceIcon id={preset.id} />
         </span>
         <div>
           <h3>{label}</h3>
@@ -854,7 +876,7 @@ function MyPlaces({
 
       <p className={styles.privacy}>
         {t(
-          "Transit links open externally with only the public destination stop. Your starting location is not embedded in the link."
+          "Route links give Google Maps only the stop you’re going to, not where you are."
         )}
       </p>
     </section>

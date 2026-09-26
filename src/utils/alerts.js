@@ -316,7 +316,7 @@ export function extractStopAlerts(
   // An emergency notice replaces Föli's ordinary notices, but a cancelled
   // departure is not a notice: it is what the board shows on the bus's row.
   // Dropped with the rest, a cancelled 32 kept its countdown and its
-  // "Alert me" through a storm warning.
+  // "Get-off alert" through a storm warning.
   if (emergency) return [emergency, ...cancellations];
 
   const activeLines = new Set(lineRefs.map(String));

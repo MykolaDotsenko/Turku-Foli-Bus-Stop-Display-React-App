@@ -322,7 +322,7 @@ function App() {
               }
             >
               {t(
-                "Find a stop, save the places you travel to, and get told when to get off."
+                "Find your stop, then tap Get-off alert on your bus: we’ll tell you when to press STOP."
               )}
             </p>
           </div>
@@ -516,13 +516,13 @@ function App() {
             <dt>{t("What stays on this phone")}</dt>
             <dd>
               {t(
-                "Favourites, recent stops and when you last looked at them, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
+                "Favourites, recent stops and when you last looked at them, each stop’s line filter, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
               )}
             </dd>
             <dt>{t("What leaves it")}</dt>
             <dd>
               {t(
-                "The app is served by GitHub Pages, which sees your IP address. Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link."
+                "The app is served by GitHub Pages, which sees your IP address. Each stop you look up, and during a ride the stop you get off at and the one before it, is requested from data.foli.fi, which sees your IP address and those stops. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link, and then sees the stop you chose."
               )}
             </dd>
             <dt>{t("What there is not")}</dt>

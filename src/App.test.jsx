@@ -26,8 +26,9 @@ test("falls back through the documented Föli time fields", () => {
 });
 
 test("formats Föli delay values as seconds", () => {
-  expect(formatDelay(125)).toBe("2 min late");
-  expect(formatDelay(-61)).toBe("1 min early");
+  // Held together with no-break spaces, so it never wraps as "1 min / late".
+  expect(formatDelay(125)).toBe("2\u00a0min\u00a0late");
+  expect(formatDelay(-61)).toBe("1\u00a0min\u00a0early");
   expect(formatDelay(15)).toBe("on time");
 });
 
@@ -35,7 +36,7 @@ test("formats Föli delay values as seconds", () => {
 
 test("surfaces aged realtime data instead of overstating freshness", () => {
   expect(formatServiceStatus(true, 60, 100, 250)).toBe(
-    "Live data · 3 min old · 1 min late"
+    "Live data · 3 min old · 1\u00a0min\u00a0late"
   );
 });
 

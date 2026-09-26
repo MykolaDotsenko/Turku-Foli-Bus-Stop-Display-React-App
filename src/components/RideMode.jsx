@@ -459,7 +459,7 @@ export default function RideMode({
       {!gettingOffNow && runtime.etaSource === "schedule" && !scheduleOnly && eta && (
         <p className={styles.timetableNote}>
           {t(
-            "The time to your stop is from the timetable until Föli’s live data lists your bus there."
+            "Estimated from the timetable until Föli’s live data shows your bus."
           )}
         </p>
       )}

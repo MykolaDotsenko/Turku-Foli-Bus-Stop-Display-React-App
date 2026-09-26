@@ -320,7 +320,7 @@ test("the departure board, in every state it can be in", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Seuraavat pysäkit/ }));
   await screen.findByText("Turun linna");
   sweep("board with next stops open");
-  fireEvent.click(screen.getByRole("button", { name: "Muistuta, kun pitää jäädä pois" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pysäkkihälytys" }));
   await screen.findByDisplayValue("3");
   sweep("board with get-off setup open");
 
@@ -511,7 +511,7 @@ test("My Places, from the first visit to a place in use", async () => {
   locateWith(at({ ...KAUPPATORI_FIX, accuracy: 2_500 }));
   render(places());
   fireEvent.click(screen.getAllByRole("button", { name: /^Käytä sijaintiani/ })[0]);
-  await screen.findByRole("button", { name: "Tallenna Koti" });
+  await screen.findByRole("button", { name: "Tallenna koti" });
   sweep("setting up Home from a rough location");
   cleanup();
 
