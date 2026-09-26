@@ -1493,6 +1493,37 @@ test("narrow 320 and 360px layouts keep core controls on-screen", async ({
   }
 });
 
+test("a browser that blocks site data still gets departures", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  // What Chrome does with "Don't allow sites to save data": the read of
+  // window.localStorage itself throws.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new globalThis.DOMException(
+          "Access is denied for this document.",
+          "SecurityError"
+        );
+      },
+    });
+  });
+  const pageErrors = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/?stop=164");
+
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await expect(page.getByText("Harbour")).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Find your stop" })
+  ).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
 test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
   await page.goto("/?stop=4");
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();

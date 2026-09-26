@@ -216,3 +216,39 @@ test("clears the marker under the deployment base path once the origin answers",
     "/foli-live-departures/__foli_offline_shell__"
   );
 });
+
+// Chrome throws on the very read of window.localStorage when a person has
+// blocked site data, and the hook runs at the top of the app, so an unguarded
+// read took the whole page down to the error screen.
+test("keeps working when the browser refuses access to storage", async () => {
+  const storage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    get() {
+      throw new globalThis.DOMException(
+        "Access is denied for this document.",
+        "SecurityError"
+      );
+    },
+  });
+
+  try {
+    setOnline(true);
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+    const { result } = renderHook(() => useOnlineStatus());
+    await waitFor(() => expect(result.current).toBe(true));
+
+    act(() => {
+      setOnline(false);
+      window.dispatchEvent(new globalThis.Event("offline"));
+    });
+    expect(result.current).toBe(false);
+  } finally {
+    if (storage) {
+      Object.defineProperty(globalThis, "localStorage", storage);
+    } else {
+      delete globalThis.localStorage;
+    }
+  }
+});

@@ -14,24 +14,26 @@ function browserSaysOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
 }
 
+// Reading window.localStorage itself throws when a person has blocked site
+// data, so even the existence check belongs inside the try. This hook runs at
+// the top of the app: one uncaught read here was the whole page.
 function readOfflineHint() {
-  if (typeof globalThis.localStorage === "undefined") return false;
-
   try {
-    return globalThis.localStorage.getItem(OFFLINE_HINT_KEY) === "1";
+    return globalThis.localStorage?.getItem(OFFLINE_HINT_KEY) === "1";
   } catch {
     return false;
   }
 }
 
 function writeOfflineHint(offline) {
-  if (typeof globalThis.localStorage === "undefined") return;
-
   try {
+    const storage = globalThis.localStorage;
+    if (!storage) return;
+
     if (offline) {
-      globalThis.localStorage.setItem(OFFLINE_HINT_KEY, "1");
+      storage.setItem(OFFLINE_HINT_KEY, "1");
     } else {
-      globalThis.localStorage.removeItem(OFFLINE_HINT_KEY);
+      storage.removeItem(OFFLINE_HINT_KEY);
     }
   } catch {
     // Connectivity UI must not fail because storage is unavailable.
