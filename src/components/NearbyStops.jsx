@@ -18,6 +18,7 @@ import {
 } from "../utils/nearestStop";
 import styles from "./NearbyStops.module.css";
 import { stopLabel } from "../utils/stopNames";
+import StopName from "./StopName";
 
 const NEARBY_STOP_LIMIT = 6;
 
@@ -40,7 +41,7 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
         })}
       >
         <span className={styles.stopText}>
-          <strong>{stopLabel(stop)}</strong>
+          <strong><StopName stop={stop} /></strong>
           <span>
             {t("Stop {id}", { id: stop.id })} ·{" "}
             {formatDistance(stop.distanceMeters)}

@@ -220,6 +220,13 @@
   margin-top: 6px;
 }
 
+.stateActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .tableWrap {
   overflow-x: auto;
 }

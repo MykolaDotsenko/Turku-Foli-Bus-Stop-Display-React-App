@@ -187,7 +187,10 @@ test("offers Get me Home in Finnish for a Home saved with its English label", ()
     "60.4518,22.2666"
   );
   expect(screen.getAllByText("Koti").length).toBeGreaterThan(0);
-  expect(screen.getByText("Kauppatori · pysäkki 164")).toBeInTheDocument();
+  // The name is Föli's, marked Finnish; the rest is the interface's.
+  const primary = screen.getAllByText("Kauppatori")[0];
+  expect(primary).toHaveAttribute("lang", "fi");
+  expect(primary.parentElement).toHaveTextContent("Kauppatori · pysäkki 164");
   expect(
     screen.getByRole("button", { name: "Avaa kotipysäkki" })
   ).toBeInTheDocument();
@@ -229,5 +232,9 @@ test("prints the Home card in Finnish with the driver's request unchanged", () =
   expect(screen.getByText("Kotimatkakortti")).toBeInTheDocument();
   expect(screen.getByText("Varapysäkit")).toBeInTheDocument();
   expect(screen.getByText("Pysäkki 164")).toBeInTheDocument();
-  expect(screen.getByText("Puistokatu · Pysäkki 32")).toBeInTheDocument();
+  expect(
+    screen
+      .getAllByText("Puistokatu")
+      .some((name) => name.parentElement.textContent === "Puistokatu · Pysäkki 32")
+  ).toBe(true);
 });

@@ -179,3 +179,34 @@ test("an empty board cut short at a trip that could not be checked is not called
   expect(screen.getByText("No live departures right now.")).toBeInTheDocument();
   expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
 });
+
+// "?stop=1640" typed for 164 read as a stop with nothing coming.
+test("a number Föli has no stop for says so instead of calling the stop empty", () => {
+  render(
+    board({
+      stopId: "1640",
+      stopName: "",
+      stop: null,
+      serverTime: NOW,
+      receivedAtMs: Date.now(),
+      unknownStop: true,
+    })
+  );
+
+  expect(screen.getByText("Föli has no stop 1640.")).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("a stop the list does not know yet still shows the departures it has", () => {
+  render(
+    board({
+      arrivals: [departure],
+      serverTime: NOW,
+      receivedAtMs: Date.now(),
+      unknownStop: true,
+    })
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.queryByText(/has no stop/)).not.toBeInTheDocument();
+});

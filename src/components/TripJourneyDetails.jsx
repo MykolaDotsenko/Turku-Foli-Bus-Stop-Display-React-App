@@ -3,6 +3,7 @@ import { fetchTripStopTimes } from "../api/foliApi";
 import { t } from "../i18n";
 import { resolveRideBoardingIndex } from "../utils/rideProgress";
 import styles from "./TripJourneyDetails.module.css";
+import StopName from "./StopName";
 
 const MAX_VISIBLE_NEXT_STOPS = 7;
 
@@ -21,12 +22,6 @@ function formatGtfsClock(value) {
     2,
     "0"
   )}`;
-}
-
-function stopLabel(stopTime, stopsById) {
-  return (
-    stopsById.get(stopTime.stopId)?.name || t("Stop {id}", { id: stopTime.stopId })
-  );
 }
 
 export default function TripJourneyDetails({
@@ -127,7 +122,7 @@ export default function TripJourneyDetails({
 
                   return (
                     <li key={`${item.stopId}-${item.stopSequence}`}>
-                      <span>{stopLabel(item, stopsById)}</span>
+                      <span><StopName stop={stopsById.get(item.stopId)} id={item.stopId} /></span>
                       <small>
                         {clock
                           ? approximate
@@ -146,7 +141,7 @@ export default function TripJourneyDetails({
                   {t("+{count} more · final stop", {
                     count: journey.remainingCount,
                   })}{" "}
-                  <strong>{stopLabel(journey.finalStop, stopsById)}</strong>
+                  <strong><StopName stop={stopsById.get(journey.finalStop.stopId)} id={journey.finalStop.stopId} /></strong>
                 </p>
               )}
             </>

@@ -148,6 +148,13 @@ function App() {
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
   );
+  // A number Föli's up-to-date stop list does not have: "?stop=1640" for
+  // 164 read as a stop with no departures.
+  const unknownStop =
+    Boolean(stopId) &&
+    catalogStatus === "ready" &&
+    stops.length > 0 &&
+    !selectedStop;
   const stopCancellations = useMemo(
     () => serviceAlerts.filter((alert) => alert.type === "cancellation"),
     [serviceAlerts]
@@ -414,6 +421,7 @@ function App() {
             onStartRide={ride.startRide}
             activeRideTripRef={ride.session?.tripRef || ""}
             cancellations={stopCancellations}
+            unknownStop={unknownStop}
           />
         </>
       )}

@@ -4,6 +4,7 @@ import TripJourneyDetails from "./TripJourneyDetails";
 import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
 import useLineFilter from "../hooks/useLineFilter";
+import useLineTimetable from "../hooks/useLineTimetable";
 import useTripEnrichment from "../hooks/useTripEnrichment";
 import { msg, providerLanguages, t, tc, useLanguage } from "../i18n";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
@@ -239,6 +240,7 @@ function BusStopDisplay({
   onStartRide,
   activeRideTripRef = "",
   cancellations = [],
+  unknownStop = false,
 }) {
   const language = useLanguage();
   // Keeps due times, freshness and the departed-row filter counting between
@@ -276,10 +278,39 @@ function BusStopDisplay({
   ]
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  // Whether this stop has had a departure answer at all, fresh or saved. The
+  // stop's name is not one: the catalogue names the stop long before its board
+  // first loads, and counting it said "No upcoming departures" while loading,
+  // and again when the load failed.
+  const hasData = arrivals.length > 0 || Number(receivedAtMs) > 0;
+  // A followed line with no row here may still run: the live feed looks an
+  // hour or so ahead, so an hourly line at a busy stop was missing while it
+  // ran and the board said it had none. Its next buses come from the
+  // timetable instead.
+  const linesMissing = followedLines.filter(
+    (line) =>
+      !upcomingArrivals.some((arrival) => String(arrival.lineref || "") === line)
+  );
+  const lineTimetable = useLineTimetable(
+    hasData ? stopId : "",
+    linesMissing,
+    referenceTime
+  );
+  const timetableRows = lineTimetable.rows.filter(
+    (row) =>
+      linesMissing.includes(String(row.lineref || "")) &&
+      getDepartureTime(row, referenceTime) >= referenceTime - 30
+  );
   const visibleArrivals = (
     followedLines.length > 0
-      ? upcomingArrivals.filter((arrival) =>
-          followedLines.includes(String(arrival.lineref || ""))
+      ? [
+          ...upcomingArrivals.filter((arrival) =>
+            followedLines.includes(String(arrival.lineref || ""))
+          ),
+          ...timetableRows,
+        ].sort(
+          (a, b) =>
+            getDepartureTime(a, referenceTime) - getDepartureTime(b, referenceTime)
         )
       : upcomingArrivals
   ).slice(0, MAX_VISIBLE_DEPARTURES);
@@ -289,11 +320,6 @@ function BusStopDisplay({
         ? followedLines.filter((followed) => followed !== line)
         : [...followedLines, line]
     );
-  // Whether this stop has had a departure answer at all, fresh or saved. The
-  // stop's name is not one: the catalogue names the stop long before its board
-  // first loads, and counting it said "No upcoming departures" while loading,
-  // and again when the load failed.
-  const hasData = arrivals.length > 0 || Number(receivedAtMs) > 0;
   // Only an answer that itself listed nothing says nothing is coming. One
   // whose buses have all left since says nothing about what comes after
   // them: the timetable was never asked, because they were still ahead.
@@ -530,6 +556,12 @@ function BusStopDisplay({
           <span className={styles.stateKicker}>{t("Connecting to Föli")}</span>
           <strong>{t("Loading departures…")}</strong>
         </div>
+      ) : unknownStop && upcomingArrivals.length === 0 ? (
+        // Not an empty stop: a number Föli's stop list does not have.
+        <div className={styles.state} role="status">
+          <strong>{t("Föli has no stop {id}.", { id: stopId })}</strong>
+          <span>{t("Check the number, or search by the stop’s name.")}</span>
+        </div>
       ) : error && upcomingArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="alert">
           <strong>{t("Couldn’t load departures.")}</strong>
@@ -563,15 +595,69 @@ function BusStopDisplay({
           <strong>{t("No upcoming departures.")}</strong>
           <span>{t("Try refreshing or choosing another nearby stop.")}</span>
         </div>
-      ) : visibleArrivals.length === 0 ? (
-        // Buses are leaving here, just not on the lines followed.
+      ) : visibleArrivals.length === 0 &&
+        (loading || lineTimetable.status === "loading") ? (
+        // Buses are leaving here, and the followed lines' timetable is on
+        // its way: nothing is known about them yet.
+        <div className={styles.state} role="status">
+          <span className={styles.stateKicker}>{t("Updating")}</span>
+          <strong>
+            {followedLines.length === 1
+              ? t("Checking the timetable for line {line}…", {
+                  line: followedLines[0],
+                })
+              : t("Checking the timetable for lines {lines}…", {
+                  lines: followedLines.join(", "),
+                })}
+          </strong>
+        </div>
+      ) : visibleArrivals.length === 0 &&
+        (error || lineTimetable.status === "error") ? (
+        // Neither the live feed nor the timetable could say, so no claim
+        // that the line is not running.
         <div className={styles.state} role="status">
           <strong>
             {followedLines.length === 1
-              ? t("No departures on line {line} right now.", {
+              ? t("Line {line} is not in Föli’s live times right now.", {
                   line: followedLines[0],
                 })
-              : t("No departures on lines {lines} right now.", {
+              : t("Lines {lines} are not in Föli’s live times right now.", {
+                  lines: followedLines.join(", "),
+                })}
+          </strong>
+          <span>
+            {t("Its timetable could not be checked either, so buses may still run.")}
+          </span>
+          <div className={styles.stateActions}>
+            <button
+              type="button"
+              className={styles.retryButton}
+              onClick={() => {
+                lineTimetable.retry();
+                onRefresh?.();
+              }}
+            >
+              {t("Try again")}
+            </button>
+            <button
+              type="button"
+              className={styles.retryButton}
+              onClick={() => setFollowedLines([])}
+            >
+              {t("Show all lines")}
+            </button>
+          </div>
+        </div>
+      ) : visibleArrivals.length === 0 ? (
+        // Buses are leaving here, and the timetable has nothing on the lines
+        // followed either.
+        <div className={styles.state} role="status">
+          <strong>
+            {followedLines.length === 1
+              ? t("No departures on line {line} from this stop in the next 36 hours.", {
+                  line: followedLines[0],
+                })
+              : t("No departures on lines {lines} from this stop in the next 36 hours.", {
                   lines: followedLines.join(", "),
                 })}
           </strong>
@@ -741,6 +827,7 @@ function BusStopDisplay({
                           stopsById={stopsById}
                           placesById={placesById}
                           routesById={routesById}
+                          routesByShortName={routesByShortName}
                           onCancel={() => setRideCandidateKey("")}
                           onStart={(config) => {
                             onStartRide?.(config);

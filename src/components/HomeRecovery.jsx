@@ -6,6 +6,7 @@ import { buildTransitDirectionsUrl } from "../utils/maps";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./HomeRecovery.module.css";
 import { stopLabel } from "../utils/stopNames";
+import StopName from "./StopName";
 
 // The request on the printed card is the driver's, so it is the same
 // whichever language the app is in, as on the driver card.
@@ -68,7 +69,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <span>
           <strong>{label}</strong>
           <small>
-            {stopLabel(primaryStop)} · {t("stop {id}", { id: primaryStop.id })}
+            <StopName stop={primaryStop} /> · {t("stop {id}", { id: primaryStop.id })}
           </small>
         </span>
       </div>
@@ -171,7 +172,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
               return (
                 <div key={stop.id} className={styles.backupRow}>
                   <span>
-                    <strong>{stopLabel(stop)}</strong>
+                    <strong><StopName stop={stop} /></strong>
                     <small>{t("Stop {id}", { id: stop.id })}</small>
                   </span>
                   <div className={styles.backupActions}>
@@ -228,7 +229,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <p className={styles.printKicker}>{t("Home backup card")}</p>
         <h2>{label}</h2>
         <p className={styles.printPrimary}>
-          {stopLabel(primaryStop)}
+          <StopName stop={primaryStop} />
           <span>{t("Stop {id}", { id: primaryStop.id })}</span>
         </p>
         {backupStops.length > 0 && (
@@ -236,7 +237,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             <strong>{t("Backup stops")}</strong>
             {backupStops.map((stop) => (
               <p key={stop.id}>
-                {stopLabel(stop)} · {t("Stop {id}", { id: stop.id })}
+                <StopName stop={stop} /> · {t("Stop {id}", { id: stop.id })}
               </p>
             ))}
           </div>

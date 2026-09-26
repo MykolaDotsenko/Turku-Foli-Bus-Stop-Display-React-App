@@ -7,7 +7,7 @@ import {
 } from "../utils/location";
 import { judgeNearestStop } from "../utils/nearestStop";
 import styles from "./BusStopForm.module.css";
-import { stopLabel } from "../utils/stopNames";
+import StopName from "./StopName";
 
 const MAX_SUGGESTIONS = 6;
 
@@ -384,7 +384,7 @@ function BusStopForm({
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => chooseStop(stop)}
               >
-                <span className={styles.suggestionName}>{stopLabel(stop)}</span>
+                <span className={styles.suggestionName}><StopName stop={stop} /></span>
                 <span className={styles.suggestionId}>
                   {t("Stop {id}", { id: stop.id })}
                 </span>

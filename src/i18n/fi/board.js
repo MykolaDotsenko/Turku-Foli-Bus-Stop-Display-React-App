@@ -50,10 +50,21 @@ export default {
   "Only lines {lines}": "Vain linjat {lines}",
   "Show only these lines": "Näytä vain nämä linjat",
   "All lines": "Kaikki linjat",
-  "No departures on line {line} right now.":
-    "Linjalla {line} ei ole lähtöjä juuri nyt.",
-  "No departures on lines {lines} right now.":
-    "Linjoilla {lines} ei ole lähtöjä juuri nyt.",
+  "Föli has no stop {id}.": "Fölillä ei ole pysäkkiä {id}.",
+  "Check the number, or search by the stop’s name.":
+    "Tarkista numero tai hae pysäkin nimellä.",
+  "Checking the timetable for line {line}…": "Tarkistetaan linjan {line} aikataulua…",
+  "Checking the timetable for lines {lines}…": "Tarkistetaan linjojen {lines} aikatauluja…",
+  "Line {line} is not in Föli’s live times right now.":
+    "Linjaa {line} ei juuri nyt näy Fölin reaaliaikatiedoissa.",
+  "Lines {lines} are not in Föli’s live times right now.":
+    "Linjoja {lines} ei juuri nyt näy Fölin reaaliaikatiedoissa.",
+  "Its timetable could not be checked either, so buses may still run.":
+    "Aikataulua ei myöskään saatu tarkistettua, joten busseja voi silti kulkea.",
+  "No departures on line {line} from this stop in the next 36 hours.":
+    "Linjalla {line} ei ole lähtöjä tältä pysäkiltä seuraavan 36 tunnin aikana.",
+  "No departures on lines {lines} from this stop in the next 36 hours.":
+    "Linjoilla {lines} ei ole lähtöjä tältä pysäkiltä seuraavan 36 tunnin aikana.",
   "Other lines are leaving from this stop.":
     "Tältä pysäkiltä lähtee muita linjoja.",
   "Show all lines": "Näytä kaikki linjat",

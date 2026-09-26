@@ -14,6 +14,7 @@ import { PLACE_PRESETS, placeLabel } from "../hooks/useSavedPlaces";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./MyPlaces.module.css";
 import { stopLabel } from "../utils/stopNames";
+import StopName from "./StopName";
 
 const MAX_SETUP_DISTANCE_METERS = 10_000;
 const AUTO_PRESELECT_MAX_DISTANCE_METERS = 2_000;
@@ -207,7 +208,7 @@ function SetupPlace({
                   onChange={() => toggleStop(stop.id)}
                 />
                 <span>
-                  <strong>{stopLabel(stop)}</strong>
+                  <strong><StopName stop={stop} /></strong>
                   <small>
                     {t("Stop {id}", { id: stop.id })} ·{" "}
                     {formatDistance(stop.distanceMeters)}
@@ -293,7 +294,7 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
           <span key={stop.id}>
-            <strong>{stopLabel(stop)}</strong>
+            <strong><StopName stop={stop} /></strong>
             <small>
               {t("Stop {id}", { id: stop.id })}
               {stop.id === place.primaryStopId ? ` · ${t("primary")}` : ""}
@@ -394,7 +395,7 @@ function PlaceCard({
           <strong>{label}</strong>
           <small>
             {place.needsReview ? `${t("Needs review")} · ` : ""}
-            {stopLabel(primaryStop)} · {t("stop {id}", { id: primaryStop.id })}
+            <StopName stop={primaryStop} /> · {t("stop {id}", { id: primaryStop.id })}
           </small>
         </span>
         <span className={styles.mobileSummaryAction} aria-hidden="true">
@@ -471,7 +472,7 @@ function PlaceCard({
             {resolvedStops.map((stop) => (
               <div key={stop.id} className={styles.backupRow}>
                 <span>
-                  <strong>{stopLabel(stop)}</strong>
+                  <strong><StopName stop={stop} /></strong>
                   <small>{t("Stop {id}", { id: stop.id })}</small>
                 </span>
                 {stop.id === primaryStop.id ? (

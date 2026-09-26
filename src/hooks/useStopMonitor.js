@@ -9,7 +9,8 @@ const SNAPSHOT_KEY = "foli-last-departures-v1";
 // row is still a plausible departure rather than a misleading empty board.
 const SNAPSHOT_TTL_MS = 15 * 60_000;
 const MAX_SNAPSHOT_STOPS = 5;
-const MAX_SNAPSHOT_ARRIVALS = 12;
+// Enough that a followed line a dozen rows down survives an offline reopen.
+const MAX_SNAPSHOT_ARRIVALS = 40;
 
 function readSnapshots() {
   try {

@@ -14,6 +14,7 @@ vi.mock("axios", () => ({
 
 import {
   fetchRouteCatalog,
+  fetchScheduledLineDepartures,
   fetchServiceBoundary,
   fetchStopCatalog,
   fetchStopCoordinates,
@@ -1253,3 +1254,107 @@ test.each(["OK", "NO_SIRI_DATA"])(
     expect(["CanceledError", "AbortError"]).toContain(outcome.error?.name);
   }
 );
+
+// A busy stop's live answer can list the followed line's bus 27th. Cut to
+// 24 rows before the board's line filter saw it, the line looked idle.
+test("keeps every live row of a busy stop for the board to filter", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/164") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: now,
+          result: Array.from({ length: 45 }, (_, index) => ({
+            lineref: index === 26 || index === 44 ? "32" : "1",
+            destinationdisplay: index === 26 || index === 44 ? "Varissuo" : "Satama",
+            monitored: true,
+            expecteddeparturetime: now + 60 + index * 30,
+            aimeddeparturetime: now + 60 + index * 30,
+          })),
+        },
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("164");
+
+  expect(result.arrivals).toHaveLength(45);
+  expect(result.arrivals.filter((row) => row.lineref === "32")).toHaveLength(2);
+});
+
+test("reads a followed line's next departures from the stop's timetable", async () => {
+  const reference = Date.parse("2026-09-21T12:45:00Z") / 1000; // Mon 15:45 Helsinki
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/164`) {
+      return Promise.resolve({
+        data: [
+          // Line 1 every few minutes, which a stop-wide fallback would fill up on.
+          ...Array.from({ length: 40 }, (_, index) => ({
+            trip_id: `trip-1-${index}`,
+            arrival_time: `16:${String(index).padStart(2, "0")}:00`,
+            departure_time: `16:${String(index).padStart(2, "0")}:00`,
+            stop_sequence: 3,
+            pickup_type: 0,
+          })),
+          { trip_id: "trip-18-a", departure_time: "16:55:00", arrival_time: "16:55:00", stop_sequence: 5, pickup_type: 0 },
+          { trip_id: "trip-18-weekend", departure_time: "17:25:00", arrival_time: "17:25:00", stop_sequence: 5, pickup_type: 0 },
+          { trip_id: "trip-18-b", departure_time: "17:55:00", arrival_time: "17:55:00", stop_sequence: 5, pickup_type: 0 },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/calendar`) {
+      return Promise.resolve({
+        data: {
+          weekday: { monday: 1, tuesday: 1, wednesday: 1, thursday: 1, friday: 1, saturday: 0, sunday: 0, start_date: "20260901", end_date: "20260930" },
+          weekend: { monday: 0, tuesday: 0, wednesday: 0, thursday: 0, friday: 0, saturday: 1, sunday: 1, start_date: "20260901", end_date: "20260930" },
+        },
+      });
+    }
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [
+          { route_id: "route-1", route_short_name: "1", route_type: 3 },
+          { route_id: "route-18", route_short_name: "18", route_type: 3 },
+        ],
+      });
+    }
+    if (url === `${datasetBase}/trips/route/route-18`) {
+      return Promise.resolve({
+        data: [
+          { trip_id: "trip-18-a", service_id: "weekday", trip_headsign: "Lauste" },
+          { trip_id: "trip-18-weekend", service_id: "weekend", trip_headsign: "Lauste" },
+          { trip_id: "trip-18-b", service_id: "weekday", trip_headsign: "Lauste" },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const departures = await fetchScheduledLineDepartures("164", ["18"], reference);
+
+  expect(
+    departures.map((row) => [row.lineref, row.destinationdisplay, row.tripref, row.monitored])
+  ).toEqual([
+    ["18", "Lauste", "trip-18-a", false],
+    ["18", "Lauste", "trip-18-b", false],
+    ["18", "Lauste", "trip-18-a", false],
+  ]);
+  // Today's two weekday buses, then tomorrow's first: three per line, the
+  // weekend trip skipped.
+  expect(departures.map((row) => row.aimeddeparturetime)).toEqual([
+    Date.parse("2026-09-21T13:55:00Z") / 1000,
+    Date.parse("2026-09-21T14:55:00Z") / 1000,
+    Date.parse("2026-09-22T13:55:00Z") / 1000,
+  ]);
+  // No per-trip lookups: the route's own trip list carries the service.
+  expect(mocks.get.mock.calls.some(([url]) => url.includes("/trips/trip/"))).toBe(false);
+});

@@ -11,11 +11,13 @@ import { resetLanguageForTests } from ".";
 const mocks = vi.hoisted(() => ({
   fetchTripDetails: vi.fn(),
   fetchTripStopTimes: vi.fn(),
+  fetchScheduledLineDepartures: vi.fn(),
 }));
 
 vi.mock("../api/foliApi", () => ({
   fetchTripDetails: mocks.fetchTripDetails,
   fetchTripStopTimes: mocks.fetchTripStopTimes,
+  fetchScheduledLineDepartures: mocks.fetchScheduledLineDepartures,
 }));
 
 import AppErrorBoundary from "../components/AppErrorBoundary";
@@ -146,6 +148,7 @@ beforeEach(() => {
   resetLanguageForTests("fi");
   mocks.fetchTripDetails.mockResolvedValue(null);
   mocks.fetchTripStopTimes.mockResolvedValue(THREE_STOP_TRIP);
+  mocks.fetchScheduledLineDepartures.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -296,7 +299,19 @@ test("the departure board, in every state it can be in", async () => {
       arrivals: [scheduled("1", "Satama", 60), scheduled("32", "Varissuo", 120)],
     })
   );
+  sweep("board checking a followed line's timetable");
+  await screen.findByText(/seuraavan 36 tunnin aikana/);
   sweep("board following a line with nothing coming");
+  cleanup();
+
+  mocks.fetchScheduledLineDepartures.mockRejectedValueOnce(new Error("offline"));
+  render(
+    board({
+      arrivals: [scheduled("1", "Satama", 60), scheduled("32", "Varissuo", 120)],
+    })
+  );
+  await screen.findByText(/ei juuri nyt näy Fölin reaaliaikatiedoissa/);
+  sweep("board following a line neither feed can answer for");
   cleanup();
   localStorage.clear();
 

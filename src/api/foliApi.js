@@ -27,6 +27,11 @@ const client = axios.create({
 // keep requesting a retired dataset path for the rest of its life.
 const GTFS_DATASET_TTL_MS = 6 * 60 * 60 * 1000;
 
+// A sanity bound on one stop's live answer, far above any real board.
+const MAX_BOARD_ROWS = 100;
+// How many timetable departures of each followed line to show.
+const LINE_TIMETABLE_ROWS = 3;
+
 // Dataset-scoped responses. Bounded so a display left running for days cannot
 // grow its memory without limit.
 const tripDetailsCache = createBoundedCache(200);
@@ -322,7 +327,9 @@ export async function fetchStopMonitor(
         Number.POSITIVE_INFINITY;
       return left - right;
     })
-    .slice(0, 24);
+    // The board shows ten, but a followed line's bus can be the 27th row at
+    // a busy stop; cut at 24 here, the filter said the line had none.
+    .slice(0, MAX_BOARD_ROWS);
 
   return {
     // Often missing from the live feed. The screen names the stop by its
@@ -600,6 +607,39 @@ async function fetchTripDetailsInBatches(tripIds, signal) {
   return byId;
 }
 
+// A timetable departure in the shape of a live row, marked as not tracked.
+function scheduledArrival(candidate, details, route) {
+  return {
+    lineref: route?.shortName || details.routeId || "",
+    destinationdisplay: details.headsign || "",
+    destinationdisplay_en: "",
+    destinationdisplay_sv: "",
+    monitored: false,
+    vehicleatstop: false,
+    vehicleref: "",
+    incongestion: false,
+    directionname: "",
+    destinationref: "",
+    originref: "",
+    visitnumber: candidate.row.stopSequence,
+    blockref: details.blockId || "",
+    dataframeref: "",
+    datedvehiclejourneyref: "",
+    tripref: candidate.tripId,
+    routeref: details.routeId || "",
+    delay: null,
+    recordedattime: null,
+    latitude: null,
+    longitude: null,
+    originaimeddeparturetime: null,
+    destinationaimedarrivaltime: null,
+    expecteddeparturetime: null,
+    expectedarrivaltime: null,
+    aimeddeparturetime: candidate.aimedDepartureTime,
+    aimedarrivaltime: candidate.aimedArrivalTime,
+  };
+}
+
 export async function fetchScheduledStopDepartures(
   stopId,
   referenceTimeSec,
@@ -669,37 +709,9 @@ export async function fetchScheduledStopDepartures(
         return;
       }
 
-      const route = routesById.get(details.routeId);
-
-      scheduled.push({
-        lineref: route?.shortName || details.routeId || "",
-        destinationdisplay: details.headsign || "",
-        destinationdisplay_en: "",
-        destinationdisplay_sv: "",
-        monitored: false,
-        vehicleatstop: false,
-        vehicleref: "",
-        incongestion: false,
-        directionname: "",
-        destinationref: "",
-        originref: "",
-        visitnumber: candidate.row.stopSequence,
-        blockref: details.blockId || "",
-        dataframeref: "",
-        datedvehiclejourneyref: "",
-        tripref: candidate.tripId,
-        routeref: details.routeId || "",
-        delay: null,
-        recordedattime: null,
-        latitude: null,
-        longitude: null,
-        originaimeddeparturetime: null,
-        destinationaimedarrivaltime: null,
-        expecteddeparturetime: null,
-        expectedarrivaltime: null,
-        aimeddeparturetime: candidate.aimedDepartureTime,
-        aimedarrivaltime: candidate.aimedArrivalTime,
-      });
+      scheduled.push(
+        scheduledArrival(candidate, details, routesById.get(details.routeId))
+      );
     });
   }
 
@@ -839,10 +851,13 @@ export async function fetchStopBoardingTripIds(stopId, signal) {
   return new Set(tripIds);
 }
 
-export async function fetchRouteTripIds(routeId, signal) {
+// One route's trips, with the service each runs on and its sign. One
+// request serves both uses: which trips a route alert covers, and when a
+// followed line next leaves a stop.
+async function fetchRouteTrips(routeId, signal) {
   const id = requiredId(routeId, "route ID");
   invalidateExpiredGtfsDataset();
-  if (routeTripsCache.has(id)) return new Set(routeTripsCache.get(id));
+  if (routeTripsCache.has(id)) return routeTripsCache.get(id);
   const response = await client.get(
     await gtfsResourceUrl(`trips/route/${encodeURIComponent(id)}`),
     { signal }
@@ -853,16 +868,86 @@ export async function fetchRouteTripIds(routeId, signal) {
     throw new Error("Invalid Föli GTFS route trips.");
   }
 
-  const tripIds = payload
-      .map((trip) =>
-        trip?.trip_id === null || trip?.trip_id === undefined
-          ? ""
-          : String(trip.trip_id)
-      )
-      .filter(Boolean);
+  const text = (value) =>
+    value === null || value === undefined ? "" : String(value);
+  const trips = payload
+    .map((trip) => ({
+      tripId: text(trip?.trip_id),
+      routeId: id,
+      serviceId: text(trip?.service_id),
+      headsign: optionalString(trip?.trip_headsign),
+      blockId: text(trip?.block_id),
+    }))
+    .filter((trip) => trip.tripId);
 
-  routeTripsCache.set(id, tripIds);
-  return new Set(tripIds);
+  routeTripsCache.set(id, trips);
+  return trips;
+}
+
+export async function fetchRouteTripIds(routeId, signal) {
+  const trips = await fetchRouteTrips(routeId, signal);
+  return new Set(trips.map((trip) => trip.tripId));
+}
+
+// The next timetable departures, from one stop, of the lines a passenger
+// follows there. The live feed looks only an hour or so ahead, and the
+// stop's own timetable fallback stops at its first 24 departures, so an
+// hourly line at a busy stop fell outside both and the board said it had
+// none. Its route's trips pick its departures out of the stop's timetable.
+export async function fetchScheduledLineDepartures(
+  stopId,
+  lineRefs,
+  referenceTimeSec,
+  signal
+) {
+  const lines = new Set(
+    (Array.isArray(lineRefs) ? lineRefs : []).map((line) => String(line))
+  );
+  if (lines.size === 0) return [];
+  const reference =
+    positiveNumber(referenceTimeSec) ?? Math.floor(Date.now() / 1000);
+
+  const [rows, calendar, calendarDates, routes] = await Promise.all([
+    fetchStopTimetable(stopId, signal),
+    fetchCalendar(signal),
+    fetchCalendarDates(signal),
+    fetchRouteCatalog(signal),
+  ]);
+
+  const lineRoutes = routes.filter((route) => lines.has(String(route.shortName)));
+  if (lineRoutes.length === 0) return [];
+
+  const routeTrips = await Promise.all(
+    lineRoutes.map((route) => fetchRouteTrips(route.id, signal))
+  );
+  const trips = new Map();
+  lineRoutes.forEach((route, index) => {
+    for (const trip of routeTrips[index]) trips.set(trip.tripId, { trip, route });
+  });
+
+  const candidates = scheduledClockCandidates(
+    rows.filter((row) => trips.has(String(row.tripId))),
+    reference,
+    { lookaheadSeconds: 36 * 60 * 60, graceSeconds: 30, maxRows: 256 }
+  );
+
+  const perLine = new Map();
+  const departures = [];
+  for (const candidate of candidates) {
+    const { trip, route } = trips.get(candidate.tripId);
+    if (
+      !trip.serviceId ||
+      !serviceRunsOnDate(calendar, calendarDates, trip.serviceId, candidate.serviceDate)
+    ) {
+      continue;
+    }
+    const shown = perLine.get(route.shortName) || 0;
+    if (shown >= LINE_TIMETABLE_ROWS) continue;
+    perLine.set(route.shortName, shown + 1);
+    departures.push(scheduledArrival(candidate, trip, route));
+  }
+
+  return departures.sort((a, b) => a.aimeddeparturetime - b.aimeddeparturetime);
 }
 
 export async function fetchStopServedRouteIds(stopId, routeIds, signal) {
