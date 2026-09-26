@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { rideExitInstruction } from "../utils/rideInstructions";
 import { RIDE_STAGE, rideStageRank } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
@@ -6,7 +6,7 @@ import styles from "./RideMode.module.css";
 const STAGE_COPY = {
   [RIDE_STAGE.BOARDED]: {
     eyebrow: "Ride Mode active",
-    title: "You can stop watching the map",
+    title: "No need to watch for your stop",
     instruction: "We will warn you as your stop gets closer.",
   },
   [RIDE_STAGE.SOON]: {
@@ -178,10 +178,39 @@ export default function RideMode({
   // the stop is still far off, rather than blocking the start of tracking.
   const [alertHeard, setAlertHeard] = useState("unasked");
 
+  // On a phone the panel scrolls with the page, so a passenger reading the
+  // board below it would miss "Press STOP" and "Get off now" on screen. The
+  // alerts escalate, so the panel comes back into view with them, unless it
+  // is already there.
+  const panelRef = useRef(null);
+  const stage = session?.stage;
+  useEffect(() => {
+    if (
+      stage !== RIDE_STAGE.NEXT &&
+      stage !== RIDE_STAGE.NOW &&
+      stage !== RIDE_STAGE.MISSED
+    ) {
+      return;
+    }
+
+    const panel = panelRef.current;
+    const box = panel?.getBoundingClientRect?.();
+    const viewportHeight = globalThis.innerHeight || 0;
+    if (!box || (box.top >= 0 && box.top < viewportHeight * 0.5)) return;
+
+    const calm = globalThis.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    )?.matches;
+    panel.scrollIntoView?.({
+      block: "start",
+      behavior: calm ? "auto" : "smooth",
+    });
+  }, [stage]);
+
   if (!session) return null;
 
   const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
-  const stage = session.stage === RIDE_STAGE.NEXT
+  const copy = session.stage === RIDE_STAGE.NEXT
     ? { ...baseStage, instruction: rideExitInstruction(session.routeType).nextText }
     : baseStage;
   const urgent =
@@ -218,6 +247,7 @@ export default function RideMode({
 
   return (
     <section
+      ref={panelRef}
       className={styles.panel}
       data-stage={session.stage}
       aria-labelledby="ride-mode-title"
@@ -225,8 +255,8 @@ export default function RideMode({
     >
       <div className={styles.topline}>
         <div>
-          <p className={styles.eyebrow}>{stage.eyebrow}</p>
-          <h2 id="ride-mode-title">{stage.title}</h2>
+          <p className={styles.eyebrow}>{copy.eyebrow}</p>
+          <h2 id="ride-mode-title">{copy.title}</h2>
         </div>
         <span
           className={styles.health}
@@ -289,7 +319,7 @@ export default function RideMode({
         role={urgent ? "alert" : "status"}
         aria-live={urgent ? "assertive" : "polite"}
       >
-        {stage.instruction}
+        {copy.instruction}
       </p>
 
       <div className={styles.metrics} aria-label="Ride progress">
@@ -305,6 +335,44 @@ export default function RideMode({
           <span>Estimate</span>
           <strong>{eta || "—"}</strong>
         </div>
+      </div>
+
+      {session.stage === RIDE_STAGE.MISSED && session.nextStop && (
+        <div className={styles.recovery}>
+          <strong>Next planned stop: {session.nextStop.name}</strong>
+          <button type="button" onClick={recoverAtNextStop}>
+            Open next stop
+          </button>
+        </div>
+      )}
+
+      {/* Straight under the numbers, above the diagnostics: pinned below a
+          panel taller than a small phone, these could not be reached at
+          all. At the stop, "I'm getting off" is the only way out; a second
+          button doing the same thing is a choice nobody has time for. */}
+      <div className={styles.actions}>
+        {gettingOffNow ? (
+          <button
+            type="button"
+            className={styles.confirm}
+            onClick={onEndRide}
+          >
+            I&apos;m getting off
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={styles.test}
+              onClick={onTestAlert}
+            >
+              Test alert
+            </button>
+            <button type="button" className={styles.end} onClick={onEndRide}>
+              End ride
+            </button>
+          </>
+        )}
       </div>
 
       {!gettingOffNow && (
@@ -387,34 +455,7 @@ export default function RideMode({
           </p>
         )}
 
-      {session.stage === RIDE_STAGE.MISSED && session.nextStop && (
-        <div className={styles.recovery}>
-          <strong>Next planned stop: {session.nextStop.name}</strong>
-          <button type="button" onClick={recoverAtNextStop}>
-            Open next stop
-          </button>
-        </div>
-      )}
 
-      <div className={styles.actions}>
-        {!gettingOffNow && (
-          <button type="button" className={styles.test} onClick={onTestAlert}>
-            Test alert
-          </button>
-        )}
-        {session.stage === RIDE_STAGE.NOW && (
-          <button
-            type="button"
-            className={styles.confirm}
-            onClick={onEndRide}
-          >
-            I&apos;m getting off
-          </button>
-        )}
-        <button type="button" className={styles.end} onClick={onEndRide}>
-          End ride
-        </button>
-      </div>
 
       <p className={styles.boundary}>
         Ride Mode is travel help, not a guaranteed alarm. A browser can pause

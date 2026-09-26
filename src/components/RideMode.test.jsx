@@ -454,3 +454,68 @@ test("trusts a live estimate of about now even when the timetable counts more st
   expect(screen.getByText("about now")).toBeInTheDocument();
   expect(screen.getByText("Your bus is confirmed")).toBeInTheDocument();
 });
+
+function panelAt(stage) {
+  return (
+    <RideMode
+      session={session(stage)}
+      runtime={{ trackingHealth: "live", targetLive: true, remainingStops: 1 }}
+      gps={{ status: "off", error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+}
+
+test("promises nothing about a map at the start of the ride", () => {
+  render(panelAt("boarded"));
+
+  expect(screen.queryByText(/map/i)).not.toBeInTheDocument();
+});
+
+test("offers a single way out once it is time to get off", () => {
+  // "I'm getting off" and "End ride" did exactly the same thing, side by
+  // side, at the one moment there is no time to work out the difference.
+  render(panelAt("now"));
+
+  expect(
+    screen.getByRole("button", { name: "I'm getting off" })
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "End ride" })
+  ).not.toBeInTheDocument();
+});
+
+test("brings itself back into view when the stop is next", () => {
+  // On a phone the panel scrolls with the page, so a passenger reading the
+  // board below it would otherwise miss the one screen that matters.
+  const scrollIntoView = vi.fn();
+  const originalScroll = globalThis.HTMLElement.prototype.scrollIntoView;
+  const originalRect = globalThis.HTMLElement.prototype.getBoundingClientRect;
+  globalThis.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  globalThis.HTMLElement.prototype.getBoundingClientRect = () => ({
+    top: -500,
+    bottom: -20,
+    left: 0,
+    right: 360,
+    width: 360,
+    height: 480,
+  });
+
+  try {
+    const { rerender } = render(panelAt("boarded"));
+    rerender(panelAt("soon"));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(panelAt("next"));
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    rerender(panelAt("now"));
+    expect(scrollIntoView).toHaveBeenCalledTimes(2);
+  } finally {
+    globalThis.HTMLElement.prototype.scrollIntoView = originalScroll;
+    globalThis.HTMLElement.prototype.getBoundingClientRect = originalRect;
+  }
+});

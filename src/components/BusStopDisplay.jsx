@@ -427,7 +427,7 @@ function BusStopDisplay({
                             {sameRideActive
                               ? "Ride Mode active"
                               : rideSetupOpen
-                                ? "Close get-off alerts"
+                                ? "Close get-off setup"
                                 : "Alert me when to get off"}
                           </button>
                         </>

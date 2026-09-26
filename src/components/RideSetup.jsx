@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchTripDetails, fetchTripStopTimes } from "../api/foliApi";
 import {
   buildRidePlan,
@@ -50,6 +50,19 @@ function savedPlaceLabels(placesById, stopId) {
     .filter(Boolean);
 }
 
+// Notifications from a web page need the Notification API, which iPhone
+// Safari only gives an app added to the Home Screen. Offering the option
+// where it cannot work promised an alert that would never come.
+function notificationSupport() {
+  if (typeof globalThis.Notification === "function") return "supported";
+
+  const navigatorRef = globalThis.navigator;
+  const ios =
+    /iPad|iPhone|iPod/.test(navigatorRef?.userAgent || "") ||
+    (navigatorRef?.platform === "MacIntel" && navigatorRef?.maxTouchPoints > 1);
+  return ios ? "home-screen-only" : "unsupported";
+}
+
 export default function RideSetup({
   arrival,
   currentStopId,
@@ -65,8 +78,20 @@ export default function RideSetup({
   const [tripDetails, setTripDetails] = useState(null);
   const [targetStopSequence, setTargetStopSequence] = useState("");
   const [locationBackup, setLocationBackup] = useState(true);
-  const [notifications, setNotifications] = useState(true);
+  const [notificationsAvailable] = useState(notificationSupport);
+  const [notifications, setNotifications] = useState(
+    () => notificationSupport() === "supported"
+  );
   const [startError, setStartError] = useState("");
+  const panelRef = useRef(null);
+
+  // The setup opens inside the tapped row, often below the fold, while the
+  // button that starts the ride is pinned to the bottom of a phone screen.
+  // Bringing the panel into view means the stop it will start with is on
+  // screen before that button can be pressed.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, []);
 
   useEffect(() => {
     if (!arrival?.tripref) {
@@ -132,12 +157,30 @@ export default function RideSetup({
       }));
   }, [boardingIndex, currentStopName, placesById, stopTimes, stopsById]);
 
+  // The main Home stop is the one to preselect. A backup stop the bus happens
+  // to reach first used to win, and with the button one tap away the ride
+  // started for a stop the passenger never meant.
   useEffect(() => {
     if (targetStopSequence || downstream.length === 0) return;
 
-    const home = downstream.find((item) => item.places.includes("Home"));
-    if (home) setTargetStopSequence(String(home.stopSequence));
-  }, [downstream, targetStopSequence]);
+    const homeStops = downstream.filter((item) =>
+      item.places.includes("Home")
+    );
+    if (homeStops.length === 0) return;
+
+    const primaryStopId = String(
+      (placesById instanceof Map && placesById.get("home")?.primaryStopId) ||
+        ""
+    );
+    const home =
+      homeStops.find((item) => String(item.stopId) === primaryStopId) ||
+      homeStops[0];
+    setTargetStopSequence(String(home.stopSequence));
+  }, [downstream, placesById, targetStopSequence]);
+
+  const chosenStop = downstream.find(
+    (item) => String(item.stopSequence) === String(targetStopSequence)
+  );
 
   const start = () => {
     const departureEpochSec = getDepartureTime(arrival);
@@ -205,7 +248,7 @@ export default function RideSetup({
       plan,
       options: {
         locationBackup,
-        notifications,
+        notifications: notificationsAvailable === "supported" && notifications,
       },
     });
   };
@@ -218,14 +261,19 @@ export default function RideSetup({
     boardingIndex < 0;
 
   return (
-    <section className={styles.panel} aria-label="Set up get-off alerts">
+    <section
+      ref={panelRef}
+      className={styles.panel}
+      aria-label="Set up get-off alerts"
+    >
       <div className={styles.heading}>
         <div className={styles.headingText}>
           <p className={styles.kicker}>Ride Mode</p>
           <h4>Where do you want to get off?</h4>
           <p>
-            Pick where you get off and put your phone away. We will tell you
-            when to get ready, when to press STOP, and when to step off.
+            Pick your stop, then keep this page open with the sound on. You do
+            not have to watch it: we tell you when to get ready, when to press
+            STOP, and when to step off.
           </p>
         </div>
         <button type="button" className={styles.close} onClick={onCancel}>
@@ -331,20 +379,30 @@ export default function RideSetup({
                 </span>
               </label>
 
-              <label>
-                <input
-                  type="checkbox"
-                  checked={notifications}
-                  onChange={(event) => setNotifications(event.target.checked)}
-                />
-                <span>
-                  <strong>Alert me on the lock screen</strong>
-                  <small>
-                    Useful with the phone in a pocket. Keep this page open —
-                    a browser can pause a tab it thinks you have left.
-                  </small>
-                </span>
-              </label>
+              {notificationsAvailable === "supported" && (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={notifications}
+                    onChange={(event) => setNotifications(event.target.checked)}
+                  />
+                  <span>
+                    <strong>Also show notifications</strong>
+                    <small>
+                      Only while this page stays open: a browser can pause a
+                      page it thinks you have left, and a locked phone often
+                      does.
+                    </small>
+                  </span>
+                </label>
+              )}
+              {notificationsAvailable === "home-screen-only" && (
+                <p className={styles.optionNote}>
+                  On iPhone, notifications need this app on your Home Screen
+                  (Share, then Add to Home Screen). Sound and vibration work
+                  here as long as this page stays open.
+                </p>
+              )}
             </div>
 
             <div className={styles.safetyNote}>
@@ -352,8 +410,9 @@ export default function RideSetup({
               <span>
                 Starting plays a test alert, so you can check your sound and
                 vibration now rather than when it matters. If live tracking
-                drops out you still get the early warnings — but we will never
-                say “get off now” unless we are sure.
+                drops out you still get the early warnings, and we only say
+                “get off now” when live bus data or your location confirms
+                it.
               </span>
             </div>
 
@@ -373,9 +432,10 @@ export default function RideSetup({
                 Start Ride Mode
               </button>
               <span className={styles.departureContext}>
+                {chosenStop ? `Get off at ${chosenStop.stop.name} · ` : ""}
                 {arrival.lineref ? `Line ${arrival.lineref}` : "This trip"}
                 {getDepartureTime(arrival)
-                  ? ` · leaves ${formatClock(getDepartureTime(arrival))}`
+                  ? ` leaves ${formatClock(getDepartureTime(arrival))}`
                   : ""}
               </span>
             </div>

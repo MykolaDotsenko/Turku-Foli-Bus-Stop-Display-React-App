@@ -295,3 +295,96 @@ test("refuses to guess when the trip passes the boarding stop twice", async () =
     screen.queryByRole("button", { name: "Start Ride Mode" })
   ).not.toBeInTheDocument();
 });
+
+const threeStopTrip = [
+  { stopId: "164", departureTime: "17:41:00", stopSequence: 1, dropOffType: 0 },
+  { stopId: "32", arrivalTime: "17:46:00", departureTime: "17:46:00", stopSequence: 2, dropOffType: 0 },
+  { stopId: "4", arrivalTime: "17:55:00", departureTime: "17:55:00", stopSequence: 3, dropOffType: 0 },
+];
+const tripStops = new Map([
+  ["164", { id: "164", name: "Kauppatori" }],
+  ["32", { id: "32", name: "Puistokatu" }],
+  ["4", { id: "4", name: "Turun linna" }],
+]);
+
+function renderThreeStopSetup({ placesById = new Map(), onStart = vi.fn() } = {}) {
+  mocks.fetchTripDetails.mockResolvedValue(null);
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  render(
+    <RideSetup
+      arrival={{
+        lineref: "1",
+        tripref: "trip-164-1",
+        destinationdisplay: "Satama",
+        expecteddeparturetime: 2_000_000_000,
+      }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={placesById}
+      routesById={new Map()}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+  return onStart;
+}
+
+test("preselects the main Home stop, not a backup the bus reaches first", async () => {
+  renderThreeStopSetup({
+    placesById: new Map([
+      [
+        "home",
+        {
+          id: "home",
+          label: "Home",
+          primaryStopId: "4",
+          stops: [
+            { id: "32", name: "Puistokatu" },
+            { id: "4", name: "Turun linna" },
+          ],
+        },
+      ],
+    ]),
+  });
+
+  await waitFor(() => expect(screen.getByDisplayValue("3")).toBeChecked());
+  expect(screen.getByDisplayValue("2")).not.toBeChecked();
+});
+
+test("names the chosen stop beside the button that starts the ride", async () => {
+  // On a phone the button is pinned to the bottom of the screen while the
+  // list can sit out of view, so the bar itself says where the ride goes.
+  renderThreeStopSetup();
+  fireEvent.click(await screen.findByDisplayValue("3"));
+
+  expect(screen.getByText(/Get off at Turun linna/)).toBeInTheDocument();
+});
+
+test("does not offer notifications a browser cannot send", async () => {
+  // iPhone Safari has no Notification API outside a Home Screen app, and
+  // the option then did nothing at all.
+  const original = globalThis.Notification;
+  delete globalThis.Notification;
+  try {
+    const onStart = renderThreeStopSetup();
+    fireEvent.click(await screen.findByDisplayValue("3"));
+
+    expect(
+      screen.queryByRole("checkbox", { name: /notification/i })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+    expect(onStart.mock.calls[0][0].options.notifications).toBe(false);
+  } finally {
+    globalThis.Notification = original;
+  }
+});
+
+test("promises only what a web page can keep", async () => {
+  renderThreeStopSetup();
+  await screen.findByDisplayValue("3");
+
+  expect(screen.queryByText(/put your phone away/i)).not.toBeInTheDocument();
+  expect(screen.queryByText(/unless we are sure/i)).not.toBeInTheDocument();
+  expect(screen.getByText(/keep this page open/i)).toBeInTheDocument();
+});

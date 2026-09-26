@@ -498,7 +498,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .getByRole("checkbox", { name: /Also show notifications/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -566,7 +566,7 @@ async function startRide(page, { gps }) {
     await gpsToggle.uncheck();
   }
   await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .getByRole("checkbox", { name: /Also show notifications/i })
     .uncheck();
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
@@ -629,28 +629,46 @@ test("the get-off panel fits a small phone with its button in reach", async ({
   ).toBeInViewport();
 });
 
-// The panel pins itself to the top of the screen for the whole ride. At
-// 836px against a 640px screen, that pinned "End ride" and "Test alert"
-// below the fold for good: scrolling moved the page under the panel, never
-// the panel's own bottom into view.
+// The panel used to pin itself to the top of the screen for the whole ride.
+// At 836px against a 640px screen that kept "End ride" and "Test alert"
+// below the fold: scrolling moved the page under the panel, never the
+// panel's own bottom into view, and the board underneath was unusable.
 test("a ride's own controls stay reachable on a small phone", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-mobile");
   await page.setViewportSize({ width: 360, height: 640 });
-  await routeTargetStop(page, { expectedarrivaltime: 0, aimedarrivaltime: 0 });
+  // Fifteen minutes out: the tallest the panel gets, sound check included.
+  await routeTargetStop(page, {
+    expectedarrivaltime: Math.floor(Date.now() / 1000) + 900,
+  });
 
   await page.goto("/?stop=164");
   await seedHome(page);
   await startRide(page, { gps: false });
   const panel = page.locator('section[aria-labelledby="ride-mode-title"]');
-  await expect(panel).toBeVisible();
+  await expect(
+    panel.getByRole("group", { name: "Alert sound check" })
+  ).toBeVisible();
 
+  // A thumb scrolling down one screen from the top must pass each control.
   for (const name of ["Test alert", "End ride"]) {
     const control = panel.getByRole("button", { name });
-    await control.scrollIntoViewIfNeeded();
-    await expect(control).toBeInViewport();
+    let seen = false;
+    for (let y = 0; y <= 640 && !seen; y += 160) {
+      await page.evaluate((top) => window.scrollTo(0, top), y);
+      seen = await control.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+      });
+    }
+    expect(seen, name).toBe(true);
   }
+
+  // And the board is still there to use during the ride.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByRole("heading", { name: "Kauppatori" }).scrollIntoViewIfNeeded();
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeInViewport();
 });
 
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
@@ -771,7 +789,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .getByRole("checkbox", { name: /Also show notifications/i })
     .uncheck();
 
   const exitStopAnswered = page.waitForResponse(
