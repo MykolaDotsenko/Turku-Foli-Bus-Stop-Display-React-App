@@ -9,17 +9,19 @@ const REALTIME_ONLY = Object.freeze({ scheduleFallback: false });
 // is evidence of where the bus is. The feed also lists journeys it is not
 // tracking, with the timetable time under the same trip id; counting those as
 // sightings showed "Following your bus" and a timetable-timed "Press STOP now"
-// just as live tracking was lost. An answer with no rows, NO_SIRI_DATA
-// included, means the bus is not in the live data: a stop with nothing more
-// coming can answer that way once the bus has left it, and holding the last
-// sighting then kept the get-off alarm repeating for the rest of the ride.
+// just as live tracking was lost. "no-data" is an answer without realtime
+// data at all (NO_SIRI_DATA, PENDING): the feed may be down, or the stop may
+// simply have nothing more coming.
 function rideSighting(answer, identity) {
   const match = matchRideArrival(answer?.arrivals, identity);
-  if (!match) return { kind: "absent" };
 
-  return match.arrival?.monitored === true
-    ? { kind: "live", match }
-    : { kind: "untracked" };
+  if (match) {
+    return match.arrival?.monitored === true
+      ? { kind: "live", match }
+      : { kind: "untracked" };
+  }
+
+  return { kind: answer?.realtimeAvailable === false ? "no-data" : "absent" };
 }
 
 // Föli realtime is the confirmation source that runs independently of the
@@ -102,8 +104,10 @@ export default function useRideProviderPoll({
               )
             );
           } else {
-            // Absent, or listed without tracking: either way the bus is not
-            // in the live data.
+            // Absent, untracked or no data: either way the bus is not in the
+            // live data. A stop with nothing more coming can answer
+            // NO_SIRI_DATA once the bus has left it, and holding the last
+            // sighting then kept the get-off alarm repeating.
             next.targetListed = false;
             next.targetMatchBy = "";
             next.targetMissingCount =
@@ -136,6 +140,10 @@ export default function useRideProviderPoll({
             next.previousSeen = false;
             next.previousMissingCount = 0;
           } else if (previous.kind === "absent" && before.previousSeen) {
+            // This count becomes "Press STOP now", so only an answer that
+            // carries realtime data may say the bus has left. Counting a
+            // no-data answer (an outage, or a recovery that reached the exit
+            // stop first) raised it before the bus had reached this stop.
             next.previousMissingCount = before.previousMissingCount + 1;
           }
         } else if (previousResult.status === "rejected") {

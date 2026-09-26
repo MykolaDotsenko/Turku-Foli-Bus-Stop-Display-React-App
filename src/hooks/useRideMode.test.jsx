@@ -647,3 +647,77 @@ test("a bus position from before the stop went quiet cannot raise the get-off al
   unmount();
   mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });
+
+test("an outage at the stop before yours cannot fake the bus passing it", async () => {
+  // The stop before the exit loses its feed while the exit stop still tracks
+  // the bus six minutes out. Counting those empty answers as the bus leaving
+  // raised "Press STOP now" before the bus had even reached that stop.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 16, 0, 0);
+  vi.setSystemTime(startMs);
+  const startSec = Math.floor(startMs / 1000);
+
+  let previousAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const live = {
+      datedvehiclejourneyref: "journey-1",
+      monitored: true,
+      vehicleatstop: false,
+      recordedattime: serverTime,
+    };
+    if (String(stopId) === "32") {
+      return Promise.resolve({
+        serverTime,
+        arrivals: [{ ...live, expectedarrivaltime: startSec + 420 }],
+      });
+    }
+    previousAnswers += 1;
+    return Promise.resolve(
+      previousAnswers === 1
+        ? {
+            serverTime,
+            arrivals: [{ ...live, expectedarrivaltime: startSec + 300 }],
+          }
+        : { serverTime, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: startSec + 420,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: startSec + 120 },
+          { id: "12", name: "Two", predictedEpochSec: startSec + 200 },
+          { id: "164", name: "Kauppatori", predictedEpochSec: startSec + 300 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: startSec + 420 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.runtime.previousSeen).toBe(true);
+
+  // Two polls where the stop before yours has no data at all.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(40_000);
+  });
+
+  expect(result.current.runtime.previousMissingCount).toBe(0);
+  expect(result.current.session?.stage).toBe("boarded");
+  expect(result.current.session?.stageReason).not.toBe("previous-stop-passed");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});

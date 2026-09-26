@@ -223,7 +223,7 @@ test("a tracked bus dropping to an untracked row reads as gone from live data", 
 // exactly what the exit stop looks like once the bus has left it. Holding the
 // last live picture there kept the bus "at the stop" and the get-off alarm
 // repeating for the rest of the ride.
-test("an answer without realtime rows reads as the bus gone from live data", async () => {
+test("an answer without realtime rows reads as the bus gone from the exit stop", async () => {
   const before = {
     targetListed: true,
     targetMatchBy: "trip",
@@ -232,15 +232,10 @@ test("an answer without realtime rows reads as the bus gone from live data", asy
     liveEtaSec: 0,
     providerDistanceM: 12,
     providerPositionAgeSec: 5,
-    previousSeen: true,
-    previousMissingCount: 0,
     lastLiveMatchAt: 5,
   };
   const { next } = await pollOnce(
-    {
-      32: answer([], { realtimeAvailable: false }),
-      164: answer([], { realtimeAvailable: false }),
-    },
+    { 32: answer([], { realtimeAvailable: false }), 164: answer([]) },
     before
   );
 
@@ -251,9 +246,32 @@ test("an answer without realtime rows reads as the bus gone from live data", asy
   expect(next.liveEtaSec).toBeNull();
   expect(next.providerDistanceM).toBeNull();
   expect(next.providerPositionAgeSec).toBeNull();
-  expect(next.previousMissingCount).toBe(1);
   // Not a sighting, so live tracking still ages out on its own clock.
   expect(next.lastLiveMatchAt).toBe(5);
+});
+
+// The previous-stop check turns a disappearance into "Press STOP now", so it
+// may only count one the feed actually reported. A stop whose feed has no data
+// says nothing about the bus: counted as a departure, an outage there (or a
+// recovery that reached the exit stop first) raised the alarm minutes before
+// the bus reached the stop before yours.
+test("a no-data answer at the stop before yours is not the bus leaving it", async () => {
+  const { next } = await pollOnce(
+    {
+      32: answer([trackedRow]),
+      164: answer([], { realtimeAvailable: false }),
+    },
+    {
+      targetListed: true,
+      targetMissingCount: 0,
+      previousSeen: true,
+      previousMissingCount: 1,
+    }
+  );
+
+  expect(next.previousSeen).toBe(true);
+  expect(next.previousMissingCount).toBe(1);
+  expect(next.targetListed).toBe(true);
 });
 
 // An untracked row leaves the board when its timetable time passes, bus or
