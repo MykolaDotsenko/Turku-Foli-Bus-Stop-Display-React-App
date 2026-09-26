@@ -4,6 +4,7 @@ import BusStopDisplay from "./BusStopDisplay";
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 test("uses official route identity while preserving readable contrast and live proximity", () => {
@@ -208,10 +209,10 @@ test("prefers provider vehicle-at-stop truth over geometric proximity", () => {
   expect(screen.getByText("Bus at stop · board now")).toBeInTheDocument();
 });
 
-test("uses the browser language destination when Föli provides it", () => {
+function destinationBoard(arrival) {
   const now = Math.floor(Date.now() / 1000);
 
-  render(
+  return (
     <BusStopDisplay
       stopId="164"
       stopName="Kauppatori"
@@ -225,17 +226,73 @@ test("uses the browser language destination when Föli provides it", () => {
       arrivals={[
         {
           lineref: "1",
-          destinationdisplay: "Satama",
-          destinationdisplay_en: "Harbour",
           monitored: false,
           aimeddeparturetime: now + 300,
+          ...arrival,
         },
       ]}
     />
   );
+}
 
-  expect(screen.getByText("Harbour")).toBeInTheDocument();
-  expect(screen.queryByText("Satama")).not.toBeInTheDocument();
+// The sign on the bus reads "Satama". A board that said only "Harbour" gave
+// an English reader nothing to match against the bus pulling in.
+test("leads with the destination the bus sign shows, the reader's language beside it", () => {
+  render(
+    destinationBoard({
+      destinationdisplay: "Satama",
+      destinationdisplay_en: "Harbour",
+      destinationdisplay_sv: "Hamnen",
+    })
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.getByText("Harbour")).toHaveAttribute("lang", "en");
+  expect(screen.queryByText("Hamnen")).not.toBeInTheDocument();
+});
+
+test("gives a Swedish reader the Swedish name beside the sign", () => {
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["sv-FI", "en"]);
+
+  render(
+    destinationBoard({
+      destinationdisplay: "Satama",
+      destinationdisplay_en: "Harbour",
+      destinationdisplay_sv: "Hamnen",
+    })
+  );
+
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.getByText("Hamnen")).toHaveAttribute("lang", "sv");
+  expect(screen.queryByText("Harbour")).not.toBeInTheDocument();
+});
+
+test("adds nothing for a Finnish reader or a name that only repeats the sign", () => {
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fi-FI", "en"]);
+  const { unmount } = render(
+    destinationBoard({
+      destinationdisplay: "Satama",
+      destinationdisplay_en: "Harbour",
+    })
+  );
+  expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(screen.queryByText("Harbour")).not.toBeInTheDocument();
+  unmount();
+  vi.restoreAllMocks();
+
+  render(
+    destinationBoard({
+      destinationdisplay: "Runosmäki",
+      destinationdisplay_en: "Runosmäki",
+    })
+  );
+  expect(screen.getAllByText("Runosmäki")).toHaveLength(1);
+});
+
+test("falls back to a translated name when the sign text is missing", () => {
+  render(destinationBoard({ destinationdisplay_en: "Harbour" }));
+
+  expect(screen.getAllByText("Harbour")).toHaveLength(1);
 });
 
 test("keeps counting down between provider refreshes instead of freezing", () => {

@@ -197,6 +197,12 @@
   font-weight: 800;
 }
 
+.destinationTranslation {
+  margin-left: 0.45em;
+  color: #52666f;
+  font-weight: 650;
+}
+
 .tripMeta {
   display: block;
   margin-top: 3px;

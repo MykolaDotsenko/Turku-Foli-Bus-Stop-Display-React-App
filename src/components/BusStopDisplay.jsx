@@ -107,23 +107,36 @@ function browserLanguages() {
   return languages.filter(Boolean);
 }
 
-function localizedDestination(arrival, preferredLanguages) {
-  for (const language of preferredLanguages) {
-    const base = String(language || "").toLowerCase().split("-")[0];
-    if (base === "sv" && arrival.destinationdisplay_sv) {
-      return arrival.destinationdisplay_sv;
-    }
-    if (base === "en" && arrival.destinationdisplay_en) {
-      return arrival.destinationdisplay_en;
-    }
-  }
-
-  return (
+// The row leads with the name on the bus's own sign, which is the Finnish one.
+// A reader whose language Föli also names the destination in gets that name
+// beside it, never instead of it: "Harbour" alone gave an English reader
+// nothing to match against the "Satama" on the bus pulling in.
+function destinationNames(arrival, preferredLanguages) {
+  const sign =
     arrival.destinationdisplay ||
     arrival.destinationdisplay_en ||
     arrival.destinationdisplay_sv ||
-    ""
-  );
+    "";
+
+  for (const language of preferredLanguages) {
+    const base = String(language || "").toLowerCase().split("-")[0];
+    // The sign is already in a Finnish reader's language.
+    if (base === "fi") break;
+
+    const translated =
+      base === "sv"
+        ? arrival.destinationdisplay_sv
+        : base === "en"
+          ? arrival.destinationdisplay_en
+          : "";
+    if (!translated) continue;
+
+    const repeatsSign =
+      translated.trim().toLocaleLowerCase() === sign.trim().toLocaleLowerCase();
+    return { sign, translation: repeatsSign ? "" : translated, lang: base };
+  }
+
+  return { sign, translation: "", lang: "" };
 }
 
 function wheelchairLabel(value) {
@@ -332,8 +345,12 @@ function BusStopDisplay({
                   route,
                   effectiveServerTime
                 );
+                const destinationName = destinationNames(
+                  arrival,
+                  preferredLanguages
+                );
                 const destination =
-                  localizedDestination(arrival, preferredLanguages) ||
+                  destinationName.sign ||
                   tripDetails?.headsign ||
                   "Unknown destination";
                 const accessibility = wheelchairLabel(
@@ -362,6 +379,14 @@ function BusStopDisplay({
                     </td>
                     <td className={styles.destination}>
                       {destination}
+                      {destinationName.translation && (
+                        <span
+                          className={styles.destinationTranslation}
+                          lang={destinationName.lang}
+                        >
+                          {destinationName.translation}
+                        </span>
+                      )}
                       <span className={styles.tripMeta}>
                         {serviceStatus} · {formatClock(departureTime)}
                       </span>
