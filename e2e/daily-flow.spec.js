@@ -1099,6 +1099,36 @@ test("a first visit offers the stops near you", async ({
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 });
 
+// The first visit's list was a second copy of the component, so choosing a
+// stop from it unmounted it under the passenger's finger: keyboard focus fell
+// to the page and the list they had just asked for was gone.
+test("choosing a stop from the first visit's near-you list keeps your place", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  // Approximate, so the list is offered instead of a stop being chosen.
+  await context.setGeolocation({
+    latitude: 60.45182,
+    longitude: 22.26662,
+    accuracy: 800,
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+
+  const choice = page.getByRole("button", { name: /^Puistokatu, stop 32/ });
+  await choice.click();
+
+  await expect(page).toHaveURL(/stop=32/);
+  await expect(choice).toBeVisible();
+  await expect(choice).toBeFocused();
+});
+
 test("saves Home as a privacy-first safe arrival zone", async ({
   page,
   context,

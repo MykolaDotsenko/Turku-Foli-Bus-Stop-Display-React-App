@@ -373,8 +373,10 @@ export default function useRideMode() {
               : planned.etaSec,
         etaSource,
         // The panel's "confirmed" is about the exit stop, on the same clock
-        // as the estimate it sits beside.
+        // as the estimate it sits beside, and never beside a badge that has
+        // gone back to the timetable (an offline phone does at once).
         targetLive:
+          health === "live" &&
           sinceTargetSec !== null &&
           sinceTargetSec <= TARGET_CONFIRMED_FOR_SEC &&
           nextRuntime.targetListed === true,

@@ -323,20 +323,6 @@ function App() {
         onSelect={selectStop}
       />
 
-      {/* Before a stop is chosen, location is the quickest way to one. This
-          used to appear only after a stop was chosen, which left a first
-          visit with an unlabelled symbol in the search box. */}
-      {!stopId && (
-        <NearbyStops
-          stops={stops}
-          coordinatesStatus={coordinatesStatus}
-          activeStopId=""
-          serviceBoundary={serviceBoundary}
-          online={online}
-          onSelect={selectStop}
-        />
-      )}
-
       {stopId && (
         <>
           <ServiceAlerts
@@ -372,17 +358,22 @@ function App() {
             activeRideTripRef={ride.session?.tripRef || ""}
             cancellations={stopCancellations}
           />
-
-          <NearbyStops
-            stops={stops}
-            coordinatesStatus={coordinatesStatus}
-            activeStopId={stopId}
-            serviceBoundary={serviceBoundary}
-            online={online}
-            onSelect={selectStop}
-          />
         </>
       )}
+
+      {/* Before a stop is chosen, location is the quickest way to one, and
+          with no board yet this is where it lands. One instance in one place:
+          a second copy for first visits unmounted under the passenger's
+          finger as they chose a stop, dropping keyboard focus to the page
+          and the list they had just found. */}
+      <NearbyStops
+        stops={stops}
+        coordinatesStatus={coordinatesStatus}
+        activeStopId={stopId || ""}
+        serviceBoundary={serviceBoundary}
+        online={online}
+        onSelect={selectStop}
+      />
 
       {!sharedPlace && (
         <MyPlaces

@@ -1106,3 +1106,39 @@ test("a phone that reports no speed still catches a ride past the stop", async (
   unmount();
   mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });
+
+// Offline, the badge goes back to the timetable at once. "Your bus is
+// confirmed" stayed beside it for up to 45 seconds, over the banner that
+// said live tracking had been lost.
+test("an offline phone never calls the bus confirmed", async () => {
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 10, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [liveExitRow(nowSec, { expectedarrivaltime: nowSec + 400 })],
+    },
+    offline
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [150, 300, 450]);
+  await advance(0);
+  expect(result.current.runtime.trackingHealth).toBe("live");
+  expect(result.current.runtime.targetLive).toBe(true);
+
+  const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  try {
+    await advance(10_000);
+
+    expect(result.current.runtime.trackingHealth).toBe("schedule");
+    expect(result.current.runtime.targetLive).toBe(false);
+  } finally {
+    onLine.mockRestore();
+    act(() => result.current.endRide());
+    unmount();
+    mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+  }
+});

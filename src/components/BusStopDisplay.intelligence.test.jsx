@@ -332,41 +332,60 @@ test("keeps counting down between provider refreshes instead of freezing", () =>
   expect(screen.getByText("3 min")).toBeInTheDocument();
 });
 
-test("drops a departure from the board once it has left, without new data", () => {
+// The last listed bus leaving says nothing about the next one: while it was
+// ahead, the timetable was never asked. "No upcoming departures" stood there
+// until the next poll, half a minute later.
+test("drops a departure once it has left, and asks what comes next", () => {
   vi.useFakeTimers();
 
   const serverTime = 1_900_000_000;
   const receivedAtMs = Date.now();
+  const onRefresh = vi.fn();
+  const arrivals = [
+    {
+      lineref: "1",
+      destinationdisplay: "Satama",
+      monitored: true,
+      expecteddeparturetime: serverTime + 60,
+    },
+  ];
+  const props = {
+    stopId: "164",
+    stopName: "Kauppatori",
+    serverTime,
+    receivedAtMs,
+    loading: false,
+    refreshing: false,
+    error: false,
+    onRefresh,
+    arrivals,
+  };
 
-  render(
-    <BusStopDisplay
-      stopId="164"
-      stopName="Kauppatori"
-      serverTime={serverTime}
-      receivedAtMs={receivedAtMs}
-      loading={false}
-      refreshing={false}
-      error={false}
-      onRefresh={() => {}}
-      arrivals={[
-        {
-          lineref: "1",
-          destinationdisplay: "Satama",
-          monitored: true,
-          expecteddeparturetime: serverTime + 60,
-        },
-      ]}
-    />
-  );
+  const { rerender } = render(<BusStopDisplay {...props} />);
 
   expect(screen.getByText("Satama")).toBeInTheDocument();
+  expect(onRefresh).not.toHaveBeenCalled();
 
   act(() => {
     vi.advanceTimersByTime(120_000);
   });
 
   expect(screen.queryByText("Satama")).not.toBeInTheDocument();
-  expect(screen.getByText("No upcoming departures.")).toBeInTheDocument();
+  expect(screen.getByText("Checking for the next departures…")).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+  expect(onRefresh).toHaveBeenCalledTimes(1);
+
+  // The feed can keep listing a bus that has gone. Answering with it again
+  // must not become a request loop.
+  rerender(
+    <BusStopDisplay
+      {...props}
+      serverTime={serverTime + 120}
+      receivedAtMs={receivedAtMs + 120_000}
+      arrivals={arrivals.map((arrival) => ({ ...arrival }))}
+    />
+  );
+  expect(onRefresh).toHaveBeenCalledTimes(1);
 });
 
 

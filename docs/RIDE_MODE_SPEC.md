@@ -99,7 +99,8 @@ Everything read from the target stop's row is only as current as the answer it a
 - its live ETA counts down from that moment, and stops counting as live 120 s after it, when the timetable takes over
 - its vehicle position ages from that moment too, so a failed poll cannot keep an old position (a loop's first pass near the stop, say) fresh enough to raise NOW
 - sightings at the previous stop keep the ride's tracking badge live, but never refresh the target's estimate
-- the panel says "Your bus is confirmed" only while the target (or the stop before it) answered live within the last 45 s, the same window the badge calls live
+- the panel says "Your bus is confirmed" only while the target (or the stop before it) answered live within the last 45 s, the same window the badge calls live, and never while the phone is offline, when the badge has already gone back to the timetable
+- going by the timetable alone, the ETA reads "running late" once the target's timetable time is more than 30 s past; the timetable's own count of stops left is never used for that, because it runs on the same clock
 
 ## Client MVP data flow
 
@@ -163,6 +164,7 @@ The alert repeats every 5 s until one of these ends it:
 
 - the passenger confirms
 - two answers from the target stop after NOW began no longer list the bus; no sighting of the bus standing at the stop is needed, because a reloaded page has none and a 20 s poll can miss a short dwell
+  - an untracked row for the journey still lists it: the feed has lost the bus, not seen it leave, so at NOW it neither counts nor resets the count
 - three minutes have passed, which also covers a network that can report nothing at all
 
 ### MISSED

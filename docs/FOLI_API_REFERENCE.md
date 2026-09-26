@@ -1120,6 +1120,8 @@ Not using every available field is a feature, not a deficiency. For every provid
 - trip-specific `wheelchair_accessible` is shown only for explicit values
 - `stop_times/trip` powers lazy “Next stops”; `timepoint=0` is labelled approximate
 - when SIRI has nothing ahead and the GTFS timetable fallback cannot be read, the board says the timetable went unchecked rather than "No upcoming departures"; a trip whose metadata cannot be fetched ends the timetable list there, with a note, instead of being skipped as if it did not run
+- "No upcoming departures" needs an answer that itself listed nothing, with the timetable checked: a saved board whose buses have all left shows loading or a load failure instead, and when the last listed bus leaves, the board asks again at once rather than waiting for the next poll
+- a cancelled request (switching stops mid-lookup) ends the answer as cancelled; it is never reported as a failed update or an unchecked timetable
 - `pickup_type=1` is excluded from boarding-route membership
 - ALERTS media and validity are surfaced conservatively
 

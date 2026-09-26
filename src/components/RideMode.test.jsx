@@ -434,12 +434,34 @@ test("says the live data is catching up, not that the bus is late", () => {
   expect(screen.queryByText(/lagging/i)).not.toBeInTheDocument();
 });
 
-test("does not say about now while the timetable is behind the bus", () => {
-  // The timetable's time for the stop has come, but two stops remain.
+// The timetable's count of stops left runs on the timetable's own clock, so
+// it cannot say the bus is late: with the stop before sharing the exit stop's
+// minute, it read "running late" on time and "about now" two minutes late.
+test("going by the timetable, its own time coming is about now, not late", () => {
   renderPanel({ etaSec: 10, etaSource: "schedule", remainingStops: 2 });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.queryByText("running late")).not.toBeInTheDocument();
+});
+
+test("going by the timetable, a time well past with the stop still ahead is running late", () => {
+  renderPanel({ etaSec: -120, etaSource: "schedule", remainingStops: 0 });
 
   expect(screen.getByText("running late")).toBeInTheDocument();
   expect(screen.queryByText("about now")).not.toBeInTheDocument();
+});
+
+test("a live estimate that is overdue is still about now, not late", () => {
+  renderPanel({
+    trackingHealth: "live",
+    targetLive: true,
+    etaSec: -120,
+    etaSource: "live",
+    remainingStops: 0,
+  });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.queryByText("running late")).not.toBeInTheDocument();
 });
 
 test("trusts a live estimate of about now even when the timetable counts more stops", () => {

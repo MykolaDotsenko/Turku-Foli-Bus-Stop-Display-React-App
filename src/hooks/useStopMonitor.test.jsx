@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { fetchStopMonitor } from "../api/foliApi";
 import useStopMonitor, { pollDelayMs } from "./useStopMonitor";
@@ -313,4 +313,93 @@ test("skips a saved departure that is not a departure instead of crashing on it"
   render(<ArrivalsHarness stopId="164" />);
 
   expect(screen.getByTestId("lines")).toHaveTextContent("7");
+});
+
+function FlagsHarness({ stopId }) {
+  const { scheduleFailed, scheduleIncomplete } = useStopMonitor(stopId);
+  return (
+    <div>
+      <span data-testid="schedule-failed">{String(scheduleFailed)}</span>
+      <span data-testid="schedule-incomplete">{String(scheduleIncomplete)}</span>
+    </div>
+  );
+}
+
+// A quiet stop whose timetable could not be checked, reopened. Stored without
+// these, its empty board came back as "No upcoming departures".
+test("a reopened board still knows its timetable could not be checked", async () => {
+  vi.mocked(fetchStopMonitor).mockResolvedValueOnce({
+    stopName: "Kauppatori",
+    arrivals: [],
+    serverTime: 1_900_000_000,
+    realtimeAvailable: true,
+    scheduleAvailable: false,
+    scheduleFailed: true,
+    scheduleIncomplete: true,
+  });
+
+  const first = render(<FlagsHarness stopId="164" />);
+  await waitFor(() => {
+    expect(screen.getByTestId("schedule-failed")).toHaveTextContent("true");
+  });
+  first.unmount();
+
+  vi.mocked(fetchStopMonitor).mockReturnValue(new Promise(() => {}));
+  render(<FlagsHarness stopId="164" />);
+
+  expect(screen.getByTestId("schedule-failed")).toHaveTextContent("true");
+  expect(screen.getByTestId("schedule-incomplete")).toHaveTextContent("true");
+});
+
+// Switching stops cancels the old stop's request, however that request then
+// surfaces. It is neither a failure of the new stop nor its answer.
+test("a request cancelled by a stop switch does not fail the new stop", async () => {
+  vi.mocked(fetchStopMonitor).mockImplementation((stopId, signal) =>
+    stopId === "621"
+      ? new Promise((resolve, reject) => {
+          signal.addEventListener("abort", () =>
+            reject(new Error("Föli departure data is unavailable."))
+          );
+        })
+      : Promise.resolve({
+          stopName: "Puistokatu",
+          arrivals: [],
+          serverTime: 1_900_000_000,
+        })
+  );
+
+  const { rerender } = render(<Harness stopId="621" />);
+  rerender(<Harness stopId="32" />);
+
+  expect(await screen.findByText("Puistokatu")).toBeInTheDocument();
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(screen.getByTestId("error")).toHaveTextContent("false");
+});
+
+test("an answer that arrives after a stop switch is not applied", async () => {
+  let resolveOld;
+  vi.mocked(fetchStopMonitor).mockImplementation((stopId) =>
+    stopId === "164"
+      ? new Promise((resolve) => {
+          resolveOld = resolve;
+        })
+      : Promise.resolve({
+          stopName: "Puistokatu",
+          arrivals: [],
+          serverTime: 1_900_000_000,
+        })
+  );
+
+  const { rerender } = render(<Harness stopId="164" />);
+  rerender(<Harness stopId="32" />);
+  expect(await screen.findByText("Puistokatu")).toBeInTheDocument();
+
+  await act(async () => {
+    resolveOld({ stopName: "Kauppatori", arrivals: [], serverTime: 1_900_000_000 });
+  });
+
+  expect(screen.getByText("Puistokatu")).toBeInTheDocument();
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
 });

@@ -122,15 +122,22 @@ export default function useRideProviderPoll({
             // counts, sighting or not: a page reloaded at NOW has never seen
             // the bus, and a 20-second poll can miss a 15-second dwell
             // entirely. Either way the alarm must still learn it has gone.
+            //
+            // An untracked row is not such an answer. It is the journey still
+            // listed, on its timetable time: the feed has lost the bus, not
+            // seen it leave. Counted, it ended the alarm while the bus was
+            // still due, just when location was the only evidence left.
             next.targetListed = false;
             next.targetMatchBy = "";
             next.targetMissingCount =
-              before.targetListed ||
-              before.targetMissingCount > 0 ||
-              before.targetWasAtStop ||
-              current.stage === RIDE_STAGE.NOW
-                ? before.targetMissingCount + 1
-                : 0;
+              target.kind === "untracked" && current.stage === RIDE_STAGE.NOW
+                ? before.targetMissingCount
+                : before.targetListed ||
+                    before.targetMissingCount > 0 ||
+                    before.targetWasAtStop ||
+                    current.stage === RIDE_STAGE.NOW
+                  ? before.targetMissingCount + 1
+                  : 0;
             next.liveEtaSec = null;
             next.providerDistanceM = null;
             next.providerPositionAgeSec = null;

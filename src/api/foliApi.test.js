@@ -1120,7 +1120,13 @@ test("does not flag the timetable when the live feed already has what is next", 
   expect(result.scheduleFailed).toBe(false);
 });
 
-function timetableWithTrips(reference, trips) {
+function cancelledRequest() {
+  const error = new Error("canceled");
+  error.name = "CanceledError";
+  return error;
+}
+
+function timetableWithTrips(reference, trips, { status = "OK", onHang } = {}) {
   const everyDay = {
     monday: 1,
     tuesday: 1,
@@ -1133,10 +1139,13 @@ function timetableWithTrips(reference, trips) {
     end_date: "20260930",
   };
 
-  mocks.get.mockImplementation((url) => {
+  mocks.get.mockImplementation((url, options) => {
     if (url === "https://data.foli.fi/siri/sm/621") {
       return Promise.resolve({
-        data: { status: "OK", servertime: reference, result: [] },
+        data:
+          status === "OK"
+            ? { status, servertime: reference, result: [] }
+            : { status, servertime: reference },
       });
     }
     if (url === "https://data.foli.fi/gtfs/") {
@@ -1166,6 +1175,18 @@ function timetableWithTrips(reference, trips) {
       });
     }
     const trip = trips.find(({ id }) => url === `${datasetBase}/trips/trip/${id}`);
+    if (trip?.hangs) {
+      // Settles only as axios does when its request is cancelled.
+      onHang?.();
+      return new Promise((resolve, reject) => {
+        const signal = options?.signal;
+        if (signal?.aborted) {
+          reject(cancelledRequest());
+          return;
+        }
+        signal?.addEventListener("abort", () => reject(cancelledRequest()));
+      });
+    }
     if (trip && !trip.fails) {
       return Promise.resolve({
         data: [
@@ -1207,3 +1228,28 @@ test("counts a timetable whose first departure could not be checked as unchecked
   expect(result.arrivals).toEqual([]);
   expect(result.scheduleFailed).toBe(true);
 });
+
+// Switching stops cancels the old stop's timetable lookups. Counted as trips
+// that could not be checked, the cancellation came back as a failed update
+// (or, at a stop with a live answer, as an unchecked timetable) and landed on
+// the stop the passenger had just opened.
+test.each(["OK", "NO_SIRI_DATA"])(
+  "a timetable lookup cancelled midway ends as cancelled at a %s stop",
+  async (status) => {
+    const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+    const controller = new AbortController();
+    timetableWithTrips(
+      reference,
+      [{ id: "trip-cancelled", time: "15:20:00", hangs: true }],
+      { status, onHang: () => globalThis.queueMicrotask(() => controller.abort()) }
+    );
+
+    const outcome = await fetchStopMonitor("621", controller.signal).then(
+      (value) => ({ value }),
+      (error) => ({ error })
+    );
+
+    expect(outcome.value).toBeUndefined();
+    expect(["CanceledError", "AbortError"]).toContain(outcome.error?.name);
+  }
+);

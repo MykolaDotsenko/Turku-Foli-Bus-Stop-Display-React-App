@@ -132,3 +132,50 @@ test("says when the timetable list stops early because a trip could not be check
     screen.getByText(/later departures could not be checked/i)
   ).toBeInTheDocument();
 });
+
+// A board saved five minutes ago, reopened: its buses have all left. That is
+// no answer about what comes next, yet it said "No upcoming departures" while
+// the new update loaded, and again once that update failed.
+const departedSnapshot = {
+  arrivals: [
+    {
+      lineref: "1",
+      destinationdisplay: "Satama",
+      monitored: true,
+      recordedattime: NOW - 320,
+      expecteddeparturetime: NOW - 200,
+    },
+  ],
+  serverTime: NOW - 300,
+  receivedAtMs: Date.now() - 300_000,
+};
+
+test("a saved board whose buses have all left says it is loading, not that none are coming", () => {
+  render(board({ ...departedSnapshot, loading: true }));
+
+  expect(screen.getByText("Loading departures…")).toBeInTheDocument();
+  expect(screen.queryByText("Satama")).not.toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("a saved board whose buses have all left, and whose update failed, says it could not load", () => {
+  render(board({ ...departedSnapshot, error: true }));
+
+  expect(screen.getByText("Couldn’t load departures.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("an empty board cut short at a trip that could not be checked is not called empty", () => {
+  render(
+    board({
+      serverTime: NOW,
+      receivedAtMs: Date.now(),
+      realtimeAvailable: true,
+      scheduleIncomplete: true,
+    })
+  );
+
+  expect(screen.getByText("No live departures right now.")).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});

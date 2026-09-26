@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import styles from "./BusStopDisplay.module.css";
 import TripJourneyDetails from "./TripJourneyDetails";
 import RideSetup from "./RideSetup";
@@ -239,6 +239,37 @@ function BusStopDisplay({
   // first loads, and counting it said "No upcoming departures" while loading,
   // and again when the load failed.
   const hasData = arrivals.length > 0 || Number(receivedAtMs) > 0;
+  // Only an answer that itself listed nothing says nothing is coming. One
+  // whose buses have all left since says nothing about what comes after
+  // them: the timetable was never asked, because they were still ahead.
+  const answerWasEmpty = hasData && arrivals.length === 0;
+  const listedBusesHaveLeft =
+    arrivals.length > 0 && visibleArrivals.length === 0;
+  // So ask again as the last one leaves, instead of calling the stop empty
+  // until the next poll half a minute later. Once per set of departed buses,
+  // not per answer: at the end of the day the feed can keep listing a bus
+  // that has gone, and every answer would have asked again at once.
+  const departedSet = listedBusesHaveLeft
+    ? arrivals
+        .map((arrival) =>
+          [
+            arrival.lineref,
+            arrival.tripref || arrival.datedvehiclejourneyref || "",
+            Number(arrival.aimeddeparturetime) ||
+              Number(arrival.aimedarrivaltime) ||
+              "",
+          ].join("|")
+        )
+        .sort()
+        .join(",")
+    : "";
+  const askedAfterDepartedRef = useRef("");
+  useEffect(() => {
+    if (!departedSet || loading || refreshing || error) return;
+    if (askedAfterDepartedRef.current === departedSet) return;
+    askedAfterDepartedRef.current = departedSet;
+    onRefresh?.();
+  }, [departedSet, error, loading, onRefresh, refreshing]);
   const realtimeCount = visibleArrivals.filter(
     (arrival) => arrival.monitored
   ).length;
@@ -341,12 +372,16 @@ function BusStopDisplay({
           </p>
         )}
 
-      {loading && !hasData ? (
+      {/* An empty board is only "no more buses" when a fresh answer says so.
+          A saved board whose buses have all left is no answer: while this
+          visit's first update loads, or after it fails, it said "No upcoming
+          departures" about a stop nobody had checked. */}
+      {loading && visibleArrivals.length === 0 ? (
         <div className={styles.state} role="status">
           <span className={styles.stateKicker}>Connecting to Föli</span>
           <strong>Loading departures…</strong>
         </div>
-      ) : error && !hasData ? (
+      ) : error && visibleArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="alert">
           <strong>Couldn’t load departures.</strong>
           <span>Check the stop number or connection and try again.</span>
@@ -354,9 +389,10 @@ function BusStopDisplay({
             Try again
           </button>
         </div>
-      ) : visibleArrivals.length === 0 && scheduleFailed ? (
+      ) : visibleArrivals.length === 0 && (scheduleFailed || scheduleIncomplete) ? (
         // The live feed only looks an hour or so ahead. With the timetable
-        // unread, an empty board is not "no more buses".
+        // unread, or read only up to a trip that could not be checked, an
+        // empty board is not "no more buses".
         <div className={styles.state} role="status">
           <strong>No live departures right now.</strong>
           <span>
@@ -366,6 +402,11 @@ function BusStopDisplay({
           <button type="button" className={styles.retryButton} onClick={onRefresh}>
             Try again
           </button>
+        </div>
+      ) : visibleArrivals.length === 0 && !answerWasEmpty ? (
+        <div className={styles.state} role="status">
+          <span className={styles.stateKicker}>Updating</span>
+          <strong>Checking for the next departures…</strong>
         </div>
       ) : visibleArrivals.length === 0 ? (
         <div className={styles.state} role="status">

@@ -31,21 +31,21 @@ const STAGE_COPY = {
   },
 };
 
-function etaLabel(seconds, stage, { source = "", remainingStops = null } = {}) {
+// Going by the timetable alone, a time well past with the stop still ahead
+// means the bus is behind it. The timetable's own count of stops left cannot
+// say that: it runs on the same clock, so it read "running late" on time
+// and "about now" two minutes late. A live or location estimate is trusted
+// as it stands.
+const RUNNING_LATE_AFTER_SEC = 30;
+
+function etaLabel(seconds, stage, { source = "" } = {}) {
   if (stage === RIDE_STAGE.NOW) return "now";
   if (stage === RIDE_STAGE.MISSED) return "";
   if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
   if (value <= 30) {
-    // The timetable's time for the stop has come but stops remain, so the
-    // bus is behind it. A live or location estimate is trusted over the
-    // timetable's own count of stops.
-    const remaining = Number(remainingStops);
-    return source === "schedule" &&
-      remainingStops !== null &&
-      Number.isFinite(remaining) &&
-      remaining > 1
+    return source === "schedule" && value < -RUNNING_LATE_AFTER_SEC
       ? "running late"
       : "about now";
   }
@@ -234,7 +234,6 @@ export default function RideMode({
     rideStageRank(session.stage) < rideStageRank(RIDE_STAGE.NEXT);
   const eta = etaLabel(runtime.etaSec, session.stage, {
     source: runtime.etaSource,
-    remainingStops: runtime.remainingStops,
   });
   const evidence = liveEvidence(runtime, session);
   const remaining = remainingLabel(runtime.remainingStops, session.stage);

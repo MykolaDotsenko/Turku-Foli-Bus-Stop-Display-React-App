@@ -54,6 +54,10 @@ function readSnapshot(stopId, nowMs = Date.now()) {
         ? entry.realtimeAvailable
         : null,
     scheduleAvailable: entry.scheduleAvailable === true,
+    // Without these a reopened board took an unchecked timetable at its word
+    // and said "No upcoming departures".
+    scheduleFailed: entry.scheduleFailed === true,
+    scheduleIncomplete: entry.scheduleIncomplete === true,
     receivedAtMs,
   };
 }
@@ -67,6 +71,8 @@ function writeSnapshot(data) {
       serverTime: data.serverTime,
       realtimeAvailable: data.realtimeAvailable,
       scheduleAvailable: data.scheduleAvailable,
+      scheduleFailed: data.scheduleFailed === true,
+      scheduleIncomplete: data.scheduleIncomplete === true,
       receivedAtMs: data.receivedAtMs,
     };
 
@@ -104,6 +110,8 @@ function emptyData(stopId) {
     serverTime: null,
     realtimeAvailable: null,
     scheduleAvailable: false,
+    scheduleFailed: false,
+    scheduleIncomplete: false,
     receivedAtMs: null,
   };
 }
@@ -135,19 +143,28 @@ export default function useStopMonitor(stopId) {
 
       try {
         const next = await fetchStopMonitor(stopId, controller.signal);
+        // Superseded while it was on its way: a newer request, or another
+        // stop, owns the board now. Applying it put the old stop's answer
+        // back on screen.
+        if (controller.signal.aborted) return null;
         const received = { stopId, ...next, receivedAtMs: Date.now() };
         consecutiveFailuresRef.current = 0;
         setData(received);
         writeSnapshot(received);
         return true;
       } catch (err) {
-        if (err?.name !== "CanceledError" && err?.name !== "AbortError") {
-          consecutiveFailuresRef.current += 1;
-          setError(true);
-          return false;
+        // A cancelled request is not a failed one, however it surfaced.
+        if (
+          controller.signal.aborted ||
+          err?.name === "CanceledError" ||
+          err?.name === "AbortError"
+        ) {
+          return null;
         }
 
-        return null;
+        consecutiveFailuresRef.current += 1;
+        setError(true);
+        return false;
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);

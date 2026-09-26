@@ -570,6 +570,17 @@ async function fetchCalendarDates(signal) {
   return normalized;
 }
 
+// allSettled turns a cancelled lookup into one more rejected result, and a
+// trip that could not be looked up cuts the timetable short. A cancelled
+// request must end the whole answer instead: reported as a failed check, it
+// said "Live update failed" on the stop the passenger had just switched to.
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  const error = new Error("The request was cancelled.");
+  error.name = "AbortError";
+  throw error;
+}
+
 async function fetchTripDetailsInBatches(tripIds, signal) {
   const ids = [...new Set(tripIds.filter(Boolean))];
   const byId = new Map();
@@ -579,6 +590,7 @@ async function fetchTripDetailsInBatches(tripIds, signal) {
     const results = await Promise.allSettled(
       batch.map((tripId) => fetchTripDetails(tripId, signal))
     );
+    throwIfAborted(signal);
 
     results.forEach((result, resultIndex) => {
       if (result.status === "fulfilled") {

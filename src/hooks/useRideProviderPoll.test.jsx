@@ -8,6 +8,7 @@ vi.mock("../api/foliApi", () => ({
 }));
 
 import useRideProviderPoll from "./useRideProviderPoll";
+import { RIDE_STAGE } from "../utils/rideProgress";
 
 const session = {
   id: "ride-1",
@@ -112,7 +113,7 @@ test("stops polling once the ride ends", async () => {
 
 // One poll round against canned answers for the target (32) and the stop
 // before it (164), returning what the round hands to the ride.
-async function pollOnce(answers, runtime = {}) {
+async function pollOnce(answers, runtime = {}, sessionOverrides = {}) {
   mocks.fetchStopMonitor.mockImplementation((stopId) =>
     Promise.resolve(answers[String(stopId)])
   );
@@ -122,6 +123,7 @@ async function pollOnce(answers, runtime = {}) {
     onRuntime,
     readArrivalSignals,
     runtimeRef: { current: runtime },
+    sessionRef: { current: { ...session, ...sessionOverrides } },
   });
 
   const { unmount } = renderHook(() => useRideProviderPoll(props));
@@ -309,4 +311,29 @@ test("a live bus dropping off the stop before yours still counts as passing it",
   expect(next.previousSeen).toBe(true);
   expect(next.previousMissingCount).toBe(1);
   expect(next.targetListed).toBe(true);
+});
+
+// While "get off now" sounds, the exit stop still listing the journey, even
+// untracked, is the bus still due there. Counted as gone, it ended the alarm
+// within a minute of NOW while the bus was still on its way, in exactly the
+// case where the phone's location was the only evidence left.
+test("at the get-off stop, an untracked listing does not count as the bus gone", async () => {
+  const { next } = await pollOnce(
+    { 32: answer([untrackedRow]), 164: answer([]) },
+    { targetListed: false, targetMissingCount: 1, targetWasAtStop: false },
+    { stage: RIDE_STAGE.NOW }
+  );
+
+  expect(next.targetListed).toBe(false);
+  expect(next.targetMissingCount).toBe(1);
+});
+
+test("at the get-off stop, an answer without the bus still counts towards ending the alarm", async () => {
+  const { next } = await pollOnce(
+    { 32: answer([]), 164: answer([]) },
+    { targetListed: false, targetMissingCount: 1, targetWasAtStop: false },
+    { stage: RIDE_STAGE.NOW }
+  );
+
+  expect(next.targetMissingCount).toBe(2);
 });
