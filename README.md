@@ -39,6 +39,12 @@ Live departures, hands-free **Ride Mode** get-off alerts, disruptions, nearest s
     alt="Föli Live Departures mobile experience with stop search and upcoming departures"
     width="320"
   >
+  &nbsp;
+  <img
+    src="docs/assets/foli-ride-now.png"
+    alt="Ride Mode at the passenger's stop: Get off now at Puistokatu, move to the doors and step off here"
+    width="320"
+  >
 </p>
 
 > **Independent portfolio project.** Not an official Föli application.

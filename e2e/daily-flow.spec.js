@@ -673,7 +673,7 @@ test("a ride's own controls stay reachable on a small phone", async ({
 
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
   page,
-}) => {
+}, testInfo) => {
   // The vehicle being listed at the target stop is the strongest evidence
   // there is, and it is the only one that can raise the alarm without GPS.
   await routeTargetStop(page, { vehicleatstop: true, expectedarrivaltime: 0 });
@@ -684,6 +684,14 @@ test("Ride Mode says get off now once the bus is standing at the stop", async ({
 
   await expect(page.getByRole("heading", { name: "Get off now" })).toBeVisible();
   await expect(page.locator('[data-stage="now"]')).toBeVisible();
+
+  // The README's picture of the feature, taken from the real panel.
+  if (testInfo.project.name === "chromium-mobile") {
+    fs.mkdirSync("artifacts/screenshots", { recursive: true });
+    await page
+      .locator('section[aria-labelledby="ride-mode-title"]')
+      .screenshot({ path: "artifacts/screenshots/foli-ride-now.png" });
+  }
 
   // The confirmation only exists at this stage, and it has to end the ride
   // so the repeating alert stops for someone already on the pavement.
