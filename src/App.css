@@ -49,13 +49,27 @@ input:focus-visible,
 
 .brandLockup {
   display: flex;
+  flex: 1 1 auto;
   align-items: flex-start;
   gap: 14px;
   min-width: 0;
 }
 
 .brandText {
+  flex: 1 1 auto;
   min-width: 0;
+}
+
+.eyebrow-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.eyebrow-row .eyebrow {
+  margin: 0;
 }
 
 .brandMark {
@@ -64,7 +78,7 @@ input:focus-visible,
   height: 48px;
   /* Drops the mark to the wordmark's cap line rather than the eyebrow's,
      so the two read as one lockup instead of a badge floating above text. */
-  margin-top: 10px;
+  margin-top: 20px;
   border-radius: 22%;
   box-shadow: 0 8px 20px rgba(0, 121, 133, 0.2);
 }
@@ -92,6 +106,40 @@ input:focus-visible,
   color: #52666f;
   font-size: 0.86rem;
   line-height: 1.5;
+}
+
+/* Small enough to share the eyebrow's line, with a thumb-sized hit area
+   around it, and in its own language (see LanguageSwitch.jsx). */
+.language-switch {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid #b9d3d6;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #00656f;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 850;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.language-switch::after {
+  position: absolute;
+  inset: -10px -6px;
+  content: "";
+}
+
+.language-switch:hover {
+  background: #ffffff;
+  border-color: #7fb0b6;
+}
+
+.language-switch:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
 }
 
 .live-pill {
@@ -406,6 +454,21 @@ input:focus-visible,
     border-color: var(--dm-line);
     background: var(--dm-surface);
     color: var(--dm-soft);
+  }
+
+  .language-switch {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-surface);
+    color: var(--dm-accent);
+  }
+
+  .language-switch:hover {
+    border-color: #5f949c;
+    background: var(--dm-raised);
+  }
+
+  .language-switch:focus-visible {
+    outline-color: var(--dm-focus);
   }
 
   .live-dot {

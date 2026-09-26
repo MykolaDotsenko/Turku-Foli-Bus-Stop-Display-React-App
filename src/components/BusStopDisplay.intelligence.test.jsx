@@ -1,6 +1,7 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import BusStopDisplay from "./BusStopDisplay";
+import { resetLanguageForTests } from "../i18n";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -267,8 +268,8 @@ test("gives a Swedish reader the Swedish name beside the sign", () => {
   expect(screen.queryByText("Harbour")).not.toBeInTheDocument();
 });
 
-test("adds nothing for a Finnish reader or a name that only repeats the sign", () => {
-  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fi-FI", "en"]);
+test("adds nothing in the Finnish interface or for a name that only repeats the sign", () => {
+  resetLanguageForTests("fi");
   const { unmount } = render(
     destinationBoard({
       destinationdisplay: "Satama",
@@ -278,7 +279,7 @@ test("adds nothing for a Finnish reader or a name that only repeats the sign", (
   expect(screen.getByText("Satama")).toBeInTheDocument();
   expect(screen.queryByText("Harbour")).not.toBeInTheDocument();
   unmount();
-  vi.restoreAllMocks();
+  resetLanguageForTests("en");
 
   render(
     destinationBoard({
@@ -287,6 +288,25 @@ test("adds nothing for a Finnish reader or a name that only repeats the sign", (
     })
   );
   expect(screen.getAllByText("Runosmäki")).toHaveLength(1);
+});
+
+// Someone who switched a Finnish phone to the English interface has said
+// they would rather not read Finnish.
+test("gives the English name beside the sign to an English reader on a Finnish phone", () => {
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["fi-FI", "en"]);
+  try {
+    render(
+      destinationBoard({
+        destinationdisplay: "Satama",
+        destinationdisplay_en: "Harbour",
+      })
+    );
+
+    expect(screen.getByText("Satama")).toBeInTheDocument();
+    expect(screen.getByText("Harbour")).toHaveAttribute("lang", "en");
+  } finally {
+    vi.restoreAllMocks();
+  }
 });
 
 test("falls back to a translated name when the sign text is missing", () => {

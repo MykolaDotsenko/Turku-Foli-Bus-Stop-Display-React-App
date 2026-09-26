@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchAlerts, fetchStopServedRouteIds } from "../api/foliApi";
+import { useLanguage } from "../i18n";
 import { extractStopAlerts } from "../utils/alerts";
 
 const ALERT_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -18,13 +19,17 @@ export default function useStopAlerts(stopId, lineRefs, routesById) {
     served.stopId === stopId ? served.ids : EMPTY_ROUTE_IDS;
   const abortRef = useRef(null);
   const membershipAbortRef = useRef(null);
+  // Föli writes its notices in Finnish, Swedish and English. The one in the
+  // interface's language comes first, then the phone's own languages. It
+  // changes with the language, which also re-extracts the alerts' own labels.
+  const language = useLanguage();
   const preferredLanguages = useMemo(() => {
-    if (typeof navigator === "undefined") return ["en"];
+    if (typeof navigator === "undefined") return [language];
     const languages = Array.isArray(navigator.languages)
       ? navigator.languages
       : [navigator.language];
-    return languages.filter(Boolean);
-  }, []);
+    return [language, ...languages.filter(Boolean)];
+  }, [language]);
 
   const refresh = useCallback(async () => {
     abortRef.current?.abort();

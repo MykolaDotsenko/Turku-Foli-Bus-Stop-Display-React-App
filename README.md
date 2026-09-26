@@ -66,6 +66,7 @@ It also handles less ideal situations: poor connectivity, an unfamiliar area, a 
 - **Get me Home** recovery with transit handoff, backup stops, driver card and printable no-battery fallback
 - **Offline-capable PWA shell** that keeps saved recovery information available when the network disappears
 - **Accessible mobile-first UX** validated with Playwright and axe across Chromium, Firefox and WebKit
+- **Finnish and English interface** that follows the phone's language, with a one-tap switch; stop and destination names stay exactly as on the bus sign ([localization notes](docs/LOCALIZATION.md))
 
 ## Why this project is more than a departure-board demo
 
@@ -331,6 +332,7 @@ src/
 ├─ api/          Föli provider normalization and HTTP boundary
 ├─ components/   product UI
 ├─ hooks/        realtime, persistence and browser lifecycle logic
+├─ i18n/         interface language, Finnish dictionary by area
 └─ utils/        pure geo, time, route, alert and sharing helpers
 
 e2e/             cross-browser product and accessibility QA

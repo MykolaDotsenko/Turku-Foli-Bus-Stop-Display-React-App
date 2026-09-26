@@ -35,10 +35,14 @@
       content="Never miss your stop: the app's get-off alert saying Get off now at Puistokatu"
     />
     <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fi_FI" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
-    <noscript>JavaScript is required to show live Föli departures.</noscript>
+    <noscript>
+      <p>JavaScript is required to show live Föli departures.</p>
+      <p lang="fi">Fölin reaaliaikaisten lähtöjen näyttäminen vaatii JavaScriptin.</p>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -4,6 +4,7 @@ import TripJourneyDetails from "./TripJourneyDetails";
 import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
 import useTripEnrichment from "../hooks/useTripEnrichment";
+import { msg, t, tc, useLanguage } from "../i18n";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor, contrastRatio } from "../utils/routes";
 import {
@@ -11,7 +12,7 @@ import {
   dataAgeSeconds,
   elapsedSince,
   formatClock,
-  formatDue,
+  formatDueParts,
   formatElapsedAge,
   formatServiceStatus,
   getDepartureTime,
@@ -20,17 +21,38 @@ import {
 const MAX_VISIBLE_DEPARTURES = 10;
 const DEPARTED_GRACE_SECONDS = 30;
 
+// Each vehicle has its own phrases: in Finnish a bus and a waterbus stop at
+// different places, and their names inflect.
+const VEHICLE_PHRASES = {
+  bus: {
+    atStop: msg("Bus at stop · board now"),
+    lastPosition: msg("Last bus position ≈{distance} from stop · {minutes} min old"),
+    atOrNear: msg("Bus at or near stop"),
+    nearby: msg("Bus nearby · ≈{distance} from stop"),
+    away: msg("Bus ≈{distance} from stop"),
+  },
+  waterbus: {
+    atStop: msg("Waterbus at stop · board now"),
+    lastPosition: msg(
+      "Last waterbus position ≈{distance} from stop · {minutes} min old"
+    ),
+    atOrNear: msg("Waterbus at or near stop"),
+    nearby: msg("Waterbus nearby · ≈{distance} from stop"),
+    away: msg("Waterbus ≈{distance} from stop"),
+  },
+};
+
 function vehicleProximity(arrival, stop, route, serverTime) {
   if (!arrival.monitored) return "";
 
-  const vehicle = route?.type === 4 ? "Waterbus" : "Bus";
+  const phrases = VEHICLE_PHRASES[route?.type === 4 ? "waterbus" : "bus"];
   const ageSeconds = dataAgeSeconds(arrival.recordedattime, serverTime);
 
   if (
     arrival.vehicleatstop === true &&
     (ageSeconds === null || ageSeconds <= 120)
   ) {
-    return `${vehicle} at stop · board now`;
+    return t(phrases.atStop);
   }
 
   if (
@@ -47,17 +69,18 @@ function vehicleProximity(arrival, stop, route, serverTime) {
   if (!Number.isFinite(distance)) return "";
 
   if (ageSeconds !== null && ageSeconds > 120) {
-    return `Last ${vehicle.toLowerCase()} position ≈${formatDistance(
-      distance
-    )} from stop · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
+    return t(phrases.lastPosition, {
+      distance: formatDistance(distance),
+      minutes: Math.max(2, Math.round(ageSeconds / 60)),
+    });
   }
 
-  if (distance <= 50) return `${vehicle} at or near stop`;
+  if (distance <= 50) return t(phrases.atOrNear);
   if (distance <= 250) {
-    return `${vehicle} nearby · ≈${formatDistance(distance)} from stop`;
+    return t(phrases.nearby, { distance: formatDistance(distance) });
   }
 
-  return `${vehicle} ≈${formatDistance(distance)} from stop`;
+  return t(phrases.away, { distance: formatDistance(distance) });
 }
 
 // A departure keeps one identity across refreshes. The live estimate moves on
@@ -135,6 +158,18 @@ function browserLanguages() {
   return languages.filter(Boolean);
 }
 
+// Whose name for the destination goes beside the sign. In Finnish, none:
+// the sign already is. In English the phone's own languages come first, so a
+// Swedish phone gets Föli's Swedish name, then English, but never Finnish,
+// which the passenger has just chosen not to read.
+function translationLanguages(uiLanguage) {
+  if (uiLanguage === "fi") return ["fi"];
+  return [
+    ...browserLanguages().filter((tag) => !/^fi\b/i.test(String(tag))),
+    "en",
+  ];
+}
+
 // The row leads with the name on the bus's own sign, which is the Finnish one.
 // A reader whose language Föli also names the destination in gets that name
 // beside it, never instead of it: "Harbour" alone gave an English reader
@@ -168,20 +203,19 @@ function destinationNames(arrival, preferredLanguages) {
 }
 
 function wheelchairLabel(value) {
-  if (value === 1) return "Wheelchair accessible";
-  if (value === 2) return "Not wheelchair accessible";
+  if (value === 1) return t("Wheelchair accessible");
+  if (value === 2) return t("Not wheelchair accessible");
   return "";
 }
 
 // "Today 19:15" and "Tomorrow 06:30" set in the countdown's size would take
 // half a phone's width from the destination, so the day sits above the time.
-function DueLabel({ label }) {
-  const match = /^(Today|Tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun) (.+)$/.exec(label);
-  if (!match) return label;
+function DueLabel({ parts }) {
+  if (!parts.day) return parts.time;
 
   return (
     <>
-      <span className={styles.dueDay}>{match[1]}</span> {match[2]}
+      <span className={styles.dueDay}>{parts.day}</span> {parts.time}
     </>
   );
 }
@@ -211,6 +245,7 @@ function BusStopDisplay({
   activeRideTripRef = "",
   cancellations = [],
 }) {
+  const language = useLanguage();
   // Keeps due times, freshness and the departed-row filter counting between
   // the 30-second provider refreshes instead of freezing at the last payload.
   const nowMs = useClockTick(10_000);
@@ -278,7 +313,10 @@ function BusStopDisplay({
     () => new Map(stops.map((candidate) => [candidate.id, candidate])),
     [stops]
   );
-  const preferredLanguages = useMemo(browserLanguages, []);
+  const preferredLanguages = useMemo(
+    () => translationLanguages(language),
+    [language]
+  );
   const [rideCandidateKey, setRideCandidateKey] = useState("");
   // An open setup belongs to the stop it was opened at, so it is dropped the
   // moment the stop changes and coming back later does not reopen it. The
@@ -301,7 +339,7 @@ function BusStopDisplay({
         <div className={styles.stopHeading}>
           <div className={styles.stopTitleRow}>
             <h1 id="departures-title" className={styles.stopName}>
-              {stopName || (loading ? "Loading…" : `Stop ${stopId}`)}
+              {stopName || (loading ? t("Loading…") : t("Stop {id}", { id: stopId }))}
             </h1>
             {stopName && (
               <button
@@ -311,22 +349,26 @@ function BusStopDisplay({
                 aria-pressed={isFavorite}
                 aria-label={
                   isFavorite
-                    ? `Remove ${stopName} from favorites`
-                    : `Save ${stopName} to favorites`
+                    ? t("Remove {name} from favorites", { name: stopName })
+                    : t("Save {name} to favorites", { name: stopName })
                 }
-                title={isFavorite ? "Remove favorite" : "Save favorite"}
+                title={isFavorite ? t("Remove favorite") : t("Save favorite")}
               >
                 <span aria-hidden="true">{isFavorite ? "★" : "☆"}</span>
               </button>
             )}
           </div>
           <p className={styles.stopMeta} aria-live="polite">
-            Stop {stopId}
-            {serverTime ? ` · Updated ${formatClock(serverTime)}` : ""}
-            {receiptAgeSeconds !== null && receiptAgeSeconds >= 60
-              ? ` · ${formatElapsedAge(receiptAgeSeconds)}`
-              : ""}
-            {refreshing ? " · Refreshing…" : ""}
+            {[
+              t("Stop {id}", { id: stopId }),
+              serverTime ? t("Updated {time}", { time: formatClock(serverTime) }) : "",
+              receiptAgeSeconds !== null && receiptAgeSeconds >= 60
+                ? formatElapsedAge(receiptAgeSeconds)
+                : "",
+              refreshing ? t("Refreshing…") : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
 
@@ -336,25 +378,32 @@ function BusStopDisplay({
           onClick={onRefresh}
           disabled={loading || refreshing}
         >
-          {refreshing ? "Refreshing…" : "Refresh"}
+          {refreshing ? t("Refreshing…") : t("Refresh")}
         </button>
       </header>
 
       {visibleArrivals.length > 0 && (
-        <div className={styles.summary} aria-label="Departure data summary">
-          <span>{visibleArrivals.length} upcoming</span>
+        <div className={styles.summary} aria-label={t("Departure data summary")}>
+          <span>{t("{count} upcoming", { count: visibleArrivals.length })}</span>
           <span>
-            <strong>{realtimeCount}</strong> realtime
+            <strong>{realtimeCount}</strong>{" "}
+            {t("realtime", { count: realtimeCount })}
           </span>
-          <span>{visibleArrivals.length - realtimeCount} scheduled</span>
+          <span>
+            {t("{count} scheduled", {
+              count: visibleArrivals.length - realtimeCount,
+            })}
+          </span>
         </div>
       )}
 
       {(error || dataIsStale) && hasData && (
         <p className={styles.staleNotice} role="status">
-          {error ? "Live update failed" : "Live data is getting old"}
+          {error ? t("Live update failed") : t("Live data is getting old")}
           {receiptAgeSeconds !== null
-            ? ` · last successful update ${formatElapsedAge(receiptAgeSeconds)}`
+            ? ` · ${t("last successful update {age}", {
+                age: formatElapsedAge(receiptAgeSeconds),
+              })}`
             : ""}
         </p>
       )}
@@ -364,10 +413,14 @@ function BusStopDisplay({
         realtimeCount === 0 && (
           <p className={styles.staleNotice} role="status">
             {realtimeAvailable === false
-              ? "Live updates are unavailable · showing scheduled Föli times."
-              : "No live departure is published right now · showing the next scheduled Föli times."}
+              ? t("Live updates are unavailable · showing scheduled Föli times.")
+              : t(
+                  "No live departure is published right now · showing the next scheduled Föli times."
+                )}
             {scheduleIncomplete
-              ? " Later departures could not be checked, so more buses may run after these."
+              ? ` ${t(
+                  "Later departures could not be checked, so more buses may run after these."
+                )}`
               : ""}
           </p>
         )}
@@ -378,15 +431,15 @@ function BusStopDisplay({
           departures" about a stop nobody had checked. */}
       {loading && visibleArrivals.length === 0 ? (
         <div className={styles.state} role="status">
-          <span className={styles.stateKicker}>Connecting to Föli</span>
-          <strong>Loading departures…</strong>
+          <span className={styles.stateKicker}>{t("Connecting to Föli")}</span>
+          <strong>{t("Loading departures…")}</strong>
         </div>
       ) : error && visibleArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="alert">
-          <strong>Couldn’t load departures.</strong>
-          <span>Check the stop number or connection and try again.</span>
+          <strong>{t("Couldn’t load departures.")}</strong>
+          <span>{t("Check the stop number or connection and try again.")}</span>
           <button type="button" className={styles.retryButton} onClick={onRefresh}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       ) : visibleArrivals.length === 0 && (scheduleFailed || scheduleIncomplete) ? (
@@ -394,33 +447,34 @@ function BusStopDisplay({
         // unread, or read only up to a trip that could not be checked, an
         // empty board is not "no more buses".
         <div className={styles.state} role="status">
-          <strong>No live departures right now.</strong>
+          <strong>{t("No live departures right now.")}</strong>
           <span>
-            The timetable could not be checked just now, so later buses may
-            still run.
+            {t(
+              "The timetable could not be checked just now, so later buses may still run."
+            )}
           </span>
           <button type="button" className={styles.retryButton} onClick={onRefresh}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       ) : visibleArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="status">
-          <span className={styles.stateKicker}>Updating</span>
-          <strong>Checking for the next departures…</strong>
+          <span className={styles.stateKicker}>{t("Updating")}</span>
+          <strong>{t("Checking for the next departures…")}</strong>
         </div>
       ) : visibleArrivals.length === 0 ? (
         <div className={styles.state} role="status">
-          <strong>No upcoming departures.</strong>
-          <span>Try refreshing or choosing another nearby stop.</span>
+          <strong>{t("No upcoming departures.")}</strong>
+          <span>{t("Try refreshing or choosing another nearby stop.")}</span>
         </div>
       ) : (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th scope="col">Line</th>
-                <th scope="col">Destination</th>
-                <th scope="col">Due</th>
+                <th scope="col">{t("Line")}</th>
+                <th scope="col">{t("Destination")}</th>
+                <th scope="col">{tc("column", "Due")}</th>
               </tr>
             </thead>
             <tbody>
@@ -453,7 +507,7 @@ function BusStopDisplay({
                 const destination =
                   destinationName.sign ||
                   tripDetails?.headsign ||
-                  "Unknown destination";
+                  t("Unknown destination");
                 const accessibility = wheelchairLabel(
                   tripDetails?.wheelchairAccessible
                 );
@@ -491,7 +545,9 @@ function BusStopDisplay({
                       )}
                       <span className={styles.tripMeta}>
                         {cancelled
-                          ? `Cancelled at this stop · was due ${formatClock(departureTime)}`
+                          ? t("Cancelled at this stop · was due {time}", {
+                              time: formatClock(departureTime),
+                            })
                           : `${serviceStatus} · ${formatClock(departureTime)}`}
                       </span>
                       {accessibility && (
@@ -530,20 +586,20 @@ function BusStopDisplay({
                             }
                           >
                             {sameRideActive
-                              ? "Ride Mode active"
+                              ? t("Ride Mode active")
                               : rideSetupOpen
-                                ? "Close get-off setup"
-                                : "Alert me when to get off"}
+                                ? t("Close get-off setup")
+                                : t("Alert me when to get off")}
                           </button>
                         </div>
                       )}
                     </td>
                     <td className={styles.due}>
                       {cancelled ? (
-                        "Cancelled"
+                        t("Cancelled")
                       ) : (
                         <DueLabel
-                          label={formatDue(
+                          parts={formatDueParts(
                             departureTime,
                             effectiveServerTime * 1000
                           )}
@@ -580,11 +636,11 @@ function BusStopDisplay({
 
       {visibleArrivals.length > 0 && (
         <details className={styles.legend}>
-          <summary>About live estimates</summary>
+          <summary>{t("About live estimates")}</summary>
           <p>
-            Live times are estimates from vehicle data. Vehicle distance is a
-            straight-line estimate from the latest reported position. Scheduled
-            means no current realtime feed is available for that trip.
+            {t(
+              "Live times are estimates from vehicle data. Vehicle distance is a straight-line estimate from the latest reported position. Scheduled means no current realtime feed is available for that trip."
+            )}
           </p>
         </details>
       )}

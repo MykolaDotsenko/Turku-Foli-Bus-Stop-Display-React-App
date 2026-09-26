@@ -4,6 +4,7 @@ import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
 import ConnectivityStatus from "./components/ConnectivityStatus";
 import HomeRecovery from "./components/HomeRecovery";
+import LanguageSwitch from "./components/LanguageSwitch";
 import MyPlaces from "./components/MyPlaces";
 import NearbyStops from "./components/NearbyStops";
 import QuickStops from "./components/QuickStops";
@@ -18,13 +19,10 @@ import useServiceBoundary from "./hooks/useServiceBoundary";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
 import useStopMonitor from "./hooks/useStopMonitor";
+import { t, useLanguage } from "./i18n";
 import { buildRouteIndexes } from "./utils/routes";
 import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
 
-
-// The page's own title, from index.html, for when no stop is open.
-const DEFAULT_TITLE =
-  typeof document === "undefined" ? "" : document.title;
 
 function stopFromLocation() {
   const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
@@ -66,6 +64,8 @@ function canonicalizeCurrentStop(stopId, options) {
 }
 
 function App() {
+  // Everything below reads its words from the current language.
+  const language = useLanguage();
   const [stopId, setStopId] = useState(stopFromLocation);
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
@@ -175,11 +175,15 @@ function App() {
   // Every stop used to share one title, so tabs, bookmarks and history
   // could not be told apart.
   useEffect(() => {
+    // The page's own title in index.html is this same phrase.
     document.title =
       stopId && displayStopName
-        ? `${displayStopName} (${stopId}) · Föli departures`
-        : DEFAULT_TITLE;
-  }, [displayStopName, stopId]);
+        ? t("{name} ({id}) · Föli departures", {
+            name: displayStopName,
+            id: stopId,
+          })
+        : t("Turku bus departures · Föli live times");
+  }, [displayStopName, language, stopId]);
 
   const selectStop = (nextStopId) => {
     if (!/^\d+$/.test(nextStopId || "")) return;
@@ -199,7 +203,7 @@ function App() {
   const currentStop = stopId
     ? {
         id: stopId,
-        name: displayStopName || `Stop ${stopId}`,
+        name: displayStopName || t("Stop {id}", { id: stopId }),
       }
     : null;
 
@@ -235,14 +239,20 @@ function App() {
             {/* Turku is officially bilingual, and the pairing is itself a
                 local signal. The independence disclaimer keeps its place in
                 the footer; this line has one job, which is "you are here". */}
-            <p className="eyebrow">Turku · Åbo</p>
+            {/* The language switch rides on this short line's spare end: in a
+                row of its own it cost every phone screen a line of board. */}
+            <div className="eyebrow-row">
+              <p className="eyebrow">Turku · Åbo</p>
+              <LanguageSwitch />
+            </div>
             <p className="brand">Föli departures</p>
             <p
               className="context"
               data-firstrun={placesById.size === 0 ? "true" : "false"}
             >
-              Find a stop, save the places you travel to, and get told when to
-              get off.
+              {t(
+                "Find a stop, save the places you travel to, and get told when to get off."
+              )}
             </p>
           </div>
         </div>
@@ -257,11 +267,11 @@ function App() {
           aria-live="polite"
         >
           {online ? (
-            "Online"
+            t("Online")
           ) : (
             <>
               <span className="live-dot" aria-hidden="true" />
-              Offline mode
+              {t("Offline mode")}
             </>
           )}
         </span>
@@ -306,7 +316,7 @@ function App() {
         onOpenStop={selectStop}
       />
 
-      <section className="search-panel" aria-label="Choose a bus stop">
+      <section className="search-panel" aria-label={t("Choose a bus stop")}>
         <BusStopForm
           activeStopId={stopId}
           stops={stops}
@@ -395,7 +405,7 @@ function App() {
 
       <footer className="source-note">
         <p className="source-line">
-          Independent app · Data: Turku region public transport ·{" "}
+          {t("Independent app · Data: Turku region public transport")} ·{" "}
           <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
             data.foli.fi
           </a>{" "}
@@ -414,38 +424,37 @@ function App() {
             dozen fine-print lines, and "Independent app" was all a
             passenger saw without scrolling to the bottom. */}
         <details className="about">
-          <summary>About &amp; privacy</summary>
+          <summary>{t("About & privacy")}</summary>
           <dl>
-            <dt>Who makes it</dt>
+            <dt>{t("Who makes it")}</dt>
             <dd>
-              An independent app, not made by or affiliated with Föli (Turku
-              region public transport) or the City of Turku. For tickets and
-              official journey planning, use Föli&apos;s own services.
+              {t(
+                "An independent app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services."
+              )}
             </dd>
-            <dt>Where the times come from</dt>
+            <dt>{t("Where the times come from")}</dt>
             <dd>
-              Föli open data at data.foli.fi, under CC BY 4.0. Live times are
-              estimates from the buses and can change.
+              {t(
+                "Föli open data at data.foli.fi, under CC BY 4.0. Live times are estimates from the buses and can change."
+              )}
             </dd>
-            <dt>What stays on this phone</dt>
+            <dt>{t("What stays on this phone")}</dt>
             <dd>
-              Favourites, recent stops, My Places (public stop numbers and
-              names, never an address), the last few departure boards for up
-              to 15 minutes, and a ride in progress for up to six hours.
-              Clearing this site&apos;s data removes all of it.
+              {t(
+                "Favourites, recent stops, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
+              )}
             </dd>
-            <dt>What leaves it</dt>
+            <dt>{t("What leaves it")}</dt>
             <dd>
-              Each stop you look up is requested from data.foli.fi, which
-              sees your IP address and that stop. Your location is used only
-              when you ask, stays on the phone and is never saved. Google Maps
-              opens only when you tap a route link.
+              {t(
+                "Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link."
+              )}
             </dd>
-            <dt>What there is not</dt>
-            <dd>No account, no ads, no analytics.</dd>
+            <dt>{t("What there is not")}</dt>
+            <dd>{t("No account, no ads, no analytics.")}</dd>
           </dl>
           <p>
-            Feedback and source code:{" "}
+            {t("Feedback and source code:")}{" "}
             <a
               href="https://github.com/MykolaDotsenko/foli-live-departures/issues"
               target="_blank"

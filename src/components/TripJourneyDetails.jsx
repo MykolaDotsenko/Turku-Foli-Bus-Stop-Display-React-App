@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTripStopTimes } from "../api/foliApi";
+import { t } from "../i18n";
 import { resolveRideBoardingIndex } from "../utils/rideProgress";
 import styles from "./TripJourneyDetails.module.css";
 
@@ -23,7 +24,9 @@ function formatGtfsClock(value) {
 }
 
 function stopLabel(stopTime, stopsById) {
-  return stopsById.get(stopTime.stopId)?.name || `Stop ${stopTime.stopId}`;
+  return (
+    stopsById.get(stopTime.stopId)?.name || t("Stop {id}", { id: stopTime.stopId })
+  );
 }
 
 export default function TripJourneyDetails({
@@ -90,27 +93,27 @@ export default function TripJourneyDetails({
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
       >
-        {expanded ? "Hide next stops" : "Next stops"}
+        {expanded ? t("Hide next stops") : t("Next stops")}
       </button>
 
       {expanded && (
         <div className={styles.panel}>
-          <p className={styles.kicker}>Next stops · timetable times</p>
+          <p className={styles.kicker}>{t("Next stops · timetable times")}</p>
 
           {status === "loading" && (
             <p className={styles.status} role="status">
-              Loading planned stops…
+              {t("Loading planned stops…")}
             </p>
           )}
 
           {status === "error" && (
             <p className={styles.status} role="status">
-              Next stops are temporarily unavailable.
+              {t("Next stops are temporarily unavailable.")}
             </p>
           )}
 
           {status === "ready" && journey.visible.length === 0 && (
-            <p className={styles.status}>No later stops are listed.</p>
+            <p className={styles.status}>{t("No later stops are listed.")}</p>
           )}
 
           {status === "ready" && journey.visible.length > 0 && (
@@ -127,9 +130,11 @@ export default function TripJourneyDetails({
                       <span>{stopLabel(item, stopsById)}</span>
                       <small>
                         {clock
-                          ? `${approximate ? "around " : ""}${clock}`
-                          : "planned"}
-                        {item.dropOffType === 1 ? " · no drop-off" : ""}
+                          ? approximate
+                            ? t("around {time}", { time: clock })
+                            : clock
+                          : t("planned")}
+                        {item.dropOffType === 1 ? ` · ${t("no drop-off")}` : ""}
                       </small>
                     </li>
                   );
@@ -138,7 +143,9 @@ export default function TripJourneyDetails({
 
               {journey.remainingCount > 0 && journey.finalStop && (
                 <p className={styles.more}>
-                  +{journey.remainingCount} more · final stop{" "}
+                  {t("+{count} more · final stop", {
+                    count: journey.remainingCount,
+                  })}{" "}
                   <strong>{stopLabel(journey.finalStop, stopsById)}</strong>
                 </p>
               )}

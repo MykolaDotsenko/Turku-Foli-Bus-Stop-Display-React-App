@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -82,18 +84,27 @@ function messageMatchesContext(
   return routeNames.some((line) => activeLines.has(line));
 }
 
+// The app's own words for what Föli's codes mean, in the current language.
+// Alerts are extracted again whenever the language changes (useStopAlerts).
 function effectLabel(effect) {
-  const labels = {
-    NO_SERVICE: "No service",
-    REDUCED_SERVICE: "Reduced service",
-    SIGNIFICANT_DELAYS: "Significant delays",
-    DETOUR: "Detour",
-    ADDITIONAL_SERVICE: "Additional service",
-    MODIFIED_SERVICE: "Modified service",
-    STOP_MOVED: "Stop moved",
-  };
-
-  return labels[effect] || "Service update";
+  switch (effect) {
+    case "NO_SERVICE":
+      return t("No service");
+    case "REDUCED_SERVICE":
+      return t("Reduced service");
+    case "SIGNIFICANT_DELAYS":
+      return t("Significant delays");
+    case "DETOUR":
+      return t("Detour");
+    case "ADDITIONAL_SERVICE":
+      return t("Additional service");
+    case "MODIFIED_SERVICE":
+      return t("Modified service");
+    case "STOP_MOVED":
+      return t("Stop moved");
+    default:
+      return t("Service update");
+  }
 }
 
 
@@ -170,7 +181,7 @@ function normalizeMessage(
         : 9999,
     title:
       localized.header ||
-      (type === "global" ? "Föli service notice" : effectLabel(effect)),
+      (type === "global" ? t("Föli service notice") : effectLabel(effect)),
     message: localized.message,
     information: localized.information,
     effect,
@@ -262,7 +273,7 @@ export function extractStopAlerts(
   const emergency = normalizeSpecial(
     payload.emergency_message,
     "emergency",
-    "Emergency service notice",
+    t("Emergency service notice"),
     preferredLanguages,
     referenceTime
   );
@@ -274,7 +285,7 @@ export function extractStopAlerts(
   const globalMessage = normalizeSpecial(
     payload.global_message,
     "global",
-    "Föli service notice",
+    t("Föli service notice"),
     preferredLanguages,
     referenceTime
   );
@@ -314,7 +325,7 @@ export function extractStopAlerts(
         id: `cancellation-${cancellation.id ?? cancellationIndex}-${stopIndex}`,
         type: "cancellation",
         priority: -500,
-        title: "Cancelled departure",
+        title: t("Cancelled departure"),
         line:
           cancellation?.line === null || cancellation?.line === undefined
             ? ""
@@ -327,7 +338,7 @@ export function extractStopAlerts(
         message: "",
         information: "",
         effect: "NO_SERVICE",
-        effectLabel: "No service",
+        effectLabel: t("No service"),
       }));
     }
   );

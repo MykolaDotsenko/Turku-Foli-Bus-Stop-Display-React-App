@@ -1,3 +1,5 @@
+import { intlLocale, t } from "../i18n";
+
 const DEPARTURE_TIME_FIELDS = [
   "expecteddeparturetime",
   "expectedarrivaltime",
@@ -107,38 +109,44 @@ function dayDistance(leftKey, rightKey) {
   );
 }
 
-export function formatDue(unixSeconds, nowMs = Date.now()) {
+// "4 min", or a day and a clock time ("Tomorrow", "06:30"). The day is kept
+// apart so the board can set it smaller than the time, in any language.
+export function formatDueParts(unixSeconds, nowMs = Date.now()) {
   const minutes = minutesUntil(unixSeconds, nowMs);
-  if (minutes === null) return "—";
-  if (minutes <= 1) return "Due";
-  if (minutes <= 90) return `${minutes} min`;
+  if (minutes === null) return { day: "", time: "—" };
+  if (minutes <= 1) return { day: "", time: t("Due") };
+  if (minutes <= 90) return { day: "", time: t("{minutes} min", { minutes }) };
 
   const departureMs = Number(unixSeconds) * 1000;
   const days = dayDistance(serviceDayKey(nowMs), serviceDayKey(departureMs));
   const clock = formatClock(unixSeconds);
 
-  if (days === 0) return `Today ${clock}`;
-  if (days === 1) return `Tomorrow ${clock}`;
+  if (days === 0) return { day: t("Today"), time: clock };
+  if (days === 1) return { day: t("Tomorrow"), time: clock };
 
-  return serviceDateTimeFormat(
-    {
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    },
-    TRANSIT_CLOCK_LOCALE
-  ).format(new Date(departureMs));
+  return {
+    day: serviceDateTimeFormat({ weekday: "short" }, intlLocale()).format(
+      new Date(departureMs)
+    ),
+    time: clock,
+  };
+}
+
+export function formatDue(unixSeconds, nowMs = Date.now()) {
+  const { day, time } = formatDueParts(unixSeconds, nowMs);
+  return day ? `${day} ${time}` : time;
 }
 
 export function formatDelay(delaySeconds) {
   const seconds = Number(delaySeconds);
   if (!Number.isFinite(seconds)) return null;
-  if (Math.abs(seconds) < 30) return "on time";
+  if (Math.abs(seconds) < 30) return t("on time");
 
   // "+1 min" is transit shorthand; "1 min late" is what it means.
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
-  return seconds > 0 ? `${minutes} min late` : `${minutes} min early`;
+  return seconds > 0
+    ? t("{minutes} min late", { minutes })
+    : t("{minutes} min early", { minutes });
 }
 
 export function dataAgeSeconds(recordedAt, serverTime) {
@@ -163,16 +171,18 @@ export function formatServiceStatus(
   recordedAt,
   serverTime
 ) {
-  if (!monitored) return "Scheduled";
+  if (!monitored) return t("Scheduled");
 
   const delay = formatDelay(delaySeconds);
   const ageSeconds = dataAgeSeconds(recordedAt, serverTime);
 
-  let freshness = "Live";
+  let freshness = t("Live");
   if (ageSeconds !== null && ageSeconds > 120) {
-    freshness = `Live data · ${Math.max(2, Math.round(ageSeconds / 60))} min old`;
+    freshness = t("Live data · {minutes} min old", {
+      minutes: Math.max(2, Math.round(ageSeconds / 60)),
+    });
   } else if (ageSeconds !== null && ageSeconds > 60) {
-    freshness = "Live data · 1 min old";
+    freshness = t("Live data · 1 min old");
   }
 
   return delay ? `${freshness} · ${delay}` : freshness;
@@ -222,7 +232,7 @@ export function formatElapsedAge(seconds) {
 
   const value = Number(seconds);
   if (!Number.isFinite(value) || value < 0) return "";
-  if (value < 60) return "just now";
-  if (value < 120) return "1 min ago";
-  return `${Math.round(value / 60)} min ago`;
+  if (value < 60) return t("just now");
+  if (value < 120) return t("1 min ago");
+  return t("{minutes} min ago", { minutes: Math.round(value / 60) });
 }

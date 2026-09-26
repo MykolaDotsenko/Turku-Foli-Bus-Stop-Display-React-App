@@ -1,3 +1,4 @@
+import { msg } from "../i18n";
 import { hasCoordinates } from "./geo";
 
 export const HIGH_ACCURACY_LOCATION_OPTIONS = {
@@ -18,20 +19,22 @@ function readPosition(geolocation, options) {
   });
 }
 
+// The phrase, in English; the caller shows it with t() so it follows a
+// language change while it is on screen.
 export function locationErrorMessage(error) {
   if (error?.code === 1) {
-    return "Location access is blocked. Allow location for this site in your browser settings and try again.";
+    return msg("Location access is blocked. Allow location for this site in your browser settings and try again.");
   }
 
   if (error?.code === 2) {
-    return "Your device could not determine its location. Check location services and try again.";
+    return msg("Your device could not determine its location. Check location services and try again.");
   }
 
   if (error?.code === 3) {
-    return "Location took too long to respond. Move near a window or try again.";
+    return msg("Location took too long to respond. Move near a window or try again.");
   }
 
-  return "Your location could not be read. Try again or choose a stop manually.";
+  return msg("Your location could not be read. Try again or choose a stop manually.");
 }
 
 export async function requestOneTimePosition(geolocation) {

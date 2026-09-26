@@ -1,4 +1,5 @@
 import React from "react";
+import { t } from "../i18n";
 import styles from "./AppErrorBoundary.module.css";
 
 export default class AppErrorBoundary extends React.Component {
@@ -26,17 +27,19 @@ export default class AppErrorBoundary extends React.Component {
       <main className={styles.shell}>
         <section className={styles.card} role="alert" aria-live="assertive">
           <p className={styles.kicker}>Föli departures</p>
-          <h1>Something went wrong.</h1>
+          <h1>{t("Something went wrong.")}</h1>
           <p>
-            The app hit an unexpected display error. Your saved public stop
-            preferences remain in this browser.
+            {t(
+              "The app hit an unexpected display error. Your saved public stop preferences remain in this browser."
+            )}
           </p>
           <button type="button" onClick={this.reload}>
-            Reload app
+            {t("Reload app")}
           </button>
           <p className={styles.fallback}>
-            If reloading does not help, use the official Föli service while
-            this independent companion is unavailable.
+            {t(
+              "If reloading does not help, use the official Föli service while this independent companion is unavailable."
+            )}
           </p>
         </section>
       </main>

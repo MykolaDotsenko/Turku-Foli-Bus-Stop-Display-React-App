@@ -1,3 +1,5 @@
+import { intlLocale } from "../i18n";
+
 const EARTH_RADIUS_METERS = 6_371_008.8;
 
 function toRadians(value) {
@@ -80,8 +82,16 @@ export function formatDistance(distanceMeters) {
     return `${Math.round(distanceMeters / 10) * 10} m`;
   }
 
+  // "2.6 km" in English, "2,6 km" in Finnish.
   const kilometers = distanceMeters / 1_000;
-  return `${kilometers < 10 ? kilometers.toFixed(1) : Math.round(kilometers)} km`;
+  const shown =
+    kilometers < 10
+      ? kilometers.toLocaleString(intlLocale(), {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        })
+      : String(Math.round(kilometers));
+  return `${shown} km`;
 }
 
 export function formatAccuracy(accuracyMeters) {
