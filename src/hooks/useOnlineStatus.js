@@ -144,6 +144,15 @@ export default function useOnlineStatus() {
       sync({ ignoreOfflineShell: true });
     };
 
+    // The cache's offline marker describes how this page was opened, so it
+    // decides the first check only. Later checks test the connection: with
+    // Wi-Fi that had no internet, the browser never reports going offline,
+    // no "online" event follows the recovery, and trusting the marker kept
+    // "Offline mode" (and Get me Home switched off) for the whole visit.
+    const recheck = () => {
+      sync({ ignoreOfflineShell: true });
+    };
+
     const persistOfflineBeforeReload = () => {
       if (!browserSaysOnline()) {
         writeOfflineHint(true);
@@ -156,9 +165,9 @@ export default function useOnlineStatus() {
     window.addEventListener("offline", markOffline);
     window.addEventListener("beforeunload", persistOfflineBeforeReload);
     window.addEventListener("pagehide", persistOfflineBeforeReload);
-    window.addEventListener("pageshow", sync);
-    window.addEventListener("focus", sync);
-    document.addEventListener("visibilitychange", sync);
+    window.addEventListener("pageshow", recheck);
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
 
     return () => {
       active = false;
@@ -167,9 +176,9 @@ export default function useOnlineStatus() {
       window.removeEventListener("offline", markOffline);
       window.removeEventListener("beforeunload", persistOfflineBeforeReload);
       window.removeEventListener("pagehide", persistOfflineBeforeReload);
-      window.removeEventListener("pageshow", sync);
-      window.removeEventListener("focus", sync);
-      document.removeEventListener("visibilitychange", sync);
+      window.removeEventListener("pageshow", recheck);
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
     };
   }, []);
 

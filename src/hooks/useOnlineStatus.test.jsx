@@ -252,3 +252,57 @@ test("keeps working when the browser refuses access to storage", async () => {
     }
   }
 });
+
+// Wi-Fi without internet reopens the app from its cache without the browser
+// ever saying it went offline, so no "online" event follows when the
+// connection comes back. Every later check stopped at the cache's marker
+// without testing the connection, and "Offline mode" stuck for the visit.
+test("finds the connection again after an offline reopen, with no online event", async () => {
+  setOnline(true);
+
+  const deleteEntry = vi.fn().mockResolvedValue(true);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      match: vi.fn().mockResolvedValue(new globalThis.Response("offline")),
+      keys: vi.fn().mockResolvedValue(["foli-shell-abc"]),
+      open: vi.fn().mockResolvedValue({ delete: deleteEntry }),
+    },
+  });
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+
+  // The passenger comes back to the app.
+  act(() => {
+    window.dispatchEvent(new globalThis.Event("focus"));
+  });
+
+  await waitFor(() => expect(result.current).toBe(true));
+  expect(globalThis.fetch).toHaveBeenCalled();
+  expect(deleteEntry).toHaveBeenCalled();
+});
+
+test("stays offline after an offline reopen while the connection is still gone", async () => {
+  setOnline(true);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      match: vi.fn().mockResolvedValue(new globalThis.Response("offline")),
+      keys: vi.fn().mockResolvedValue([]),
+    },
+  });
+  globalThis.fetch = vi.fn().mockRejectedValue(new Error("no route to host"));
+
+  const { result } = renderHook(() => useOnlineStatus());
+  await waitFor(() => expect(result.current).toBe(false));
+
+  act(() => {
+    document.dispatchEvent(new globalThis.Event("visibilitychange"));
+  });
+
+  await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+  expect(result.current).toBe(false);
+});
