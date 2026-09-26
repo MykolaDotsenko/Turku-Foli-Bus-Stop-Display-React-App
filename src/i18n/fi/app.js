@@ -21,8 +21,8 @@ export default {
   "Föli open data at data.foli.fi, under CC BY 4.0. Live times are estimates from the buses and can change.":
     "Fölin avoimesta datasta osoitteessa data.foli.fi, lisenssillä CC BY 4.0. Reaaliaikaiset ajat ovat busseista saatuja arvioita ja voivat muuttua.",
   "What stays on this phone": "Mitä tähän puhelimeen jää",
-  "Favourites, recent stops, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it.":
-    "Suosikit, viimeksi käytetyt pysäkit, Omat paikat (julkiset pysäkkien numerot ja nimet, ei koskaan osoitetta), muutama viimeisin lähtötaulu enintään 15 minuutin ajan ja käynnissä oleva matka enintään kuuden tunnin ajan. Kaikki poistuu, kun tyhjennät tämän sivuston tiedot.",
+  "Favourites, recent stops, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it.":
+    "Suosikit, viimeksi käytetyt pysäkit, pysäkeiltä seuraamasi linjat, Omat paikat (julkiset pysäkkien numerot ja nimet, ei koskaan osoitetta), muutama viimeisin lähtötaulu enintään 15 minuutin ajan ja käynnissä oleva matka enintään kuuden tunnin ajan. Kaikki poistuu, kun tyhjennät tämän sivuston tiedot.",
   "What leaves it": "Mitä puhelimesta lähtee",
   "Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link.":
     "Jokainen hakemasi pysäkki pyydetään osoitteesta data.foli.fi, joka näkee IP-osoitteesi ja pysäkin. Sijaintiasi käytetään vain pyynnöstäsi, se pysyy puhelimessa eikä sitä tallenneta. Google Maps avautuu vain, kun napautat reittilinkkiä.",

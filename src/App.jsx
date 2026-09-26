@@ -453,7 +453,7 @@ function App() {
             <dt>{t("What stays on this phone")}</dt>
             <dd>
               {t(
-                "Favourites, recent stops, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
+                "Favourites, recent stops, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
               )}
             </dd>
             <dt>{t("What leaves it")}</dt>

@@ -59,7 +59,7 @@ It also handles less ideal situations: poor connectivity, an unfamiliar area, a 
 
 - **Realtime departure board** with conservative Live/Scheduled semantics and stale-data handling
 - **Ride Mode get-off alerts** that warn when to get ready, press STOP and exit without continuously watching a map
-- **Stop search, favorites and recents** for fast repeat journeys
+- **Stop search, favorites and recents** for fast repeat journeys, and a **line filter** kept per stop for the lines you actually take
 - **Nearest-stop discovery** with one-time geolocation, uncertainty checks and nearby alternatives
 - **Service disruption intelligence** across stop-level, route-level and emergency alerts
 - **Safe Places** for Home, School and Work using public stop identities instead of private addresses
