@@ -34,6 +34,13 @@ export default {
 
   // Choosing a place's stops
   "Choose stops for {label}": "Valitse pysäkit: {label}",
+  "Tick the stops you use to get Home, and mark one as Primary.":
+    "Valitse pysäkit, joita käytät kotimatkalla, ja merkitse yksi pääpysäkiksi.",
+  "Tick the stops you use to get to School, and mark one as Primary.":
+    "Valitse pysäkit, joita käytät koulumatkalla, ja merkitse yksi pääpysäkiksi.",
+  "Tick the stops you use to get to Work, and mark one as Primary.":
+    "Valitse pysäkit, joita käytät työmatkalla, ja merkitse yksi pääpysäkiksi.",
+  "How this works": "Miten tämä toimii",
   Cancel: "Peruuta",
   "Review the public stop you selected and confirm that it is suitable for this destination.":
     "Tarkista valitsemasi julkinen pysäkki ja vahvista, että se sopii tähän määränpäähän.",

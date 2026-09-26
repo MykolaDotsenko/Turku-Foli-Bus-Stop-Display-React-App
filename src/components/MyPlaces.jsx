@@ -24,6 +24,7 @@ const LOW_ACCURACY_METERS = 250;
 const PLACE_PHRASES = {
   home: {
     go: msg("Go Home"),
+    choose: msg("Tick the stops you use to get Home, and mark one as Primary."),
     rightStop: msg("Yes, this is the right stop for Home."),
     rightStops: msg("Yes, these are the right stops for Home."),
     backupAdvice: msg(
@@ -32,6 +33,7 @@ const PLACE_PHRASES = {
   },
   school: {
     go: msg("Go to School"),
+    choose: msg("Tick the stops you use to get to School, and mark one as Primary."),
     rightStop: msg("Yes, this is the right stop for School."),
     rightStops: msg("Yes, these are the right stops for School."),
     backupAdvice: msg(
@@ -40,6 +42,7 @@ const PLACE_PHRASES = {
   },
   work: {
     go: msg("Go to Work"),
+    choose: msg("Tick the stops you use to get to Work, and mark one as Primary."),
     rightStop: msg("Yes, this is the right stop for Work."),
     rightStops: msg("Yes, these are the right stops for Work."),
     backupAdvice: msg(
@@ -127,15 +130,28 @@ function SetupPlace({
         </button>
       </div>
 
+      {/* One thing to do, then the list. The reasoning behind it read as a
+          wall of text above the stops, so it waits behind "How this works";
+          what is kept about the passenger stays in plain view. */}
       <p className={styles.helper}>
         {preselectFirst
           ? t(
               "Review the public stop you selected and confirm that it is suitable for this destination."
             )
-          : t(
-              "When location quality is good and a stop is reasonably close, the nearest stop is selected first. Otherwise you must choose manually."
-            )}{" "}
-        {t(phrases.backupAdvice)}{" "}
+          : t(phrases.choose)}
+      </p>
+      <details className={styles.setupDetails}>
+        <summary>{t("How this works")}</summary>
+        <p>
+          {preselectFirst
+            ? ""
+            : `${t(
+                "When location quality is good and a stop is reasonably close, the nearest stop is selected first. Otherwise you must choose manually."
+              )} `}
+          {t(phrases.backupAdvice)}
+        </p>
+      </details>
+      <p className={styles.privacy}>
         {t(
           "Only public stop IDs and names are saved; your exact location is discarded."
         )}

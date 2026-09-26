@@ -159,6 +159,28 @@
   font-weight: 800;
 }
 
+.setupDetails {
+  color: #415960;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.setupDetails summary {
+  width: fit-content;
+  color: #00656f;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.setupDetails p {
+  margin: 4px 0 0;
+}
+
+.setupDetails summary:focus-visible {
+  outline: 3px solid rgba(0, 121, 133, 0.28);
+  outline-offset: 2px;
+}
+
 .backupList {
   display: grid;
   gap: 7px;
@@ -686,5 +708,17 @@
     border-color: var(--dm-warn-line);
     background: var(--dm-warn-surface);
     color: var(--dm-warn-text);
+  }
+
+  .setupDetails {
+    color: var(--dm-soft);
+  }
+
+  .setupDetails summary {
+    color: var(--dm-accent);
+  }
+
+  .setupDetails summary:focus-visible {
+    outline-color: var(--dm-focus);
   }
 }
