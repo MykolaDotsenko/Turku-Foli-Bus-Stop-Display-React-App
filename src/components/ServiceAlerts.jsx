@@ -167,6 +167,7 @@ function AlertItem({ alert }) {
 
 function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
   const [expanded, setExpanded] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const nowMs = useClockTick(60_000);
   const receiptAgeSeconds = elapsedSince(receivedAtMs, nowMs);
   const stale =
@@ -209,10 +210,16 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
     ? alerts
     : alerts.slice(0, DEFAULT_VISIBLE_ALERTS);
 
+  // On a phone the list folds into one line, the count and the first
+  // notice's title: four of them stood between the search and the board.
+  // An emergency is never folded.
+  const folded = !emergency && !phoneOpen;
+
   return (
     <section
       className={`${styles.panel} ${emergency ? styles.emergencyPanel : ""}`}
       aria-labelledby="service-alerts-title"
+      data-folded={folded ? "true" : "false"}
     >
       <div className={styles.headingRow}>
         <div>
@@ -235,6 +242,24 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
         </span>
       </div>
 
+      {!emergency && (
+        <button
+          type="button"
+          className={styles.phoneToggle}
+          aria-expanded={phoneOpen}
+          aria-controls="service-alerts-list"
+          onClick={() => setPhoneOpen((current) => !current)}
+        >
+          {phoneOpen
+            ? t("Hide service updates")
+            : `${
+                alerts.length === 1
+                  ? t("1 service update")
+                  : t("{count} service updates", { count: alerts.length })
+              } · ${alerts[0].title}`}
+        </button>
+      )}
+
       {(error || stale) && (
         <p className={styles.feedStatus} role="status">
           {error ? t("Update check failed") : t("Service update check is getting old")}
@@ -246,7 +271,7 @@ function ServiceAlerts({ alerts, error = false, receivedAtMs = null }) {
         </p>
       )}
 
-      <div className={styles.list}>
+      <div id="service-alerts-list" className={styles.list}>
         {visibleAlerts.map((alert) => (
           <AlertItem key={alert.id} alert={alert} />
         ))}

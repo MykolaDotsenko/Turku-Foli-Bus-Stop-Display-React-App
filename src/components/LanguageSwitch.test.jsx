@@ -64,8 +64,8 @@ test("the departure board reads in Finnish, names left as the sign says", () => 
   expect(screen.getByRole("button", { name: "Päivitä" })).toBeInTheDocument();
   expect(screen.getByText("Satama")).toBeInTheDocument();
   expect(screen.queryByText("Harbour")).not.toBeInTheDocument();
-  expect(screen.getByText(/^Reaaliaika · 2 min myöhässä · /)).toBeInTheDocument();
-  expect(screen.getByRole("cell", { name: "4 min" })).toBeInTheDocument();
+  expect(screen.getByText("Reaaliaika · 2 min myöhässä")).toBeInTheDocument();
+  expect(screen.getByRole("cell", { name: /^4 min \d\d:\d\d$/ })).toBeInTheDocument();
 });
 
 test("a board already on screen follows a switch of language", () => {

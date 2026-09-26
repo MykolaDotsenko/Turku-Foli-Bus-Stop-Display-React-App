@@ -207,7 +207,7 @@ test("prefers provider vehicle-at-stop truth over geometric proximity", () => {
     />
   );
 
-  expect(screen.getByText("Bus at stop · board now")).toBeInTheDocument();
+  expect(screen.getByText("Bus is at the stop")).toBeInTheDocument();
 });
 
 function destinationBoard(arrival) {

@@ -224,7 +224,7 @@ test("an offline board says its times are from the last update, not live", () =>
   );
 
   expect(screen.getByText(/^Offline · last updated \d\d:\d\d$/)).toBeInTheDocument();
-  expect(screen.getByText(/^Last live estimate · 1 min late · /)).toBeInTheDocument();
+  expect(screen.getByText("Last live estimate · 1 min late")).toBeInTheDocument();
   expect(screen.queryByText(/^Live · /)).not.toBeInTheDocument();
   expect(screen.queryByText(/Bus at stop/)).not.toBeInTheDocument();
 });

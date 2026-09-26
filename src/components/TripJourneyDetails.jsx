@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTripStopTimes } from "../api/foliApi";
-import { t } from "../i18n";
+import { t, tc } from "../i18n";
 import { resolveRideBoardingIndex } from "../utils/rideProgress";
 import styles from "./TripJourneyDetails.module.css";
 import StopName from "./StopName";
@@ -87,8 +87,16 @@ export default function TripJourneyDetails({
         className={styles.toggle}
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
+        aria-label={expanded ? t("Hide next stops") : t("Next stops")}
       >
-        {expanded ? t("Hide next stops") : t("Next stops")}
+        {/* A narrow phone gets the short Finnish label, so this and the
+            get-off alert share one line; its words stay in the name. */}
+        <span className={styles.toggleLong} aria-hidden="true">
+          {expanded ? t("Hide next stops") : t("Next stops")}
+        </span>
+        <span className={styles.toggleShort} aria-hidden="true">
+          {expanded ? tc("short", "Hide next stops") : tc("short", "Next stops")}
+        </span>
       </button>
 
       {expanded && (

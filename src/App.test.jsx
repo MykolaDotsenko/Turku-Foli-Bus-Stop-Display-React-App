@@ -80,11 +80,9 @@ test("renders departure time and compact trip status", () => {
 
   expect(screen.getByText("Kauppatori")).toBeInTheDocument();
   expect(screen.getByText("Satama")).toBeInTheDocument();
-  expect(
-    screen.getByText((text) =>
-      text.includes(`Live · 1 min late · ${formatClock(departureTime)}`)
-    )
-  ).toBeInTheDocument();
+  expect(screen.getByText("Live · 1 min late")).toBeInTheDocument();
+  // The clock sits under the countdown, as on a stop display.
+  expect(screen.getByText(formatClock(departureTime))).toHaveClass(/dueClock/);
 });
 
 test("orders the board by departure rather than arrival", () => {

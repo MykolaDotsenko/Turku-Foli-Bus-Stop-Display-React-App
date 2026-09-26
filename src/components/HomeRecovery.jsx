@@ -23,7 +23,13 @@ function resolveStops(place, stops) {
   }));
 }
 
-function HomeRecovery({ home, stops, online = true, onOpenStop }) {
+function HomeRecovery({
+  home,
+  stops,
+  online = true,
+  compact = false,
+  onOpenStop,
+}) {
   useLanguage();
   const [showDriver, setShowDriver] = useState(false);
   const [mobileOptionsOpen, setMobileOptionsOpen] = useState(false);
@@ -52,6 +58,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
     <section
       className={styles.wrapper}
       data-mobile-options-open={mobileOptionsOpen ? "true" : "false"}
+      data-compact={compact ? "true" : undefined}
       aria-labelledby="home-recovery-title"
     >
       <div className={styles.copy}>
@@ -91,6 +98,9 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             rel="noreferrer"
             aria-label={t("Get me Home by public transit")}
           >
+            <span className={styles.compactIcon} aria-hidden="true">
+              {"⌂"}
+            </span>
             {t("Get me Home")}
           </a>
         ) : (
@@ -100,6 +110,9 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             disabled
             aria-describedby="home-recovery-routing-status"
           >
+            <span className={styles.compactIcon} aria-hidden="true">
+              {"⌂"}
+            </span>
             {t("Get me Home")}
           </button>
         )}

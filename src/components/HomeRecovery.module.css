@@ -687,6 +687,34 @@
 
 /* Dark theme: tokens in App.css. Screen only, so the printed card stays
    black on white paper. */
+/* With a stop's board open, a phone shows the card as its two actions:
+   the heading stays its name, out of sight, and Home options still opens
+   everything else. It cost a 360px screen its first departure. */
+.compactIcon {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .wrapper[data-compact="true"][data-mobile-options-open="false"] .copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .wrapper[data-compact="true"][data-mobile-options-open="false"] .destination {
+    display: none;
+  }
+
+  .wrapper[data-compact="true"] .compactIcon {
+    display: inline;
+    margin-right: 0.4em;
+  }
+}
+
 @media screen and (prefers-color-scheme: dark) {
   .wrapper {
     border-color: var(--dm-line-strong);

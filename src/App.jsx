@@ -113,6 +113,14 @@ function App() {
     rememberRecent,
     toggleFavorite,
   } = useSavedStops();
+  // A first visit, on this phone: nothing looked at or saved before it. A
+  // phone then still says what the app is and what the search takes; after
+  // that the board gets the room.
+  const firstVisitRef = useRef(null);
+  if (firstVisitRef.current === null) {
+    firstVisitRef.current = favorites.length === 0 && recents.length === 0;
+  }
+  const firstVisit = firstVisitRef.current;
   const {
     places,
     byId: placesById,
@@ -155,6 +163,20 @@ function App() {
     catalogStatus === "ready" &&
     stops.length > 0 &&
     !selectedStop;
+  // A notice about a line, on that line's buses: with the list folded on a
+  // phone, "Detour" on the row is what says line 1 is affected.
+  const lineNotices = useMemo(() => {
+    const notices = new Map();
+    for (const alert of serviceAlerts) {
+      if (alert.type !== "message" && alert.type !== "emergency") continue;
+      for (const line of alert.routeNames || []) {
+        if (!notices.has(String(line))) {
+          notices.set(String(line), alert.effectLabel || "");
+        }
+      }
+    }
+    return notices;
+  }, [serviceAlerts]);
   const stopCancellations = useMemo(
     () => serviceAlerts.filter((alert) => alert.type === "cancellation"),
     [serviceAlerts]
@@ -295,7 +317,9 @@ function App() {
             </p>
             <p
               className="context"
-              data-firstrun={placesById.size === 0 ? "true" : "false"}
+              data-firstrun={
+                placesById.size === 0 && (firstVisit || !stopId) ? "true" : "false"
+              }
             >
               {t(
                 "Find a stop, save the places you travel to, and get told when to get off."
@@ -351,11 +375,13 @@ function App() {
           home={placesById.get("home") || null}
           stops={stops}
           online={online}
+          compact={Boolean(stopId)}
           onOpenStop={selectStop}
         />
 
         <section className="search-panel" aria-label={t("Choose a bus stop")}>
           <BusStopForm
+            compact={Boolean(stopId) && !firstVisit}
             activeStopId={stopId}
             stops={stops}
             coordinatesStatus={coordinatesStatus}
@@ -410,6 +436,7 @@ function App() {
             cancellations={stopCancellations}
             unknownStop={unknownStop}
             online={online}
+            lineNotices={lineNotices}
           />
         </>
       )}

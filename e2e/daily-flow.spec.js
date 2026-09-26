@@ -421,6 +421,13 @@ async function mockFoli(page) {
   });
 }
 
+// On a phone the service updates fold into one line; this opens them.
+async function openServiceUpdates(page) {
+  await page.locator("#service-alerts-list").waitFor({ state: "attached" });
+  const fold = page.locator('[aria-controls="service-alerts-list"]');
+  if (await fold.isVisible()) await fold.click();
+}
+
 test.beforeEach(async ({ page }) => {
   await mockFoli(page);
 });
@@ -995,7 +1002,7 @@ test("a phone is told what the app is until it no longer needs telling", async (
   await expect(page.getByText("Search by stop name or number.")).toBeVisible();
 
   // The departure board still has to win the top of the screen.
-  await expect(page.getByText("Bus at stop · board now")).toBeInViewport();
+  await expect(page.getByText("Bus is at the stop")).toBeInViewport();
 
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
@@ -1007,13 +1014,19 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await page.goto("/?stop=164");
 
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
-  const detourSummary = page.getByText("Line 1 city-centre detour");
+  await openServiceUpdates(page);
+  const alerts = page.locator('[aria-labelledby="service-alerts-title"]');
+  const detourSummary = alerts.getByText("Line 1 city-centre detour", { exact: true });
   await expect(detourSummary).toBeVisible();
-  await expect(page.getByText("Detour", { exact: true })).toBeVisible();
-  await expect(page.getByText("Line 99 service change")).toBeVisible();
+  await expect(alerts.getByText("Detour", { exact: true })).toBeVisible();
+  await expect(alerts.getByText("Line 99 service change", { exact: true })).toBeVisible();
+  // The notice is on the affected line's own buses too.
+  await expect(
+    page.locator("tbody tr").first().getByText("Detour", { exact: true })
+  ).toBeVisible();
   await expect(page.getByText("Harbour")).toBeVisible();
-  await expect(page.getByText(/Bus at stop · board now/i)).toBeVisible();
-  await expect(page.getByText("Wheelchair accessible").first()).toBeVisible();
+  await expect(page.getByText(/Bus is at the stop/i)).toBeVisible();
+  await expect(page.getByTitle("Wheelchair accessible").first()).toBeVisible();
 
   const boardPrecedesPlaceManagement = await page.evaluate(() => {
     const board = document.querySelector('[aria-labelledby="departures-title"]');
@@ -1568,7 +1581,8 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
 
-  const alertDetails = page.getByText("Line 1 city-centre detour").first();
+  await openServiceUpdates(page);
+  const alertDetails = page.getByText("Line 1 city-centre detour", { exact: true });
   if (await alertDetails.isVisible()) {
     await alertDetails.click();
     await expect(page.getByAltText("Temporary detour map")).toBeVisible();
@@ -1621,7 +1635,8 @@ test("a phone in dark mode gets a dark page that is just as readable", async ({
   // Without this a missing theme would pass as readable light pages.
   expect(await rootBackground()).toBe("rgb(12, 20, 22)");
 
-  const alertDetails = page.getByText("Line 1 city-centre detour").first();
+  await openServiceUpdates(page);
+  const alertDetails = page.getByText("Line 1 city-centre detour", { exact: true });
   if (await alertDetails.isVisible()) {
     await alertDetails.click();
   }
@@ -2149,7 +2164,8 @@ test("an opened disruption notice shows its whole message on a phone", async ({
   });
 
   await page.goto("/?stop=164");
-  await page.getByText("Line 1 temporary stop").click();
+  await openServiceUpdates(page);
+  await page.getByText("Line 1 temporary stop", { exact: true }).click();
 
   // The notice is the only place a passenger learns where the moved stop
   // is. Cut to one line, it ended mid-sentence with no way to read on.
@@ -2195,7 +2211,8 @@ test("six simultaneous alerts stay compact and keep departures reachable", async
   });
 
   await page.goto("/?stop=164");
-  await expect(page.getByLabel("6 service updates")).toBeVisible();
+  await expect(page.getByLabel("6 service updates")).toBeAttached();
+  await openServiceUpdates(page);
   await expect(
     page.getByRole("button", { name: "Show 2 more updates" })
   ).toBeVisible();

@@ -306,7 +306,6 @@
   font-weight: 600;
 }
 
-.accessibility,
 .proximity {
   display: block;
   margin-top: 3px;
@@ -314,17 +313,44 @@
   font-weight: 780;
 }
 
+/* In the status line. An accessible bus, the usual case, is its symbol;
+   one that is not keeps a chip, as it is the one to notice. */
 .accessibility {
-  width: fit-content;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: #edf7f4;
+  display: inline-block;
+  margin-left: 0.4em;
+  font-weight: 780;
+}
+
+.accessibility[data-accessible="true"] {
   color: #285b4e;
 }
 
 .accessibility[data-accessible="false"] {
+  padding: 0 6px;
+  border-radius: 6px;
   background: #fff4ef;
   color: #8a3f2b;
+}
+
+/* The effect of a notice about this line, in the notices' own amber. */
+.lineNotice {
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #fbefd2;
+  color: #674b18;
+  font-weight: 800;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .proximity {
@@ -350,12 +376,17 @@
   color: #8d2d24;
 }
 
-.dueDay {
+.dueDay,
+.dueClock {
   display: block;
   color: #52666f;
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1.2;
+}
+
+.dueClock {
+  margin-top: 2px;
 }
 
 /* "Next stops" and the get-off alert share one line instead of stacking,
@@ -501,7 +532,6 @@
   .staleNotice,
   .table th,
   .tripMeta,
-  .accessibility,
   .proximity,
   .legend {
     font-size: 0.8125rem;
@@ -613,6 +643,10 @@
   opacity: 0.7;
 }
 
+.rideShort {
+  display: none;
+}
+
 .rideSetupRow > td {
   padding: 0 14px 14px;
   background: #fbfdfd;
@@ -627,6 +661,22 @@
     min-height: 44px;
     margin-top: 0;
     font-size: 0.8125rem;
+  }
+
+  .rideLong {
+    display: none;
+  }
+
+  .rideShort {
+    display: inline;
+  }
+
+  .rowActions {
+    gap: 0 10px;
+  }
+
+  .rideButton {
+    padding-inline: 0.62rem;
   }
 
   .rideSetupRow > td {
@@ -659,6 +709,7 @@
   .state,
   .tripMeta,
   .dueDay,
+  .dueClock,
   .legend,
   .legend summary,
   .destinationTranslation {
@@ -716,9 +767,13 @@
     color: var(--dm-text);
   }
 
-  .accessibility {
-    background: var(--dm-ok-surface);
+  .accessibility[data-accessible="true"] {
     color: var(--dm-ok-text);
+  }
+
+  .lineNotice {
+    background: var(--dm-warn-surface);
+    color: var(--dm-warn-text);
   }
 
   .accessibility[data-accessible="false"] {

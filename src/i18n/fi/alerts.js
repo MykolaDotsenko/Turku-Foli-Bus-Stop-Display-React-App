@@ -54,6 +54,7 @@ export default {
   "Update check failed": "Tarkistus epäonnistui",
   "Service update check is getting old": "Liikennetiedotteet voivat olla vanhentuneita",
   "Show fewer updates": "Näytä vähemmän",
+  "Hide service updates": "Piilota liikennetiedotteet",
   "Show 1 more update": "Näytä 1 tiedote lisää",
   "Show {count} more updates": ({ count }) => `Näytä ${count} tiedotetta lisää`,
 };

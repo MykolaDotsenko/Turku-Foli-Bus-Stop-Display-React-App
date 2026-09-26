@@ -27,14 +27,14 @@ const DEPARTED_GRACE_SECONDS = 30;
 // different places, and their names inflect.
 const VEHICLE_PHRASES = {
   bus: {
-    atStop: msg("Bus at stop · board now"),
+    atStop: msg("Bus is at the stop"),
     lastPosition: msg("Last bus position ≈{distance} from stop · {minutes} min old"),
     atOrNear: msg("Bus at or near stop"),
     nearby: msg("Bus nearby · ≈{distance} from stop"),
     away: msg("Bus ≈{distance} from stop"),
   },
   waterbus: {
-    atStop: msg("Waterbus at stop · board now"),
+    atStop: msg("Waterbus is at the stop"),
     lastPosition: msg(
       "Last waterbus position ≈{distance} from stop · {minutes} min old"
     ),
@@ -206,8 +206,22 @@ function wheelchairLabel(value) {
 
 // "Today 19:15" and "Tomorrow 06:30" set in the countdown's size would take
 // half a phone's width from the destination, so the day sits above the time.
-function DueLabel({ parts }) {
-  if (!parts.day) return parts.time;
+// Under a countdown, the clock time it counts to, as a stop display shows
+// it: moved out of the line beside the destination, which it made wrap.
+function DueLabel({ parts, clock = "" }) {
+  if (!parts.day) {
+    return (
+      <>
+        {parts.time}
+        {clock && clock !== "—" && (
+          <>
+            {" "}
+            <span className={styles.dueClock}>{clock}</span>
+          </>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -242,6 +256,7 @@ function BusStopDisplay({
   cancellations = [],
   unknownStop = false,
   online = true,
+  lineNotices = null,
 }) {
   const language = useLanguage();
   // Keeps due times, freshness and the departed-row filter counting between
@@ -760,26 +775,45 @@ function BusStopDisplay({
                           {destinationName.translation}
                         </span>
                       )}
+                      {/* One line on a phone: the clock went under the
+                          countdown, and an accessible bus is a symbol here
+                          rather than a chip wrapping onto two more lines. */}
                       <span className={styles.tripMeta}>
                         {cancelled
                           ? t("Cancelled at this stop · was due {time}", {
                               time: formatClock(departureTime),
                             })
-                          : `${serviceStatus} · ${formatClock(departureTime)}`}
+                          : serviceStatus}
+                        {!cancelled && lineNotices?.has(String(arrival.lineref || "")) && (
+                          <span className={styles.lineNotice}>
+                            {lineNotices.get(String(arrival.lineref || "")) ||
+                              t("Service update")}
+                          </span>
+                        )}
+                        {accessibility &&
+                          (tripDetails?.wheelchairAccessible === 1 ? (
+                            <span
+                              className={styles.accessibility}
+                              data-accessible="true"
+                              title={accessibility}
+                            >
+                              <span aria-hidden="true">{"♿"}</span>
+                              <span className={styles.srOnly}>{accessibility}</span>
+                            </span>
+                          ) : (
+                            <span
+                              className={styles.accessibility}
+                              data-accessible="false"
+                              title={accessibility}
+                            >
+                              <span aria-hidden="true">
+                                {"♿ "}
+                                {t("Not accessible")}
+                              </span>
+                              <span className={styles.srOnly}>{accessibility}</span>
+                            </span>
+                          ))}
                       </span>
-                      {accessibility && (
-                        <span
-                          className={styles.accessibility}
-                          data-accessible={
-                            tripDetails?.wheelchairAccessible === 1
-                              ? "true"
-                              : "false"
-                          }
-                        >
-                          {tripDetails?.wheelchairAccessible === 1 ? "♿ " : ""}
-                          {accessibility}
-                        </span>
-                      )}
                       {proximity && !cancelled && (
                         <span className={styles.proximity}>{proximity}</span>
                       )}
@@ -796,17 +830,34 @@ function BusStopDisplay({
                             className={styles.rideButton}
                             disabled={sameRideActive}
                             aria-expanded={rideSetupOpen}
+                            aria-label={
+                              sameRideActive || rideSetupOpen
+                                ? undefined
+                                : t("Alert me when to get off")
+                            }
                             onClick={() =>
                               setRideCandidateKey((current) =>
                                 current === rideKey ? "" : rideKey
                               )
                             }
                           >
-                            {sameRideActive
-                              ? t("Ride Mode active")
-                              : rideSetupOpen
-                                ? t("Close get-off setup")
-                                : t("Alert me when to get off")}
+                            {sameRideActive ? (
+                              t("Ride Mode active")
+                            ) : rideSetupOpen ? (
+                              t("Close get-off setup")
+                            ) : (
+                              // Both actions fit one line of a phone only
+                              // with the short label, whose words start the
+                              // full one (WCAG 2.5.3).
+                              <>
+                                <span className={styles.rideLong} aria-hidden="true">
+                                  {t("Alert me when to get off")}
+                                </span>
+                                <span className={styles.rideShort} aria-hidden="true">
+                                  {t("Alert me")}
+                                </span>
+                              </>
+                            )}
                           </button>
                         </div>
                       )}
@@ -820,6 +871,7 @@ function BusStopDisplay({
                             departureTime,
                             effectiveServerTime * 1000
                           )}
+                          clock={formatClock(departureTime)}
                         />
                       )}
                     </td>

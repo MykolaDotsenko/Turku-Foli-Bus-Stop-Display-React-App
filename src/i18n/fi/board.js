@@ -18,13 +18,13 @@ export default {
   "{minutes} min ago": "{minutes} min sitten",
 
   // Where the bus is
-  "Bus at stop · board now": "Bussi pysäkillä · nouse kyytiin",
+  "Bus is at the stop": "Bussi on pysäkillä",
   "Last bus position ≈{distance} from stop · {minutes} min old":
     "Bussin viimeisin sijainti ≈{distance} pysäkiltä · {minutes} min vanha",
   "Bus at or near stop": "Bussi pysäkillä tai sen lähellä",
   "Bus nearby · ≈{distance} from stop": "Bussi lähellä · ≈{distance} pysäkiltä",
   "Bus ≈{distance} from stop": "Bussi ≈{distance} pysäkiltä",
-  "Waterbus at stop · board now": "Vesibussi laiturilla · nouse kyytiin",
+  "Waterbus is at the stop": "Vesibussi on laiturilla",
   "Last waterbus position ≈{distance} from stop · {minutes} min old":
     "Vesibussin viimeisin sijainti ≈{distance} laiturilta · {minutes} min vanha",
   "Waterbus at or near stop": "Vesibussi laiturilla tai sen lähellä",
@@ -33,6 +33,7 @@ export default {
   "Waterbus ≈{distance} from stop": "Vesibussi ≈{distance} laiturilta",
   "Wheelchair accessible": "Esteetön",
   "Not wheelchair accessible": "Ei esteetön",
+  "Not accessible": "Ei esteetön",
 
   // Board
   "Loading…": "Ladataan…",
@@ -104,6 +105,9 @@ export default {
   "Ride Mode active": "Matkatila käytössä",
   "Close get-off setup": "Sulje hälytyksen asetukset",
   "Alert me when to get off": "Muistuta, kun pitää jäädä pois",
+  // The same button on a phone, where both of a row's actions share a line.
+  // Its words must start the full phrase, which stays its accessible name.
+  "Alert me": "Muistuta",
   Cancelled: "Peruttu",
   "About live estimates": "Tietoa reaaliaika-arvioista",
   "Live times are estimates from vehicle data. Vehicle distance is a straight-line estimate from the latest reported position. Scheduled means no current realtime feed is available for that trip.":
@@ -112,6 +116,9 @@ export default {
   // Next stops
   "Hide next stops": "Piilota seuraavat pysäkit",
   "Next stops": "Seuraavat pysäkit",
+  // A narrow phone's labels, so a row's two actions share one line.
+  "short|Next stops": "Pysäkit",
+  "short|Hide next stops": "Piilota pysäkit",
   "Next stops · timetable times": "Seuraavat pysäkit · aikataulun ajat",
   "Loading planned stops…": "Ladataan pysäkkejä…",
   "Next stops are temporarily unavailable.":

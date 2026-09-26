@@ -146,7 +146,7 @@ test("a followed line missing from the live board shows its next buses from the 
 
   expect(await screen.findByText("Lauste")).toBeInTheDocument();
   expect(rows()).toHaveLength(1);
-  expect(within(rows()[0]).getByText(/^Scheduled · /)).toBeInTheDocument();
+  expect(within(rows()[0]).getByText("Scheduled")).toBeInTheDocument();
 });
 
 test("a followed line neither feed can answer for is not called not running", async () => {
