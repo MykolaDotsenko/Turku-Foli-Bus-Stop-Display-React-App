@@ -1071,6 +1071,26 @@ test("finds the nearest stop from one-time browser geolocation", async ({
 });
 
 
+// A first visit had no stop chosen, and "Near you" only appeared once one
+// was: the only way to use location was an unlabelled 11px symbol.
+test("a first visit offers the stops near you", async ({
+  page,
+  context,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await context.grantPermissions(["geolocation"], {
+    origin: "http://127.0.0.1:4173",
+  });
+  await context.setGeolocation({ latitude: 60.45182, longitude: 22.26662 });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Find nearest stop" }).click();
+
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+});
+
 test("saves Home as a privacy-first safe arrival zone", async ({
   page,
   context,

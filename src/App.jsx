@@ -306,6 +306,20 @@ function App() {
         onSelect={selectStop}
       />
 
+      {/* Before a stop is chosen, location is the quickest way to one. This
+          used to appear only after a stop was chosen, which left a first
+          visit with an unlabelled symbol in the search box. */}
+      {!stopId && (
+        <NearbyStops
+          stops={stops}
+          coordinatesStatus={coordinatesStatus}
+          activeStopId=""
+          serviceBoundary={serviceBoundary}
+          online={online}
+          onSelect={selectStop}
+        />
+      )}
+
       {stopId && (
         <>
           <ServiceAlerts
