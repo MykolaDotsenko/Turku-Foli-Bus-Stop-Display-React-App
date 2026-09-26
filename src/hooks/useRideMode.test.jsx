@@ -1142,3 +1142,133 @@ test("an offline phone never calls the bus confirmed", async () => {
     mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
   }
 });
+
+// A tab reloaded two stops before the exit, with the bus six minutes behind
+// the timetable. The timetable alone said "Press STOP" within a second, the
+// live answer three seconds later said five minutes, and a stage is never
+// taken back.
+test("a reloaded ride waits for live data before the timetable can say press STOP", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 23, 7, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.announceRideStage.mockClear();
+
+  let answerTarget;
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    String(stopId) === "32"
+      ? new Promise((resolve) => {
+          answerTarget = resolve;
+        })
+      : Promise.resolve({ serverTime: nowSec, arrivals: [] })
+  );
+  localStorage.setItem(
+    "foli-active-ride-v1",
+    JSON.stringify({
+      id: "ride-reloaded-early",
+      ...rideConfig,
+      shapeId: "",
+      plan: {
+        targetPredictedEpochSec: nowSec + 60,
+        stopsToTarget: [{ id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 60 }],
+      },
+      stage: "soon",
+      stageReason: "planned-stop-count",
+      stageConfidence: "schedule",
+      startedAt: startMs - 600_000,
+      stageChangedAt: startMs - 60_000,
+      expiresAt: startMs + 3_600_000,
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  // The location fix arrives at once; the exit stop has not answered.
+  expect(result.current.session?.stage).toBe("soon");
+
+  await act(async () => {
+    answerTarget({
+      serverTime: nowSec,
+      arrivals: [
+        {
+          datedvehiclejourneyref: "journey-1",
+          monitored: true,
+          expectedarrivaltime: nowSec + 300,
+          vehicleatstop: false,
+          recordedattime: nowSec,
+        },
+      ],
+    });
+  });
+
+  await waitFor(() => expect(result.current.runtime.liveEtaSec).toBe(300));
+  expect(result.current.session?.stage).toBe("soon");
+  expect(mocks.announceRideStage.mock.calls.map(([stage]) => stage)).not.toContain(
+    "next"
+  );
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a ride nobody ended is not brought back hours after its stop", () => {
+  mocks.announceRideStage.mockClear();
+  const nowSec = Math.floor(Date.now() / 1000);
+  localStorage.setItem(
+    "foli-active-ride-v1",
+    JSON.stringify({
+      id: "ride-forgotten",
+      ...rideConfig,
+      plan: { ...rideConfig.plan, targetPredictedEpochSec: nowSec - 4 * 3600 },
+      stage: "next",
+      stageReason: "planned-stop-count",
+      stageConfidence: "schedule",
+      startedAt: Date.now() - 4.5 * 3600_000,
+      expiresAt: Date.now() + 1.5 * 3600_000,
+    })
+  );
+
+  const { result } = renderHook(() => useRideMode());
+
+  expect(result.current.session).toBeNull();
+  expect(localStorage.getItem("foli-active-ride-v1")).toBeNull();
+  expect(mocks.announceRideStage).not.toHaveBeenCalled();
+});
+
+test("a ride long past its stop ends quietly while nothing live says the bus is coming", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 23, 9, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.announceRideStage.mockClear();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      plan: {
+        targetPredictedEpochSec: nowSec + 1200,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 400 },
+          { id: "12", name: "Two", predictedEpochSec: nowSec + 800 },
+          { id: "13", name: "Three", predictedEpochSec: nowSec + 1000 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 1200 },
+        ],
+      },
+    });
+  });
+  expect(result.current.session?.stage).toBe("boarded");
+
+  vi.setSystemTime(startMs + (1200 + 46 * 60) * 1000);
+  act(() => {
+    watchPosition.mock.calls.at(-1)[0]({
+      coords: { latitude: 61.1234, longitude: 23.5678, accuracy: 15 },
+    });
+  });
+
+  expect(result.current.session).toBeNull();
+  expect(mocks.announceRideStage).not.toHaveBeenCalled();
+  unmount();
+});

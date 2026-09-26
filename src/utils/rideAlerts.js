@@ -172,12 +172,12 @@ function speakUtterance(text, lang, voice = null) {
 // English voice mangles a Finnish name past recognition.
 const SPEECH_LANG = { en: "en-US", fi: "fi-FI" };
 
-export function speakRideStage(stage, stopName, routeType = null) {
+export function speakRideStage(stage, stop, routeType = null) {
   if (!speechSupported()) return false;
 
   // An earlier version could save a stand-in ("Stop 30") with the ride; it
   // is not a name to read out with the Finnish voice.
-  const realName = realStopName(stopName);
+  const realName = realStopName(exitStop(stop).name);
   const fiVoice = finnishVoice();
   const lang = SPEECH_LANG[getLanguage()] || SPEECH_LANG.en;
   const voice = lang === SPEECH_LANG.fi ? fiVoice : null;
@@ -242,14 +242,30 @@ export async function requestRideNotificationPermission() {
   }
 }
 
-// In the language of the moment it is sent, like everything on screen.
-function notificationCopy(stage, stopName, routeType = null) {
-  const name = realStopName(stopName) || t("your stop");
+// A ride's exit stop as the alerts need it: Föli's name, and its number to
+// fall back on. Callers pass the stop, or just its name.
+function exitStop(stop) {
+  return typeof stop === "string" || !stop
+    ? { name: stop || "", id: "" }
+    : { name: stop.name || "", id: stop.id ? String(stop.id) : "" };
+}
+
+function capitalized(text) {
+  return text ? text.charAt(0).toLocaleUpperCase() + text.slice(1) : text;
+}
+
+// In the language of the moment it is sent, like everything on screen. A
+// stop Föli has not named is called by its number, the one on its sign:
+// "This is your stop: your stop" told a locked screen nothing.
+function notificationCopy(stage, stop, routeType = null) {
+  const { name: rawName, id } = exitStop(stop);
+  const name =
+    realStopName(rawName) || (id ? t("Stop {id}", { id }) : t("your stop"));
 
   if (stage === "soon") {
     return {
       title: t("Get ready"),
-      body: t("{name} is coming up soon.", { name }),
+      body: capitalized(t("{name} is coming up soon.", { name })),
     };
   }
   if (stage === "next") {
@@ -272,23 +288,26 @@ function notificationCopy(stage, stopName, routeType = null) {
   }
   return {
     title: t("Ride alerts are working"),
-    body: name,
+    body: capitalized(name),
   };
 }
 
-export async function showRideNotification(stage, stopName, routeType = null) {
+export async function showRideNotification(stage, stop, routeType = null) {
   const NotificationApi = globalThis.Notification;
   if (!NotificationApi || NotificationApi.permission !== "granted") {
     return false;
   }
 
-  const copy = notificationCopy(stage, stopName, routeType);
+  const copy = notificationCopy(stage, stop, routeType);
   const options = {
     body: copy.body,
     // So a phone reading notifications aloud picks the right voice.
     lang: getLanguage(),
     tag: "foli-active-ride",
-    renotify: stage === "now" || stage === "missed",
+    // Every stage replaces the one before under one tag, and a replacement
+    // without renotify is silent: "Press STOP" reached a locked phone
+    // without a sound. Only the start-up test stays quiet.
+    renotify: stage !== "test",
     requireInteraction: stage === "now",
     icon: `${import.meta.env.BASE_URL}icon-192.png`,
     badge: `${import.meta.env.BASE_URL}notification-badge-96.png`,
@@ -329,16 +348,16 @@ export async function showRideNotification(stage, stopName, routeType = null) {
 
 export function announceRideStage(
   stage,
-  stopName,
+  stop,
   notificationsEnabled = true,
   routeType = null
 ) {
   playRideTone(stage);
   vibrateRideStage(stage);
-  speakRideStage(stage, stopName, routeType);
+  speakRideStage(stage, stop, routeType);
 
   if (notificationsEnabled) {
-    void showRideNotification(stage, stopName, routeType);
+    void showRideNotification(stage, stop, routeType);
   }
 }
 
@@ -347,14 +366,14 @@ export function repeatNowRideSignal() {
   vibrateRideStage("now");
 }
 
-export async function runRideTestAlert(stopName, notificationsEnabled = true) {
+export async function runRideTestAlert(stop, notificationsEnabled = true) {
   await unlockRideAudio();
   playRideTone("test");
   vibrateRideStage("test");
-  speakRideStage("test", stopName);
+  speakRideStage("test", stop);
 
   if (notificationsEnabled) {
-    void showRideNotification("test", stopName);
+    void showRideNotification("test", stop);
   }
 }
 

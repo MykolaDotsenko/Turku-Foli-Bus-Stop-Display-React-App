@@ -385,6 +385,62 @@ test("does not offer notifications a browser cannot send", async () => {
   }
 });
 
+// Trip details carry the route and its shape. Lost to one failed request on
+// a weak connection, the ride went without "Press STOP" and without
+// location tracking along the route.
+test("a ride whose trip details fail once still gets its route and shape", async () => {
+  mocks.fetchTripDetails
+    .mockRejectedValueOnce(new Error("timeout"))
+    .mockResolvedValueOnce({ tripId: "trip-164-1", routeId: "1", shapeId: "shape-1" });
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  const onStart = vi.fn();
+  render(
+    <RideSetup
+      arrival={{ lineref: "1", tripref: "trip-164-1", expecteddeparturetime: 2_000_000_000 }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={new Map()}
+      routesById={new Map([["1", { id: "1", shortName: "1", type: 3 }]])}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+
+  fireEvent.click(await screen.findByDisplayValue("3", {}, { timeout: 4_000 }));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+
+  expect(mocks.fetchTripDetails).toHaveBeenCalledTimes(2);
+  expect(onStart.mock.calls[0][0]).toEqual(
+    expect.objectContaining({ shapeId: "shape-1", routeType: 3 })
+  );
+});
+
+test("a ride whose trip details never load knows its line is a bus", async () => {
+  mocks.fetchTripDetails.mockRejectedValue(new Error("offline"));
+  mocks.fetchTripStopTimes.mockResolvedValue(threeStopTrip);
+  const onStart = vi.fn();
+  render(
+    <RideSetup
+      arrival={{ lineref: "1", tripref: "trip-164-1", expecteddeparturetime: 2_000_000_000 }}
+      currentStopId="164"
+      currentStopName="Kauppatori"
+      stopsById={tripStops}
+      placesById={new Map()}
+      routesById={new Map()}
+      routesByShortName={new Map([["1", { id: "1", shortName: "1", type: 3 }]])}
+      onStart={onStart}
+      onCancel={() => {}}
+    />
+  );
+
+  fireEvent.click(await screen.findByDisplayValue("3", {}, { timeout: 4_000 }));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+
+  expect(onStart.mock.calls[0][0].routeType).toBe(3);
+  mocks.fetchTripDetails.mockReset();
+});
+
 test("mentions vibration only where the phone can vibrate", async () => {
   renderThreeStopSetup();
   await screen.findByDisplayValue("3");

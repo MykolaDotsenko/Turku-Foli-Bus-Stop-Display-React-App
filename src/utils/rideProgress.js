@@ -396,6 +396,20 @@ export function arrivalEtaSeconds(arrival, referenceTimeSec) {
   return epoch === null ? null : Math.round(epoch - reference);
 }
 
+// A ride nobody ended: the passenger got off without tapping "I'm getting
+// off", which is likely, since the alarm silences itself. Reopened hours
+// later, it announced "Press STOP" again, and "Get off now" to someone
+// waiting at that stop the next morning.
+const RIDE_OVER_AFTER_SEC = 45 * 60;
+
+export function rideLongOver(plan, nowSec) {
+  const targetEpoch = finiteNumber(plan?.targetPredictedEpochSec);
+  const now = finiteNumber(nowSec);
+  return (
+    targetEpoch !== null && now !== null && now - targetEpoch > RIDE_OVER_AFTER_SEC
+  );
+}
+
 export function plannedRideProgress(plan, nowSec) {
   const now = finiteNumber(nowSec);
   if (!plan || now === null) {
@@ -457,7 +471,12 @@ function candidateStage(signals) {
   // the alarm over it and send someone out a kilometre early. Straight-line
   // GPS does not count: 300 metres as the crow flies can be three kilometres
   // of one-way streets.
-  const scheduleIsAuthoritative = liveEta === null && !reliableShapeGps;
+  // A page reloaded mid-ride starts with no live answer yet. Until the first
+  // one comes back, or fails, the timetable alone may not raise the stage:
+  // it said "Press STOP" two stops early for a bus running six minutes
+  // late, and a stage is never taken back.
+  const scheduleIsAuthoritative =
+    liveEta === null && !reliableShapeGps && signals.scheduleMayRaise !== false;
   const scheduleSaysNext =
     scheduleIsAuthoritative &&
     ((remaining !== null && remaining <= 1) ||

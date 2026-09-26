@@ -128,6 +128,46 @@ describe("ride get-off notifications", () => {
     expect(created[0].close).toHaveBeenCalledTimes(1);
   });
 
+  // Every stage replaces the last under one tag, and a replacement without
+  // renotify arrives silently: "Press STOP" reached a locked phone without
+  // a sound, and only "Get off now" made one.
+  it("makes every stage after the test heard, not just get off now", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    for (const stage of ["test", "soon", "next", "now", "missed"]) {
+      await showRideNotification(stage, "Puistokatu", 3);
+    }
+
+    expect(
+      showNotification.mock.calls.map(([, options]) => [options.tag, options.renotify])
+    ).toEqual([
+      ["foli-active-ride", false],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+      ["foli-active-ride", true],
+    ]);
+  });
+
+  it("calls a stop Föli has not named by its number, in either language", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    await showRideNotification("now", { id: "164", name: "" });
+    await showRideNotification("soon", { id: "164", name: "Stop 164" });
+    await showRideNotification("soon", "");
+    resetLanguageForTests("fi");
+    await showRideNotification("now", { id: "164", name: "" });
+
+    expect(showNotification.mock.calls.map(([title, options]) => [title, options.body])).toEqual([
+      ["This is your stop: Stop 164", "Get off now."],
+      ["Get ready", "Stop 164 is coming up soon."],
+      ["Get ready", "Your stop is coming up soon."],
+      ["Tämä on pysäkkisi: Pysäkki 164", "Jää pois nyt."],
+    ]);
+  });
+
   // It arrives over a locked screen, where the page cannot explain itself.
   it("sends the get-off alert in the language on screen", async () => {
     resetLanguageForTests("fi");

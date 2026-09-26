@@ -76,6 +76,8 @@ function savedPlaceLabels(placesById, stopId) {
     .filter(Boolean);
 }
 
+const TRIP_DETAILS_RETRY_MS = 1_500;
+
 // Notifications from a web page need the Notification API, which iPhone
 // Safari only gives an app added to the Home Screen. Offering the option
 // where it cannot work promised an alert that would never come.
@@ -103,6 +105,7 @@ export default function RideSetup({
   stopsById,
   placesById,
   routesById,
+  routesByShortName,
   onStart,
   onCancel,
 }) {
@@ -138,9 +141,28 @@ export default function RideSetup({
     const controller = new AbortController();
     setStatus("loading");
 
+    // The trip's details carry its route and shape. One try on a weak
+    // connection lost both for the whole ride: no "Press STOP", and no
+    // location tracking along the route. So they get a second try.
+    const tripDetailsWithRetry = () =>
+      fetchTripDetails(arrival.tripref, controller.signal).catch(
+        () =>
+          new Promise((resolve) => {
+            const timer = globalThis.setTimeout(resolve, TRIP_DETAILS_RETRY_MS);
+            controller.signal.addEventListener("abort", () => {
+              globalThis.clearTimeout(timer);
+              resolve();
+            });
+          }).then(() =>
+            controller.signal.aborted
+              ? null
+              : fetchTripDetails(arrival.tripref, controller.signal)
+          )
+      );
+
     Promise.all([
       fetchTripStopTimes(arrival.tripref, controller.signal),
-      fetchTripDetails(arrival.tripref, controller.signal).catch(() => null),
+      tripDetailsWithRetry().catch(() => null),
     ])
       .then(([items, details]) => {
         if (controller.signal.aborted) return;
@@ -260,10 +282,16 @@ export default function RideSetup({
 
     setStartError("");
 
+    // The trip's own route, or else the line's, so a ride whose details
+    // did not load still knows it is a bus.
     const exactRoute =
-      tripDetails?.routeId && routesById instanceof Map
-        ? routesById.get(tripDetails.routeId) || null
-        : null;
+      (tripDetails?.routeId && routesById instanceof Map
+        ? routesById.get(tripDetails.routeId)
+        : null) ||
+      (arrival.lineref && routesByShortName instanceof Map
+        ? routesByShortName.get(arrival.lineref)
+        : null) ||
+      null;
 
     onStart?.({
       lineRef: arrival.lineref || "",

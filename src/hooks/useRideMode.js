@@ -15,6 +15,7 @@ import {
   rideStageRank,
   evaluateRideStage,
   plannedRideProgress,
+  rideLongOver,
 } from "../utils/rideProgress";
 import { dataAgeSeconds } from "../utils/time";
 import useRideAudioReadiness from "./useRideAudioReadiness";
@@ -96,7 +97,8 @@ function validStoredRide(value) {
     value.targetStop &&
     /^\d+$/.test(String(value.targetStop.id || "")) &&
     value.plan &&
-    Number(value.expiresAt) > Date.now()
+    Number(value.expiresAt) > Date.now() &&
+    !rideLongOver(value.plan, Date.now() / 1000)
   );
 }
 
@@ -177,6 +179,9 @@ export default function useRideMode() {
   const [session, setSession] = useState(
     initialRideRef.current === false ? null : initialRideRef.current
   );
+  // The ride this page picked up from storage, if any. It knows nothing
+  // live about the bus until its first poll comes back.
+  const restoredRideIdRef = useRef(initialRideRef.current?.id || "");
   const [runtime, setRuntimeState] = useState(emptyRuntime);
   const [gps, setGpsState] = useState(emptyGps);
 
@@ -291,6 +296,13 @@ export default function useRideMode() {
         Number.isFinite(reportedEta)
           ? Math.round(reportedEta - sinceTargetSec)
           : null;
+
+      // Well past its planned exit, with nothing live saying the bus is
+      // still on its way, the ride is over: it ends without a sound.
+      if (liveEtaSec === null && rideLongOver(current.plan, Date.now() / 1000)) {
+        endRide();
+        return;
+      }
       const reportedPositionAge = Number(nextRuntime.providerPositionAgeSec);
       const providerPositionAgeSec =
         sinceTargetSec === null
@@ -334,6 +346,10 @@ export default function useRideMode() {
         targetAtStop: nextRuntime.targetWasAtStop && nextRuntime.targetListed,
         targetPassedConfirmed,
         gpsMovedAwayAfterNear: gpsMovedAway,
+        // A reloaded ride waits for its first poll to answer, or fail.
+        scheduleMayRaise:
+          current.id !== restoredRideIdRef.current ||
+          nextRuntime.lastPollAt !== null,
         lastReason: current.stageReason,
         lastConfidence: current.stageConfidence,
       });
@@ -408,7 +424,7 @@ export default function useRideMode() {
       ) {
         announceRideStage(
           evaluated.stage,
-          current.targetStop.name,
+          current.targetStop,
           current.options?.notifications !== false,
           current.routeType
         );
@@ -451,7 +467,7 @@ export default function useRideMode() {
       }
 
       void runRideTestAlert(
-        nextSession.targetStop.name,
+        nextSession.targetStop,
         wantsNotifications
       );
 
@@ -464,7 +480,7 @@ export default function useRideMode() {
     const current = sessionRef.current;
     if (!current) return;
     void runRideTestAlert(
-      current.targetStop.name,
+      current.targetStop,
       current.options?.notifications !== false
     );
   }, []);
