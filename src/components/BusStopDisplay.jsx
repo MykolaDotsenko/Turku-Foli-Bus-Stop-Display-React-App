@@ -395,13 +395,18 @@ function BusStopDisplay({
   }
   const rowKeys = departureKeys(visibleArrivals, referenceTime, stopId);
 
+  const filterable = linesOnOffer.length > 1 && upcomingArrivals.length > 0;
+
   return (
     <section
       className={styles.board}
       aria-labelledby="departures-title"
       aria-busy={loading || refreshing}
     >
-      <header className={styles.header}>
+      <header
+        className={styles.header}
+        data-filterable={filterable ? "true" : "false"}
+      >
         <div className={styles.stopHeading}>
           <div className={styles.stopTitleRow}>
             <h1 id="departures-title" className={styles.stopName}>
@@ -444,35 +449,11 @@ function BusStopDisplay({
           </p>
         </div>
 
-        <button
-          type="button"
-          className={styles.refreshButton}
-          onClick={onRefresh}
-          disabled={loading || refreshing}
-        >
-          {refreshing ? t("Refreshing…") : t("Refresh")}
-        </button>
-      </header>
-
-      {upcomingArrivals.length > 0 && (
-        <div
-          className={styles.summary}
-          aria-label={t("Departure data summary")}
-          data-filterable={linesOnOffer.length > 1 ? "true" : "false"}
-        >
-          <span>{t("{count} upcoming", { count: visibleArrivals.length })}</span>
-          <span>
-            <strong>{realtimeCount}</strong>{" "}
-            {t("live", { count: realtimeCount })}
-          </span>
-          <span>
-            {t("{count} scheduled", {
-              count: visibleArrivals.length - realtimeCount,
-            })}
-          </span>
-          {/* In the row that is already there, so a phone gives up no
-              departure for it. */}
-          {linesOnOffer.length > 1 && (
+        {/* Beside the stop's name, not in a row of its own: on an iPhone
+            with the service updates open, that row pushed the first
+            departure off the screen. */}
+        <div className={styles.headerActions}>
+          {filterable && (
             <button
               type="button"
               className={styles.filterButton}
@@ -488,10 +469,36 @@ function BusStopDisplay({
                   : t("Filter lines")}
             </button>
           )}
+          <button
+            type="button"
+            className={styles.refreshButton}
+            onClick={onRefresh}
+            disabled={loading || refreshing}
+          >
+            {refreshing ? t("Refreshing…") : t("Refresh")}
+          </button>
+        </div>
+      </header>
+
+      {upcomingArrivals.length > 0 && (
+        <div
+          className={styles.summary}
+          aria-label={t("Departure data summary")}
+        >
+          <span>{t("{count} upcoming", { count: visibleArrivals.length })}</span>
+          <span>
+            <strong>{realtimeCount}</strong>{" "}
+            {t("live", { count: realtimeCount })}
+          </span>
+          <span>
+            {t("{count} scheduled", {
+              count: visibleArrivals.length - realtimeCount,
+            })}
+          </span>
         </div>
       )}
 
-      {lineFilterOpen && linesOnOffer.length > 1 && upcomingArrivals.length > 0 && (
+      {lineFilterOpen && filterable && (
         <div
           id="line-filter"
           className={styles.lineFilter}

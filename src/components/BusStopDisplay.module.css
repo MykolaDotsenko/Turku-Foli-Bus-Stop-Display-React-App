@@ -19,6 +19,13 @@
   min-width: 0;
 }
 
+.headerActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .stopTitleRow {
   display: flex;
   align-items: center;
@@ -103,16 +110,15 @@
   color: #007985;
 }
 
+/* Sized like Refresh beside it; round, because it filters rather than acts. */
 .filterButton {
-  min-height: 30px;
-  margin-left: auto;
-  padding: 0 11px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 1px solid #bfd0d4;
   border-radius: 999px;
   background: #ffffff;
   color: #00656f;
   font: inherit;
-  font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -549,7 +555,8 @@
 }
 
 @media (max-width: 430px) {
-  .refreshButton {
+  .refreshButton,
+  .filterButton {
     min-height: 44px;
     font-size: 0.8125rem;
   }
@@ -580,21 +587,44 @@
     display: none;
   }
 
-  /* The counts stay off a phone's board, but the line filter does not: it
-     is where a commuter needs it, and it must say when it hides buses. */
-  .summary[data-filterable="true"] {
-    display: flex;
-    padding: 5px 12px;
+  /* Two rows of two: the name beside the line filter, the update time
+     beside Refresh. Refresh beside the name as well left the name too
+     little room on a 360 px phone, and a row of its own for the filter
+     cost the first departure its place on an iPhone's first screen. */
+  .header[data-filterable="true"] {
+    display: grid;
+    grid-template-areas:
+      "title filter"
+      "meta refresh";
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
   }
 
-  .summary[data-filterable="true"] > span {
-    display: none;
+  .header[data-filterable="true"] .stopHeading,
+  .header[data-filterable="true"] .headerActions {
+    display: contents;
+  }
+
+  .header[data-filterable="true"] .stopTitleRow {
+    grid-area: title;
+  }
+
+  .header[data-filterable="true"] .stopMeta {
+    grid-area: meta;
+    margin: 0;
+  }
+
+  .header[data-filterable="true"] .filterButton {
+    grid-area: filter;
+  }
+
+  .header[data-filterable="true"] .refreshButton {
+    grid-area: refresh;
   }
 
   /* Thumb-sized on a phone, like every other control on the board. */
   .filterButton {
     min-height: 44px;
-    margin-left: 0;
   }
 
   .lineChip {

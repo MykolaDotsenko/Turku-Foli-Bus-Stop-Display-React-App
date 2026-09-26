@@ -528,9 +528,7 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
   await page
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
-  await page
-    .getByRole("checkbox", { name: /Also show notifications/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 
@@ -580,6 +578,21 @@ async function routeTargetStop(page, overrides = {}) {
   });
 }
 
+// iPhone Safari notifies only from an app added to the Home Screen, so on
+// an iPhone the setup explains that instead of offering the checkbox.
+async function turnOffNotifications(page) {
+  const notifications = page.getByRole("checkbox", {
+    name: /Also show notifications/i,
+  });
+  const iphoneNote = page.getByText(/On iPhone, notifications need this app/);
+  await expect(notifications.or(iphoneNote)).toBeVisible();
+  if (await iphoneNote.isVisible()) {
+    await expect(notifications).toHaveCount(0);
+    return;
+  }
+  await notifications.uncheck();
+}
+
 async function startRide(page, { gps }) {
   await page
     .getByRole("button", { name: "Alert me when to get off" })
@@ -596,9 +609,7 @@ async function startRide(page, { gps }) {
   } else {
     await gpsToggle.uncheck();
   }
-  await page
-    .getByRole("checkbox", { name: /Also show notifications/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 }
@@ -827,9 +838,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await page
     .getByRole("checkbox", { name: /Follow my location/i })
     .uncheck();
-  await page
-    .getByRole("checkbox", { name: /Also show notifications/i })
-    .uncheck();
+  await turnOffNotifications(page);
 
   const exitStopAnswered = page.waitForResponse(
     "https://data.foli.fi/siri/sm/4"
