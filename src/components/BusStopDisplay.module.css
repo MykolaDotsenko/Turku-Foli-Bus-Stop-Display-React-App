@@ -253,6 +253,15 @@
   white-space: nowrap;
 }
 
+.table tr[data-cancelled="true"] .due {
+  color: #b42318;
+  font-size: 0.95rem;
+}
+
+.table tr[data-cancelled="true"] .tripMeta {
+  color: #8d2d24;
+}
+
 .dueDay {
   display: block;
   color: #52666f;

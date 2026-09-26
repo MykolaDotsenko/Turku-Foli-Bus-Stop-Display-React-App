@@ -1799,6 +1799,45 @@ test("ten departures remain scan-friendly without horizontal table scrolling", a
     });
 });
 
+test("a departure Föli has cancelled at this stop says so on the board", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: [],
+        cancellations: [
+          {
+            id: 900,
+            line: "1",
+            cause: "TECHNICAL_PROBLEM",
+            departure: now + 100,
+            stops: [{ stop: "164", arrival: now + 205, isactive: true }],
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+
+  const lineOneRow = page.locator("tbody tr", { hasText: "Satama" });
+  await expect(
+    lineOneRow.getByRole("cell", { name: "Cancelled", exact: true })
+  ).toBeVisible();
+  await expect(lineOneRow.getByText(/Cancelled at this stop/)).toBeVisible();
+  await expect(
+    lineOneRow.getByRole("button", { name: "Alert me when to get off" })
+  ).toHaveCount(0);
+});
+
 test("an opened disruption notice shows its whole message on a phone", async ({
   page,
 }, testInfo) => {

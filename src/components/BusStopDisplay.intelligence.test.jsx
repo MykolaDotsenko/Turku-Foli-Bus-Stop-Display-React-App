@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import BusStopDisplay from "./BusStopDisplay";
 
@@ -502,4 +502,55 @@ test("outlines a line badge too light to stand out from the row", () => {
 
   expect(screen.getByText("1").style.boxShadow).toContain("inset");
   expect(screen.getByText("7").style.boxShadow).toBe("");
+});
+
+// Föli can cancel a departure at a stop (ALERTS cancellations, active from
+// about ten minutes before the planned arrival). The notice sat in Service
+// updates while the same bus kept counting down on the board as if coming.
+test("marks a departure Föli has cancelled at this stop instead of counting it down", () => {
+  const now = Math.floor(Date.now() / 1000);
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      stops={[]}
+      routesByShortName={new Map()}
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      onStartRide={() => {}}
+      cancellations={[{ line: "1", scheduledTime: now + 240 }]}
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: false,
+          tripref: "trip-cancelled",
+          aimedarrivaltime: now + 240,
+          aimeddeparturetime: now + 240,
+        },
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          monitored: false,
+          tripref: "trip-running",
+          aimedarrivaltime: now + 900,
+          aimeddeparturetime: now + 900,
+        },
+      ]}
+    />
+  );
+
+  const [cancelledRow, runningRow] = screen.getAllByRole("row").slice(1);
+  expect(within(cancelledRow).getByText("Cancelled", { selector: "td" })).toBeInTheDocument();
+  expect(
+    within(cancelledRow).queryByRole("button", { name: "Alert me when to get off" })
+  ).not.toBeInTheDocument();
+  expect(within(runningRow).getByText("15 min")).toBeInTheDocument();
+  expect(
+    within(runningRow).getByRole("button", { name: "Alert me when to get off" })
+  ).toBeInTheDocument();
 });

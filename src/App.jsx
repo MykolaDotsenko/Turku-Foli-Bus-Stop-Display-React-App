@@ -126,6 +126,10 @@ function App() {
     () => stops.find((stop) => stop.id === stopId) || null,
     [stopId, stops]
   );
+  const stopCancellations = useMemo(
+    () => serviceAlerts.filter((alert) => alert.type === "cancellation"),
+    [serviceAlerts]
+  );
   const displayStopName = selectedStop?.name || stopName;
 
   useEffect(() => {
@@ -366,6 +370,7 @@ function App() {
             placesById={placesById}
             onStartRide={ride.startRide}
             activeRideTripRef={ride.session?.tripRef || ""}
+            cancellations={stopCancellations}
           />
 
           <NearbyStops

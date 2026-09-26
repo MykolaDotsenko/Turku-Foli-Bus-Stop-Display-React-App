@@ -89,6 +89,27 @@ function departureKeys(arrivals, referenceTime, stopId) {
   });
 }
 
+// Föli cancels a departure stop by stop (ALERTS cancellations, each with the
+// line and the stop's planned arrival, active from about ten minutes
+// before it). A row matches when its line and planned time agree.
+const CANCELLATION_MATCH_SECONDS = 90;
+
+function isCancelledHere(arrival, cancellations) {
+  if (!Array.isArray(cancellations) || cancellations.length === 0) return false;
+
+  const planned =
+    Number(arrival.aimedarrivaltime) || Number(arrival.aimeddeparturetime);
+  if (!Number.isFinite(planned) || planned <= 0) return false;
+
+  return cancellations.some(
+    (cancellation) =>
+      String(cancellation?.line || "") === String(arrival.lineref || "") &&
+      Number.isFinite(Number(cancellation?.scheduledTime)) &&
+      Math.abs(Number(cancellation.scheduledTime) - planned) <=
+        CANCELLATION_MATCH_SECONDS
+  );
+}
+
 function routeBadgeStyle(route) {
   if (!route?.color) return undefined;
 
@@ -188,6 +209,7 @@ function BusStopDisplay({
   placesById,
   onStartRide,
   activeRideTripRef = "",
+  cancellations = [],
 }) {
   // Keeps due times, freshness and the departed-row filter counting between
   // the 30-second provider refreshes instead of freezing at the last payload.
@@ -395,8 +417,9 @@ function BusStopDisplay({
                   tripDetails?.wheelchairAccessible
                 );
 
+                const cancelled = isCancelledHere(arrival, cancellations);
                 const rowKey = rowKeys[index];
-                const rideKey = arrival.tripref ? rowKey : "";
+                const rideKey = arrival.tripref && !cancelled ? rowKey : "";
                 const rideSetupOpen =
                   Boolean(rideKey) && rideCandidateKey === rideKey;
                 const sameRideActive =
@@ -405,7 +428,7 @@ function BusStopDisplay({
 
                 return (
                   <Fragment key={rowKey}>
-                  <tr>
+                  <tr data-cancelled={cancelled ? "true" : undefined}>
                     <td>
                       <span
                         className={styles.lineBadge}
@@ -426,7 +449,9 @@ function BusStopDisplay({
                         </span>
                       )}
                       <span className={styles.tripMeta}>
-                        {serviceStatus} · {formatClock(departureTime)}
+                        {cancelled
+                          ? `Cancelled at this stop · was due ${formatClock(departureTime)}`
+                          : `${serviceStatus} · ${formatClock(departureTime)}`}
                       </span>
                       {accessibility && (
                         <span
@@ -441,10 +466,10 @@ function BusStopDisplay({
                           {accessibility}
                         </span>
                       )}
-                      {proximity && (
+                      {proximity && !cancelled && (
                         <span className={styles.proximity}>{proximity}</span>
                       )}
-                      {arrival.tripref && (
+                      {arrival.tripref && !cancelled && (
                         <div className={styles.rowActions}>
                           <TripJourneyDetails
                             tripId={arrival.tripref}
@@ -473,12 +498,16 @@ function BusStopDisplay({
                       )}
                     </td>
                     <td className={styles.due}>
-                      <DueLabel
-                        label={formatDue(
-                          departureTime,
-                          effectiveServerTime * 1000
-                        )}
-                      />
+                      {cancelled ? (
+                        "Cancelled"
+                      ) : (
+                        <DueLabel
+                          label={formatDue(
+                            departureTime,
+                            effectiveServerTime * 1000
+                          )}
+                        />
+                      )}
                     </td>
                   </tr>
                   {rideSetupOpen && !sameRideActive && (
