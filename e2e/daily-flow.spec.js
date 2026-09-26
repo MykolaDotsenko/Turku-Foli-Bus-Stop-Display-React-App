@@ -707,6 +707,115 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
   await expect(page).toHaveURL(/stop=4/);
 });
 
+test("Ride Mode does not mistake an untracked timetable row for the bus", async ({
+  page,
+}) => {
+  // The feed still lists the journey at the exit stop, but is not tracking
+  // it: the time on that row is the raw timetable, one minute out. Read as
+  // live it said "Following your bus" and "Press STOP now" two stops early.
+  await page.route("https://data.foli.fi/siri/sm/4", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "OK",
+        servertime: now,
+        result: [
+          {
+            lineref: "1",
+            destinationdisplay: "Satama",
+            monitored: false,
+            __tripref: "trip-164-1",
+            aimedarrivaltime: now + 60,
+            aimeddeparturetime: now + 60,
+          },
+        ],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  const turunLinna = page.locator('input[type="radio"][value="3"]');
+  await turunLinna.check();
+  await page
+    .getByRole("checkbox", { name: /Follow my location/i })
+    .uncheck();
+  await page
+    .getByRole("checkbox", { name: /Alert me on the lock screen/i })
+    .uncheck();
+
+  const exitStopAnswered = page.waitForResponse(
+    "https://data.foli.fi/siri/sm/4"
+  );
+  await page.getByRole("button", { name: "Start Ride Mode" }).click();
+  await exitStopAnswered;
+
+  // Two planned stops out, so the timetable alone gets the passenger ready.
+  await expect(
+    page.getByRole("heading", { name: "Your stop is coming up" })
+  ).toBeVisible();
+  await expect(page.locator('[data-health="schedule"]')).toBeVisible();
+  await expect(page.getByText("Looking for your bus")).toBeVisible();
+  await expect(
+    page.getByText(/We cannot see your bus in the live data right now/)
+  ).toBeVisible();
+  await expect(page.locator('[data-health="live"]')).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Your stop is next" })
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "End ride" }).click();
+});
+
+test("an open get-off setup survives a board refresh", async ({ page }) => {
+  // The live estimate moves on nearly every refresh. The setup used to be
+  // keyed on it, so it closed mid-choice and forgot the chosen stop. The
+  // timetable times stay put, as they do in the real feed.
+  const plannedAt = Math.floor(Date.now() / 1000) + 205;
+  let answers = 0;
+  await page.route("https://data.foli.fi/siri/sm/164", async (route) => {
+    answers += 1;
+    const payload = monitorPayload("164");
+    payload.result[0].aimeddeparturetime = plannedAt;
+    payload.result[0].expecteddeparturetime = plannedAt + 35 + answers * 20;
+    payload.result[1].aimeddeparturetime = plannedAt + 335;
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(payload),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  await page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first()
+    .click();
+  const setupHeading = page.getByRole("heading", {
+    name: "Where do you want to get off?",
+  });
+  await expect(setupHeading).toBeVisible();
+  const turunLinna = page.locator('input[type="radio"][value="3"]');
+  await turunLinna.check();
+
+  const refreshed = page.waitForResponse("https://data.foli.fi/siri/sm/164");
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await refreshed;
+  await expect(
+    page.getByRole("button", { name: "Refresh", exact: true })
+  ).toBeEnabled();
+
+  await expect(setupHeading).toBeVisible();
+  await expect(turunLinna).toBeChecked();
+});
+
 // A phone screen is tight, so the explanatory copy was hidden below 620px —
 // including the line that says what the app is, to the one person who does
 // not know. It is back, but only while it still earns the space.
