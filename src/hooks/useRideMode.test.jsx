@@ -229,6 +229,7 @@ test("falls back to the timetable once the live prediction has gone stale", asyn
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime: nowSec + 600,
                 vehicleatstop: false,
                 recordedattime: nowSec,
@@ -304,6 +305,7 @@ test("an early pass near the target cannot later fake a missed stop", async () =
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime:
                   Math.floor(Date.now() / 1000) + etaOffsetSec,
                 vehicleatstop: false,
@@ -383,6 +385,7 @@ test("the shown estimate falls back with the stage logic instead of freezing", a
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime: nowSec + 120,
                 vehicleatstop: false,
                 recordedattime: nowSec,
@@ -431,4 +434,290 @@ test("the shown estimate falls back with the stage logic instead of freezing", a
     result.current.endRide();
   });
   unmount();
+});
+
+test("a timetable-only listing at the target never reads as live tracking", async () => {
+  // The feed still lists the journey but is not tracking it, so the time on
+  // the row is the raw timetable: one minute out. The plan, anchored to the
+  // real departure, has the bus five stops and eight minutes away. Reading
+  // that row as live showed "Following your bus" and "Press STOP now".
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 13, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: nowSec,
+      realtimeAvailable: true,
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              {
+                datedvehiclejourneyref: "journey-1",
+                tripref: "trip-1",
+                lineref: "1",
+                monitored: false,
+                vehicleatstop: false,
+                aimedarrivaltime: nowSec + 60,
+                aimeddeparturetime: nowSec + 60,
+              },
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 500,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 100 },
+          { id: "12", name: "Two", predictedEpochSec: nowSec + 200 },
+          { id: "13", name: "Three", predictedEpochSec: nowSec + 300 },
+          { id: "14", name: "Four", predictedEpochSec: nowSec + 400 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 500 },
+        ],
+      },
+    });
+  });
+
+  await waitFor(() => expect(result.current.runtime.lastPollAt).not.toBeNull());
+
+  expect(result.current.runtime.trackingHealth).toBe("schedule");
+  expect(result.current.runtime.targetMatchBy).toBe("");
+  expect(result.current.runtime.etaSec).toBe(500);
+  expect(result.current.session?.stage).toBe("boarded");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("the get-off alarm stops once the bus has left, even if the stop then reports no data", async () => {
+  // Once the bus leaves the exit stop, a stop with nothing else coming is
+  // answered with NO_SIRI_DATA. The alarm must still see the bus as gone.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 14, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.repeatNowRideSignal.mockClear();
+
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    if (String(stopId) !== "32") {
+      return Promise.resolve({ serverTime: nowSec, arrivals: [] });
+    }
+    exitStopAnswers += 1;
+    return Promise.resolve(
+      exitStopAnswers === 1
+        ? {
+            serverTime: nowSec,
+            arrivals: [
+              {
+                datedvehiclejourneyref: "journey-1",
+                monitored: true,
+                vehicleatstop: true,
+                recordedattime: nowSec,
+                expectedarrivaltime: nowSec,
+              },
+            ],
+          }
+        : { serverTime: nowSec, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 60,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 60 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.session?.stage).toBe("now");
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalled();
+
+  // Two polls without the bus: it has left the stop.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(40_000);
+  });
+  expect(result.current.runtime.targetMissingCount).toBeGreaterThanOrEqual(2);
+
+  const repeatsSoFar = mocks.repeatNowRideSignal.mock.calls.length;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalledTimes(repeatsSoFar);
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a bus position from before the stop went quiet cannot raise the get-off alarm", async () => {
+  // A loop brings the bus within 45 m of the exit stop four minutes before it
+  // serves it; then the stop stops reporting. That position must not be kept
+  // as current, or the timetable's NEXT turns it into "Get off now".
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 15, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    if (String(stopId) !== "32") {
+      return Promise.resolve({ serverTime: nowSec, arrivals: [] });
+    }
+    exitStopAnswers += 1;
+    return Promise.resolve(
+      exitStopAnswers === 1
+        ? {
+            serverTime: nowSec,
+            arrivals: [
+              {
+                datedvehiclejourneyref: "journey-1",
+                monitored: true,
+                vehicleatstop: false,
+                recordedattime: nowSec,
+                latitude: 60.4492,
+                longitude: 22.255,
+                expectedarrivaltime: nowSec + 240,
+              },
+            ],
+          }
+        : { serverTime: nowSec, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 240,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 240 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.session?.stage).toBe("soon");
+
+  // Long enough for the old live answer to age out of the stage logic.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(140_000);
+  });
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(result.current.session?.stageReason).not.toBe("provider-near-target");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("an outage at the stop before yours cannot fake the bus passing it", async () => {
+  // The stop before the exit loses its feed while the exit stop still tracks
+  // the bus six minutes out. Counting those empty answers as the bus leaving
+  // raised "Press STOP now" before the bus had even reached that stop.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 16, 0, 0);
+  vi.setSystemTime(startMs);
+  const startSec = Math.floor(startMs / 1000);
+
+  let previousAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const live = {
+      datedvehiclejourneyref: "journey-1",
+      monitored: true,
+      vehicleatstop: false,
+      recordedattime: serverTime,
+    };
+    if (String(stopId) === "32") {
+      return Promise.resolve({
+        serverTime,
+        arrivals: [{ ...live, expectedarrivaltime: startSec + 420 }],
+      });
+    }
+    previousAnswers += 1;
+    return Promise.resolve(
+      previousAnswers === 1
+        ? {
+            serverTime,
+            arrivals: [{ ...live, expectedarrivaltime: startSec + 300 }],
+          }
+        : { serverTime, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: startSec + 420,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: startSec + 120 },
+          { id: "12", name: "Two", predictedEpochSec: startSec + 200 },
+          { id: "164", name: "Kauppatori", predictedEpochSec: startSec + 300 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: startSec + 420 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.runtime.previousSeen).toBe(true);
+
+  // Two polls where the stop before yours has no data at all.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(40_000);
+  });
+
+  expect(result.current.runtime.previousMissingCount).toBe(0);
+  expect(result.current.session?.stage).toBe("boarded");
+  expect(result.current.session?.stageReason).not.toBe("previous-stop-passed");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });

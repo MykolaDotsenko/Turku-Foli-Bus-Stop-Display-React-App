@@ -217,7 +217,14 @@ function normalizeArrival(arrival) {
   };
 }
 
-export async function fetchStopMonitor(stopId, signal) {
+// `scheduleFallback: false` returns the realtime feed alone. The timetable rows
+// that fill a quiet board carry real trip ids, so anything reading this answer
+// as evidence of where a vehicle is (Ride Mode) must not be handed them.
+export async function fetchStopMonitor(
+  stopId,
+  signal,
+  { scheduleFallback = true } = {}
+) {
   const response = await client.get(
     `${API_BASE_URL}/${encodeURIComponent(stopId)}`,
     { signal }
@@ -262,7 +269,7 @@ export async function fetchStopMonitor(stopId, signal) {
   // SIRI is a near-term realtime feed, not the published timetable. If it
   // has no future row, ask GTFS for the next actual service instead of
   // rendering a false empty board. This also covers stale SIRI rows.
-  if (!hasFutureRealtime) {
+  if (scheduleFallback && !hasFutureRealtime) {
     try {
       scheduledRows = await fetchScheduledStopDepartures(
         stopId,

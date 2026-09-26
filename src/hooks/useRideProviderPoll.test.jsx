@@ -109,3 +109,204 @@ test("stops polling once the ride ends", async () => {
   await vi.advanceTimersByTimeAsync(120_000);
   expect(mocks.fetchStopMonitor.mock.calls.length).toBe(afterUnmount);
 });
+
+// One poll round against canned answers for the target (32) and the stop
+// before it (164), returning what the round hands to the ride.
+async function pollOnce(answers, runtime = {}) {
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve(answers[String(stopId)])
+  );
+  const onRuntime = vi.fn();
+  const readArrivalSignals = vi.fn(() => ({ liveEtaSec: 42 }));
+  const props = harness({
+    onRuntime,
+    readArrivalSignals,
+    runtimeRef: { current: runtime },
+  });
+
+  const { unmount } = renderHook(() => useRideProviderPoll(props));
+  await vi.advanceTimersByTimeAsync(0);
+  unmount();
+
+  expect(onRuntime).toHaveBeenCalledTimes(1);
+  return { next: onRuntime.mock.calls[0][0], readArrivalSignals };
+}
+
+function answer(arrivals, extra = {}) {
+  return { serverTime: 1_000, realtimeAvailable: true, arrivals, ...extra };
+}
+
+const trackedRow = { lineref: "1", tripref: "trip-1", monitored: true };
+const untrackedRow = {
+  lineref: "1",
+  tripref: "trip-1",
+  monitored: false,
+  aimedarrivaltime: 1_060,
+};
+
+// The departure board fills a quiet stop from the GTFS timetable, under the
+// same trip id the ride follows. A ride that asked for that board matched the
+// timetable row and called it a live sighting.
+test("asks the realtime feed alone, never the board's timetable fallback", async () => {
+  mocks.fetchStopMonitor.mockResolvedValue(okResponse());
+  const props = harness();
+
+  const { unmount } = renderHook(() => useRideProviderPoll(props));
+  await vi.advanceTimersByTimeAsync(0);
+
+  expect(mocks.fetchStopMonitor).toHaveBeenCalledWith("32", expect.anything(), {
+    scheduleFallback: false,
+  });
+  expect(mocks.fetchStopMonitor).toHaveBeenCalledWith(
+    "164",
+    expect.anything(),
+    { scheduleFallback: false }
+  );
+
+  unmount();
+});
+
+test("a row the feed is not tracking is not a live sighting of the bus", async () => {
+  const { next, readArrivalSignals } = await pollOnce({
+    32: answer([untrackedRow]),
+    164: answer([untrackedRow]),
+  });
+
+  expect(next.lastLiveMatchAt ?? null).toBeNull();
+  expect(next.targetListed).toBe(false);
+  expect(next.targetMatchBy).toBe("");
+  expect(next.liveEtaSec).toBeNull();
+  expect(next.previousSeen ?? false).toBe(false);
+  expect(readArrivalSignals).not.toHaveBeenCalled();
+});
+
+test("a tracked row is still a live sighting at both stops", async () => {
+  const targetRow = { ...trackedRow, expectedarrivaltime: 1_060 };
+  const { next, readArrivalSignals } = await pollOnce({
+    32: answer([targetRow]),
+    164: answer([trackedRow]),
+  });
+
+  expect(next.lastLiveMatchAt).toEqual(expect.any(Number));
+  expect(next.targetListed).toBe(true);
+  expect(next.targetMatchBy).toBe("trip");
+  expect(next.liveEtaSec).toBe(42);
+  expect(next.previousSeen).toBe(true);
+  expect(readArrivalSignals).toHaveBeenCalledWith(
+    targetRow,
+    1_000,
+    session.targetStop
+  );
+});
+
+test("a tracked bus dropping to an untracked row reads as gone from live data", async () => {
+  const { next } = await pollOnce(
+    { 32: answer([untrackedRow]), 164: answer([]) },
+    {
+      targetListed: true,
+      targetMatchBy: "trip",
+      targetMissingCount: 0,
+      targetWasAtStop: false,
+      liveEtaSec: 120,
+      previousSeen: false,
+      previousMissingCount: 0,
+    }
+  );
+
+  expect(next.targetListed).toBe(false);
+  expect(next.targetMatchBy).toBe("");
+  expect(next.targetMissingCount).toBe(1);
+  expect(next.liveEtaSec).toBeNull();
+});
+
+// Föli also answers NO_SIRI_DATA for a stop with nothing coming, which is
+// exactly what the exit stop looks like once the bus has left it. Holding the
+// last live picture there kept the bus "at the stop" and the get-off alarm
+// repeating for the rest of the ride.
+test("an answer without realtime rows reads as the bus gone from the exit stop", async () => {
+  const before = {
+    targetListed: true,
+    targetMatchBy: "trip",
+    targetMissingCount: 0,
+    targetWasAtStop: true,
+    liveEtaSec: 0,
+    providerDistanceM: 12,
+    providerPositionAgeSec: 5,
+    lastLiveMatchAt: 5,
+  };
+  const { next } = await pollOnce(
+    { 32: answer([], { realtimeAvailable: false }), 164: answer([]) },
+    before
+  );
+
+  expect(next.targetListed).toBe(false);
+  expect(next.targetMatchBy).toBe("");
+  expect(next.targetMissingCount).toBe(1);
+  expect(next.targetWasAtStop).toBe(true);
+  expect(next.liveEtaSec).toBeNull();
+  expect(next.providerDistanceM).toBeNull();
+  expect(next.providerPositionAgeSec).toBeNull();
+  // Not a sighting, so live tracking still ages out on its own clock.
+  expect(next.lastLiveMatchAt).toBe(5);
+});
+
+// The previous-stop check turns a disappearance into "Press STOP now", so it
+// may only count one the feed actually reported. A stop whose feed has no data
+// says nothing about the bus: counted as a departure, an outage there (or a
+// recovery that reached the exit stop first) raised the alarm minutes before
+// the bus reached the stop before yours.
+test("a no-data answer at the stop before yours is not the bus leaving it", async () => {
+  const { next } = await pollOnce(
+    {
+      32: answer([trackedRow]),
+      164: answer([], { realtimeAvailable: false }),
+    },
+    {
+      targetListed: true,
+      targetMissingCount: 0,
+      previousSeen: true,
+      previousMissingCount: 1,
+    }
+  );
+
+  expect(next.previousSeen).toBe(true);
+  expect(next.previousMissingCount).toBe(1);
+  expect(next.targetListed).toBe(true);
+});
+
+// An untracked row leaves the board when its timetable time passes, bus or
+// no bus. Its disappearance must not stand in for the bus leaving the stop.
+test("an untracked listing at the previous stop cannot later pass for the bus leaving it", async () => {
+  const first = await pollOnce(
+    { 32: answer([trackedRow]), 164: answer([untrackedRow]) },
+    {
+      targetListed: true,
+      targetMissingCount: 0,
+      previousSeen: true,
+      previousMissingCount: 0,
+    }
+  );
+  expect(first.next.previousSeen).toBe(false);
+
+  const second = await pollOnce(
+    { 32: answer([trackedRow]), 164: answer([]) },
+    first.next
+  );
+  expect(second.next.previousMissingCount).toBe(0);
+});
+
+test("a live bus dropping off the stop before yours still counts as passing it", async () => {
+  const { next } = await pollOnce(
+    { 32: answer([trackedRow]), 164: answer([]) },
+    {
+      targetListed: true,
+      targetMissingCount: 0,
+      previousSeen: true,
+      previousMissingCount: 0,
+    }
+  );
+
+  expect(next.previousSeen).toBe(true);
+  expect(next.previousMissingCount).toBe(1);
+  expect(next.targetListed).toBe(true);
+});

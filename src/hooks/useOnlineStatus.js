@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 
 const CONNECTIVITY_TIMEOUT_MS = 3000;
 const OFFLINE_HINT_KEY = "foli-offline-hint";
-const OFFLINE_SHELL_MARKER_URL = "/__foli_offline_shell__";
+
+// The service worker files the marker under the deployment's base path
+// (scripts/build-sw.mjs). Looked up at the origin root it never matched on
+// GitHub Pages, where the app lives under /foli-live-departures/.
+function offlineShellMarkerUrl() {
+  return `${import.meta.env.BASE_URL || "/"}__foli_offline_shell__`;
+}
 
 function browserSaysOnline() {
   return typeof navigator === "undefined" ? true : navigator.onLine !== false;
@@ -36,7 +42,7 @@ async function shellWasServedOffline() {
   if (typeof globalThis.caches?.match !== "function") return false;
 
   try {
-    return Boolean(await globalThis.caches.match(OFFLINE_SHELL_MARKER_URL));
+    return Boolean(await globalThis.caches.match(offlineShellMarkerUrl()));
   } catch {
     return false;
   }
@@ -50,7 +56,7 @@ async function clearOfflineShellMarker() {
     await Promise.all(
       keys.map(async (key) => {
         const cache = await globalThis.caches.open(key);
-        await cache.delete(OFFLINE_SHELL_MARKER_URL);
+        await cache.delete(offlineShellMarkerUrl());
       })
     );
   } catch {
