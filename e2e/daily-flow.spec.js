@@ -1630,6 +1630,66 @@ test("a phone in dark mode gets a dark page that is just as readable", async ({
   expect(await rootBackground()).toBe("rgb(237, 244, 245)");
 });
 
+// A Finnish phone got an English page, whatever else it had going for it:
+// localization scored lowest of everything in the pre-release review.
+test.describe("on a Finnish phone", () => {
+  test.use({ locale: "fi-FI" });
+
+  // Words that would only be on screen if something was left in English.
+  // Names (stops, destinations, the brand, "In English" on the switch) are
+  // taken out first; STOP in capitals is the button's own label in Finnish.
+  const ENGLISH_WORDS =
+    /\b(?:[Tt]he|[Aa]nd|[Yy]ou|[Yy]our|[Ss]tops?|[Dd]epartures?|[Ll]oading|[Rr]efresh|[Nn]ext|[Hh]ome|[Ll]ive|[Uu]pdates?|[Aa]lert|[Rr]ide|[Nn]ear|[Ss]how|[Ff]ind|[Ss]earch|[Ss]aved|[Pp]laces|[Ww]ork|[Ss]chool|[Ll]ate|[Ee]arly|[Ss]cheduled|[Tt]imetable|[Dd]river|[Bb]ackup)\b/g;
+  const ALLOWED = ["Föli departures", "In English", "Google Maps", "CC BY 4.0", "GitHub", "data.foli.fi"];
+
+  async function englishLeftOnScreen(page) {
+    let text = await page.locator("body").innerText();
+    for (const allowed of ALLOWED) text = text.replaceAll(allowed, "");
+    return [...new Set(text.match(ENGLISH_WORDS) || [])];
+  }
+
+  test("the app is in Finnish, readable, and can be switched to English for good", async ({
+    page,
+  }) => {
+    await routeTargetStop(page);
+    await page.goto("/?stop=164");
+    await seedHome(page);
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "fi");
+    await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Lähtee" })).toBeVisible();
+    await expect(page.getByLabel("Etsi pysäkki")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Liikennetiedotteet" })).toBeVisible();
+
+    const nextStops = page.getByRole("button", { name: "Seuraavat pysäkit" }).first();
+    await nextStops.click();
+    await expect(page.getByText("Seuraavat pysäkit · aikataulun ajat")).toBeVisible();
+
+    expect(await englishLeftOnScreen(page)).toEqual([]);
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(results.violations).toEqual([]);
+
+    await page.getByRole("button", { name: "In English" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("columnheader", { name: "Due" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
+    await expect(page.getByRole("button", { name: "Suomeksi" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Due" })).toBeVisible();
+  });
+
+  test("a first visit is in Finnish too", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "Lähelläsi" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Etsi lähin pysäkki" })).toBeVisible();
+    expect(await englishLeftOnScreen(page)).toEqual([]);
+  });
+});
+
 test("mobile layout does not create horizontal page overflow", async ({
   page,
 }, testInfo) => {

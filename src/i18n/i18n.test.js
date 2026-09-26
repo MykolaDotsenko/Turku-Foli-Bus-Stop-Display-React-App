@@ -106,6 +106,23 @@ test("no two areas translate the same phrase differently", () => {
   expect(conflicts).toEqual([]);
 });
 
+// Text a component shows outside t() stays English whatever the language.
+// ESLint catches literal text between tags; this catches it in the
+// attributes a screen reader or a placeholder reads out.
+test("no component names a control in literal English", () => {
+  const literal =
+    /\b(aria-label|aria-description|placeholder|alt|title)="([^"]*[A-Za-z]{2,}[^"]*)"/g;
+  const found = sourceFiles()
+    .filter((file) => file.endsWith(".jsx"))
+    .flatMap((file) =>
+      [...readFileSync(file, "utf8").matchAll(literal)].map(
+        (match) => `${path.relative(SRC, file)}: ${match[1]}="${match[2]}"`
+      )
+    );
+
+  expect(found).toEqual([]);
+});
+
 test("the page's own title is the phrase the app translates", () => {
   const html = readFileSync(path.resolve(SRC, "../index.html"), "utf8");
   const title = html.match(/<title>([^<]+)<\/title>/)?.[1];

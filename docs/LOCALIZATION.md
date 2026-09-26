@@ -25,7 +25,11 @@ publishes its data in Finnish, Swedish and English.
   displays.
 
 `src/i18n/i18n.test.js` fails when the code asks for a phrase the Finnish
-dictionary lacks, or when a translation's placeholders differ from its key's.
+dictionary lacks, when a translation's placeholders differ from its key's,
+when a dictionary keeps a phrase nothing asks for, or when a component names
+a control in literal English. ESLint (`react/jsx-no-literals`) catches
+literal text between tags, and an end-to-end test looks for English left on
+the Finnish screens.
 
 ## Rules
 

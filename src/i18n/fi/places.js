@@ -114,7 +114,7 @@ export default {
   "Get me Home": "Vie minut kotiin",
   "Get me Home by public transit": "Vie minut kotiin joukkoliikenteellä",
   "Home options": "Lisää vaihtoehtoja",
-  "Fewer options": "Vähemmän vaihtoehtoja",
+  "Fewer options": "Näytä vähemmän",
   "Open Home stop": "Avaa kotipysäkki",
   "Opens Google Maps to this saved Home stop. Check the suggested itinerary before travelling.":
     "Avaa reitin tälle tallennetulle kotipysäkille Google Mapsissa. Tarkista ehdotettu reitti ennen matkaa.",
