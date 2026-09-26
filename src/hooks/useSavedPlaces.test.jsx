@@ -27,9 +27,11 @@ test("stores a place saved in Finnish exactly as in English, and names it in eit
 
   const [stored] = JSON.parse(localStorage.getItem("foli-my-places-v1"));
   expect(stored.label).toBe("Home");
+  // A nameless stop is stored without a stand-in, so no language is baked
+  // into it: the screen calls it "Pysäkki 999" or "Stop 999".
   expect(stored.stops).toEqual([
     { id: "164", name: "Kauppatori" },
-    { id: "999", name: "Stop 999" },
+    { id: "999", name: "" },
   ]);
   expect(placeLabel(result.current.byId.get("home"))).toBe("Koti");
 

@@ -7,6 +7,7 @@ import {
 } from "../utils/location";
 import { judgeNearestStop } from "../utils/nearestStop";
 import styles from "./BusStopForm.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 const MAX_SUGGESTIONS = 6;
 
@@ -155,7 +156,7 @@ function BusStopForm({
   const showSuggestions = focused && value.trim() && matches.length > 0;
 
   const chooseStop = (stop) => {
-    setValue(stop.name);
+    setValue(stop.name || stop.id);
     setResolved(stop);
     setValidationError(null);
     setActiveIndex(-1);
@@ -255,7 +256,7 @@ function BusStopForm({
       // Location is a suggestion, not a navigation command. Fill the field
       // with the resolved public stop name and let the passenger confirm by
       // pressing "Show departures".
-      setValue(nearest.name);
+      setValue(nearest.name || nearest.id);
       setResolved(nearest);
       setFocused(false);
     } catch (error) {
@@ -369,7 +370,7 @@ function BusStopForm({
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => chooseStop(stop)}
               >
-                <span className={styles.suggestionName}>{stop.name}</span>
+                <span className={styles.suggestionName}>{stopLabel(stop)}</span>
                 <span className={styles.suggestionId}>
                   {t("Stop {id}", { id: stop.id })}
                 </span>

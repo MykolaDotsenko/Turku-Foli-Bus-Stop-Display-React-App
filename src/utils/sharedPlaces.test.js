@@ -13,7 +13,7 @@ afterEach(() => {
 
 // A link made in Finnish is opened by phones in any language, so nothing in
 // it depends on the language it was made in.
-test("makes the same link in every language, keeping a nameless stop's stored name", () => {
+test("makes the same link in every language, with no stand-in name for a nameless stop", () => {
   const place = {
     id: "home",
     primaryStopId: "164",
@@ -28,7 +28,7 @@ test("makes the same link in every language, keeping a nameless stop's stored na
   expect(finnishLink).toBe(englishLink);
   expect(parseSharedPlaceHash(new globalThis.URL(finnishLink).hash).stops).toEqual([
     { id: "164", name: "Kauppatori" },
-    { id: "32", name: "Stop 32" },
+    { id: "32", name: "" },
   ]);
 });
 

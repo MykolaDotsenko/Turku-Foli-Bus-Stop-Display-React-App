@@ -7,6 +7,7 @@ import {
   getLanguage,
   preferredLanguage,
   resetLanguageForTests,
+  providerLanguages,
   setLanguage,
   t,
   tc,
@@ -109,14 +110,81 @@ test("no two areas translate the same phrase differently", () => {
 // Text a component shows outside t() stays English whatever the language.
 // ESLint catches literal text between tags; this catches it in the
 // attributes a screen reader or a placeholder reads out.
+const SPOKEN_ATTRIBUTE =
+  /\b(aria-label|aria-description|aria-valuetext|aria-roledescription|placeholder|alt|title)=/g;
+const WORDS = /[A-Za-z]{2,}/;
+
+// The text from an opening bracket to the one that closes it.
+function balanced(text, start) {
+  const open = text[start];
+  const close = { "{": "}", "(": ")" }[open];
+  let depth = 0;
+  let quote = null;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (quote) {
+      if (char === "\\") index += 1;
+      else if (char === quote) quote = null;
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === open) {
+      depth += 1;
+    } else if (char === close) {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+  return text.slice(start);
+}
+
+// What is left of an expression once every t(…) and tc(…) is taken out.
+function withoutTranslations(expression) {
+  let rest = expression;
+  for (let at = rest.search(/\bt[c]?\(/); at !== -1; at = rest.search(/\bt[c]?\(/)) {
+    const paren = rest.indexOf("(", at);
+    rest = rest.slice(0, at) + rest.slice(paren + balanced(rest, paren).length);
+  }
+  return rest;
+}
+
+function untranslatedAttributes(source) {
+  return [...source.matchAll(SPOKEN_ATTRIBUTE)].flatMap((match) => {
+    const valueAt = match.index + match[0].length;
+    const value =
+      source[valueAt] === "{"
+        ? withoutTranslations(balanced(source, valueAt))
+        : (source.slice(valueAt).match(/^"[^"]*"/)?.[0] ?? "");
+    const literals = value.match(/"[^"]*"|'[^']*'|`[^`]*`/g) ?? [];
+    return literals
+      .filter((literal) => WORDS.test(literal.replace(/\$\{[^}]*\}/g, "")))
+      .map((literal) => `${match[1]}=${literal}`);
+  });
+}
+
+test("the attribute check finds English however it is written", () => {
+  expect(
+    untranslatedAttributes(`
+      <a aria-label="Open map" />
+      <b title={"Close panel"} />
+      <c alt={\`Map of \${name}\`} />
+      <d placeholder={busy ? "Searching" : t("Search")} />
+      <e aria-label={t("Line {line}", { line })} title={name || undefined} />
+      <f aria-label={\`\${name} · \${id}\`} />
+    `)
+  ).toEqual([
+    'aria-label="Open map"',
+    'title="Close panel"',
+    "alt=`Map of ${name}`",
+    'placeholder="Searching"',
+  ]);
+});
+
 test("no component names a control in literal English", () => {
-  const literal =
-    /\b(aria-label|aria-description|placeholder|alt|title)="([^"]*[A-Za-z]{2,}[^"]*)"/g;
   const found = sourceFiles()
     .filter((file) => file.endsWith(".jsx"))
     .flatMap((file) =>
-      [...readFileSync(file, "utf8").matchAll(literal)].map(
-        (match) => `${path.relative(SRC, file)}: ${match[1]}="${match[2]}"`
+      untranslatedAttributes(readFileSync(file, "utf8")).map(
+        (attribute) => `${path.relative(SRC, file)}: ${attribute}`
       )
     );
 
@@ -190,4 +258,18 @@ test("a phrase with no translation falls back to English, placeholders filled", 
   );
   expect(t("Stop {id}", { id: "164" })).toBe("Pysäkki 164");
   expect(t("Stop {id}", {})).toBe("Pysäkki {id}");
+});
+
+test("reads Föli's own texts in the Finnish original, or the phone's languages in English", () => {
+  const languages = vi.spyOn(navigator, "languages", "get");
+  try {
+    languages.mockReturnValue(["fi-FI", "en-US"]);
+    expect(providerLanguages("fi")).toEqual(["fi"]);
+    expect(providerLanguages("en")).toEqual(["en-US", "en"]);
+
+    languages.mockReturnValue(["sv-SE", "en"]);
+    expect(providerLanguages("en")[0]).toBe("sv-SE");
+  } finally {
+    languages.mockRestore();
+  }
 });

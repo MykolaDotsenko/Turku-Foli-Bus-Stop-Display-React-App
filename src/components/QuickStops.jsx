@@ -1,5 +1,6 @@
 import { t } from "../i18n";
 import styles from "./QuickStops.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 function StopChip({ stop, onSelect, favorite = false }) {
   return (
@@ -7,13 +8,13 @@ function StopChip({ stop, onSelect, favorite = false }) {
       type="button"
       className={styles.chip}
       onClick={() => onSelect(stop.id)}
-      title={t("Open {name}, stop {id}", { name: stop.name, id: stop.id })}
+      title={t("Open {name}, stop {id}", { name: stopLabel(stop), id: stop.id })}
     >
       <span className={styles.chipIcon} aria-hidden="true">
         {favorite ? "★" : "↺"}
       </span>
       <span className={styles.chipLabel}>
-        <strong>{stop.name}</strong>
+        <strong>{stopLabel(stop)}</strong>
         <span>{t("Stop {id}", { id: stop.id })}</span>
       </span>
     </button>

@@ -5,7 +5,7 @@ import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
 import useLineFilter from "../hooks/useLineFilter";
 import useTripEnrichment from "../hooks/useTripEnrichment";
-import { msg, t, tc, useLanguage } from "../i18n";
+import { msg, providerLanguages, t, tc, useLanguage } from "../i18n";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
 import { accessibleRouteTextColor, contrastRatio } from "../utils/routes";
 import {
@@ -151,25 +151,6 @@ function routeBadgeStyle(route) {
 }
 
 
-function browserLanguages() {
-  if (typeof navigator === "undefined") return ["en"];
-  const languages = Array.isArray(navigator.languages)
-    ? navigator.languages
-    : [navigator.language];
-  return languages.filter(Boolean);
-}
-
-// Whose name for the destination goes beside the sign. In Finnish, none:
-// the sign already is. In English the phone's own languages come first, so a
-// Swedish phone gets Föli's Swedish name, then English, but never Finnish,
-// which the passenger has just chosen not to read.
-function translationLanguages(uiLanguage) {
-  if (uiLanguage === "fi") return ["fi"];
-  return [
-    ...browserLanguages().filter((tag) => !/^fi\b/i.test(String(tag))),
-    "en",
-  ];
-}
 
 // The row leads with the name on the bus's own sign, which is the Finnish one.
 // A reader whose language Föli also names the destination in gets that name
@@ -340,8 +321,10 @@ function BusStopDisplay({
     () => new Map(stops.map((candidate) => [candidate.id, candidate])),
     [stops]
   );
+  // Whose name for the destination goes beside the sign: none in Finnish,
+  // where the sign already is.
   const preferredLanguages = useMemo(
-    () => translationLanguages(language),
+    () => providerLanguages(language),
     [language]
   );
   const [rideCandidateKey, setRideCandidateKey] = useState("");

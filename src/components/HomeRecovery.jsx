@@ -5,6 +5,7 @@ import { hasCoordinates } from "../utils/geo";
 import { buildTransitDirectionsUrl } from "../utils/maps";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./HomeRecovery.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 // The request on the printed card is the driver's, so it is the same
 // whichever language the app is in, as on the driver card.
@@ -67,7 +68,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <span>
           <strong>{label}</strong>
           <small>
-            {primaryStop.name} · {t("stop {id}", { id: primaryStop.id })}
+            {stopLabel(primaryStop)} · {t("stop {id}", { id: primaryStop.id })}
           </small>
         </span>
       </div>
@@ -170,7 +171,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
               return (
                 <div key={stop.id} className={styles.backupRow}>
                   <span>
-                    <strong>{stop.name}</strong>
+                    <strong>{stopLabel(stop)}</strong>
                     <small>{t("Stop {id}", { id: stop.id })}</small>
                   </span>
                   <div className={styles.backupActions}>
@@ -181,7 +182,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
                         rel="noreferrer"
                         aria-label={t(
                           "Get to backup Home stop {name}, stop {id}, by public transit",
-                          { name: stop.name, id: stop.id }
+                          { name: stopLabel(stop), id: stop.id }
                         )}
                       >
                         {t("Route there")}
@@ -227,7 +228,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         <p className={styles.printKicker}>{t("Home backup card")}</p>
         <h2>{label}</h2>
         <p className={styles.printPrimary}>
-          {primaryStop.name}
+          {stopLabel(primaryStop)}
           <span>{t("Stop {id}", { id: primaryStop.id })}</span>
         </p>
         {backupStops.length > 0 && (
@@ -235,7 +236,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             <strong>{t("Backup stops")}</strong>
             {backupStops.map((stop) => (
               <p key={stop.id}>
-                {stop.name} · {t("Stop {id}", { id: stop.id })}
+                {stopLabel(stop)} · {t("Stop {id}", { id: stop.id })}
               </p>
             ))}
           </div>

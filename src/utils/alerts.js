@@ -42,6 +42,11 @@ function translationFor(message, preferredLanguages = []) {
       return candidate === base || candidate.startsWith(`${base}-`);
     });
     if (sameLanguage) return sameLanguage[1];
+
+    // Föli's own text is Finnish, and it only translates it. A Finnish
+    // reader gets that original, not the next language the phone lists:
+    // Chrome on Android lists English after Finnish.
+    if (base === "fi") return null;
   }
 
   return null;

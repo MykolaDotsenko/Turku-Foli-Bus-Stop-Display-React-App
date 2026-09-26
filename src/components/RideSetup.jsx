@@ -7,6 +7,7 @@ import {
 } from "../utils/rideProgress";
 import { formatClock, getDepartureTime } from "../utils/time";
 import styles from "./RideSetup.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 function plannedClock(value) {
   if (typeof value !== "string") return "";
@@ -44,7 +45,7 @@ function stopName(stopsById, stopId) {
 // does not list it. Named here, where it is shown, so the stand-in follows
 // the language.
 function optionName(item) {
-  return item.stop ? item.stop.name : t("Stop {id}", { id: item.stopId });
+  return stopLabel(item.stop, item.stopId);
 }
 
 // "Line 1 leaves 17:41" is one phrase: in Finnish the line, the verb and the

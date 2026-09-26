@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { msg, t } from "../i18n";
+import { realStopName } from "../utils/stopNames";
 
 const STORAGE_KEY = "foli-my-places-v1";
 
@@ -35,8 +36,9 @@ function normalizeStop(stop) {
 
   return {
     id,
-    // Stored, so it stays the same in every language.
-    name: name || `Stop ${id}`,
+    // Only Föli's own name. A stand-in is worked out on screen in the
+    // reader's language (utils/stopNames.js), never stored.
+    name: realStopName(name),
   };
 }
 

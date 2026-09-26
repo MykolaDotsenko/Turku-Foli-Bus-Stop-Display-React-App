@@ -1,5 +1,6 @@
 import { getLanguage, t } from "../i18n";
 import { rideExitInstruction } from "./rideInstructions";
+import { realStopName } from "./stopNames";
 
 const ALERT_PATTERNS = {
   test: {
@@ -174,14 +175,18 @@ const SPEECH_LANG = { en: "en-US", fi: "fi-FI" };
 export function speakRideStage(stage, stopName, routeType = null) {
   if (!speechSupported()) return false;
 
-  const name = String(stopName || t("your stop")).trim();
+  // An earlier version could save a stand-in ("Stop 30") with the ride; it
+  // is not a name to read out with the Finnish voice.
+  const realName = realStopName(stopName);
   const fiVoice = finnishVoice();
   const lang = SPEECH_LANG[getLanguage()] || SPEECH_LANG.en;
   const voice = lang === SPEECH_LANG.fi ? fiVoice : null;
   const say = (text) => speakUtterance(text, lang, voice);
-  // Without a name, the stand-in ("your stop") is a phrase like the others.
-  const sayName = () =>
-    stopName ? speakUtterance(name, SPEECH_LANG.fi, fiVoice) : say(name);
+  // Every lead-in already says "your stop", so a stop with no name is
+  // simply not named again: "This is your stop. Your stop." was an echo.
+  const sayName = () => {
+    if (realName) speakUtterance(realName, SPEECH_LANG.fi, fiVoice);
+  };
 
   try {
     globalThis.speechSynthesis.cancel();
@@ -239,7 +244,7 @@ export async function requestRideNotificationPermission() {
 
 // In the language of the moment it is sent, like everything on screen.
 function notificationCopy(stage, stopName, routeType = null) {
-  const name = String(stopName || t("your stop")).trim();
+  const name = realStopName(stopName) || t("your stop");
 
   if (stage === "soon") {
     return {

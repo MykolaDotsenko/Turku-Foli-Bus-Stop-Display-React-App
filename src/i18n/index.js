@@ -120,3 +120,19 @@ export function tc(context, key, params) {
 export function intlLocale(language = current) {
   return language === "fi" ? "fi-FI" : "en-GB";
 }
+
+// Which of Föli's own texts to show: its notices and destination names come
+// in Finnish, with Swedish and English translations. In the Finnish
+// interface that is the Finnish original, never a translation the phone
+// happens to list next. In English the phone's own languages come first (a
+// Swedish phone keeps Föli's Swedish), then English, but never Finnish,
+// which the passenger has just chosen not to read.
+export function providerLanguages(language = current) {
+  if (language === "fi") return ["fi"];
+  return [
+    ...browserLanguages().filter(
+      (tag) => tag && !/^fi\b/i.test(String(tag))
+    ),
+    "en",
+  ];
+}

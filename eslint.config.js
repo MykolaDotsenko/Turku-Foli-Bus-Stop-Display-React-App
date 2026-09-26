@@ -45,6 +45,9 @@ export default [
       "react/jsx-no-literals": [
         "error",
         {
+          // {"text"} and {`text`} count too; props are the i18n test's job.
+          noStrings: true,
+          ignoreProps: true,
           allowedStrings: [
             "·",
             "›",
@@ -68,6 +71,8 @@ export default [
             "♿",
             "✓",
             "…",
+            ".",
+            "🔊",
             "Turku · Åbo",
             "Föli departures",
             "data.foli.fi",

@@ -3,6 +3,7 @@ import { msg, t, useLanguage } from "../i18n";
 import { rideExitInstruction } from "../utils/rideInstructions";
 import { RIDE_STAGE, rideStageRank } from "../utils/rideProgress";
 import styles from "./RideMode.module.css";
+import { realStopName, stopLabel } from "../utils/stopNames";
 
 const STAGE_COPY = {
   [RIDE_STAGE.BOARDED]: {
@@ -85,8 +86,10 @@ function liveEvidence(runtime, session) {
   if (runtime.trackingHealth === "live" && runtime.previousSeen === true) {
     return {
       title: t("Your bus is confirmed"),
-      detail: session.previousStop?.name
-        ? t("on its way to {name}", { name: session.previousStop.name })
+      detail: realStopName(session.previousStop?.name)
+        ? t("on its way to {name}", {
+            name: realStopName(session.previousStop.name),
+          })
         : t("in Föli’s live arrival data"),
     };
   }
@@ -248,7 +251,9 @@ export default function RideMode({
     session.stage === RIDE_STAGE.NOW ||
     session.stage === RIDE_STAGE.MISSED;
   const scheduleOnly = runtime.trackingHealth === "schedule";
-  const afterName = session.previousStop?.name || session.boardingStop?.name;
+  const afterName =
+    realStopName(session.previousStop?.name) ||
+    realStopName(session.boardingStop?.name);
   // Measured at 735px on a 360x640 phone, which puts the one button that
   // matters below the fold at the exact moment the alarm is going. The three
   // status rows are 185px of diagnostics — what is being tracked, whether
@@ -297,7 +302,7 @@ export default function RideMode({
 
       <div className={styles.target}>
         <span>{t("Your stop")}</span>
-        <strong>{session.targetStop.name}</strong>
+        <strong>{stopLabel(session.targetStop)}</strong>
         <small>
           {t("Stop {id}", { id: session.targetStop.id })}
           {afterName ? ` · ${t("after {name}", { name: afterName })}` : ""}
@@ -375,7 +380,7 @@ export default function RideMode({
         <div className={styles.recovery}>
           <strong>
             {t("Next planned stop: {name}", {
-              name: session.nextStop.name ?? "",
+              name: stopLabel(session.nextStop),
             })}
           </strong>
           <button type="button" onClick={recoverAtNextStop}>

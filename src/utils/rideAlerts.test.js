@@ -223,9 +223,12 @@ describe("spoken get-off alerts", () => {
     expect(cancelled).toBe(2);
   });
 
-  it("falls back to a neutral name when the stop has none", () => {
+  it("does not name a stop that has no name", () => {
     speakRideStage("now", "");
-    expect(spoken.map((u) => u.text)).toContain("your stop");
+    expect(spoken.map((u) => u.text)).toEqual([
+      "This is your stop.",
+      "Get off now.",
+    ]);
   });
 
   // Instructions in the language the passenger reads, each by a voice for
@@ -260,14 +263,23 @@ describe("spoken get-off alerts", () => {
     expect(spoken.map((u) => u.text)).toContain("Paina stop-nappia nyt.");
   });
 
-  it("reads the stand-in for a missing name as a phrase in the reader's language", () => {
-    speakRideStage("soon", "");
-    expect(spoken.find((u) => u.text === "your stop")?.lang).toBe("en-US");
-
+  it("speaks a nameless stop's alert wholly in the reader's language", () => {
     resetLanguageForTests("fi");
-    spoken = [];
     speakRideStage("soon", "");
-    expect(spoken.find((u) => u.text === "pysäkkisi")?.lang).toBe("fi-FI");
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["Valmistaudu. Pysäkkisi lähestyy.", "fi-FI"],
+    ]);
+  });
+
+  // A ride saved by an older version may carry "Stop 30" as its name. Read
+  // by the Finnish voice it came out as nonsense; it is no name at all.
+  it("treats a stored stand-in like a missing name", () => {
+    speakRideStage("now", "Stop 30");
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["This is your stop.", "en-US"],
+      ["Get off now.", "en-US"],
+    ]);
   });
 
   it("reports failure instead of throwing when speech is unavailable", () => {

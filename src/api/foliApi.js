@@ -325,10 +325,10 @@ export async function fetchStopMonitor(
     .slice(0, 24);
 
   return {
+    // Often missing from the live feed. The screen names the stop by its
+    // number instead (utils/stopNames.js).
     stopName:
-      typeof payload.stopname === "string" && payload.stopname.trim()
-        ? payload.stopname.trim()
-        : `Stop ${stopId}`,
+      typeof payload.stopname === "string" ? payload.stopname.trim() : "",
     arrivals,
     serverTime,
     realtimeAvailable: status === "OK",
@@ -350,9 +350,7 @@ export async function fetchStopCatalog(signal) {
     .map(([id, stop]) => ({
       id: String(id),
       name:
-        typeof stop?.stop_name === "string" && stop.stop_name.trim()
-          ? stop.stop_name.trim()
-          : `Stop ${id}`,
+        typeof stop?.stop_name === "string" ? stop.stop_name.trim() : "",
     }))
     .filter((stop) => /^\d+$/.test(stop.id))
     .sort((a, b) => Number(a.id) - Number(b.id));

@@ -17,6 +17,7 @@ import {
   nearestChoiceIsAmbiguous,
 } from "../utils/nearestStop";
 import styles from "./NearbyStops.module.css";
+import { stopLabel } from "../utils/stopNames";
 
 const NEARBY_STOP_LIMIT = 6;
 
@@ -33,13 +34,13 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
         className={styles.stopButton}
         onClick={() => onSelect(stop.id)}
         aria-label={t("{name}, stop {id}, {distance} away", {
-          name: stop.name,
+          name: stopLabel(stop),
           id: stop.id,
           distance: formatDistance(stop.distanceMeters),
         })}
       >
         <span className={styles.stopText}>
-          <strong>{stop.name}</strong>
+          <strong>{stopLabel(stop)}</strong>
           <span>
             {t("Stop {id}", { id: stop.id })} ·{" "}
             {formatDistance(stop.distanceMeters)}
@@ -55,7 +56,7 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
           target="_blank"
           rel="noreferrer"
           aria-label={t("Walk to {name}, stop {id}, in Google Maps", {
-            name: stop.name,
+            name: stopLabel(stop),
             id: stop.id,
           })}
         >

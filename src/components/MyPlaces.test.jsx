@@ -756,3 +756,31 @@ test("rewords a message already on screen when the language changes", () => {
     screen.getByRole("heading", { name: "Omat paikat" })
   ).toBeInTheDocument();
 });
+
+// Near you said this in Finnish; My Places, with the same browser answer,
+// said it in English.
+test("a blocked location is explained in Finnish in the Finnish interface", async () => {
+  resetLanguageForTests("fi");
+  setGeolocation(vi.fn((success, failure) => failure({ code: 1 })));
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: /Aseta Koti nykyisen sijaintini perusteella/ })
+  );
+
+  expect(
+    await screen.findByText(/^Sijainnin käyttö on estetty\./)
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Location access is blocked/)).not.toBeInTheDocument();
+});

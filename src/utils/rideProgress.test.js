@@ -84,13 +84,12 @@ describe("ride progress", () => {
         departureEpochSec: 1_000,
       });
 
-    it("is named by its number", () => {
-      expect(plan().targetStop.name).toBe("Stop 30");
-    });
-
-    it("is named by its number in Finnish", () => {
+    // The plan is saved with the ride. A stand-in saved in it stayed in the
+    // language the ride started in, and was read out by the Finnish voice.
+    it("keeps no stand-in name in the saved plan, in any language", () => {
+      expect(plan().targetStop.name).toBe("");
       resetLanguageForTests("fi");
-      expect(plan().targetStop.name).toBe("Pysäkki 30");
+      expect(plan().targetStop.name).toBe("");
       expect(plan().boardingStop.name).toBe("Board");
     });
   });

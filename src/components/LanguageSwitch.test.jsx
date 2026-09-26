@@ -144,3 +144,27 @@ test("service updates speak Finnish, with Föli's cause codes in words", () => {
   expect(screen.getByLabelText("1 liikennetiedote")).toBeInTheDocument();
   expect(screen.getByText("Linja 32 · Tekninen vika")).toBeInTheDocument();
 });
+
+// The live feed often leaves the stop's name out. The board called it
+// "Stop 164" in the Finnish interface until the catalogue arrived, and for
+// good if it never did.
+test("a stop with no name yet is called by its number in Finnish", () => {
+  resetLanguageForTests("fi");
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName=""
+      arrivals={[]}
+      routesById={new Map()}
+      routesByShortName={new Map()}
+      serverTime={NOW}
+      receivedAtMs={Date.now()}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+    />
+  );
+
+  expect(screen.getByRole("heading", { name: "Pysäkki 164" })).toBeInTheDocument();
+});

@@ -22,6 +22,7 @@ import useStopMonitor from "./hooks/useStopMonitor";
 import { t, useLanguage } from "./i18n";
 import { buildRouteIndexes } from "./utils/routes";
 import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
+import { realStopName } from "./utils/stopNames";
 
 
 function stopFromLocation() {
@@ -47,6 +48,14 @@ function stopUrl(stopId, { keepSharedPlace = false } = {}) {
   }
 
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function withCatalogNames(savedStops, stops) {
+  if (!savedStops.some((stop) => !stop.name)) return savedStops;
+  const names = new Map(stops.map((stop) => [stop.id, stop.name]));
+  return savedStops.map((stop) =>
+    stop.name ? stop : { ...stop, name: names.get(stop.id) || "" }
+  );
 }
 
 function currentHistoryState() {
@@ -130,7 +139,19 @@ function App() {
     () => serviceAlerts.filter((alert) => alert.type === "cancellation"),
     [serviceAlerts]
   );
-  const displayStopName = selectedStop?.name || stopName;
+  // Föli's own name for the stop, or "" while none is known: the board and
+  // the title then call it by its number, in the reader's language.
+  const displayStopName = selectedStop?.name || realStopName(stopName);
+  // Saved stops kept before their name was known pick it up from the
+  // catalogue instead of showing a number for good.
+  const namedFavorites = useMemo(
+    () => withCatalogNames(favorites, stops),
+    [favorites, stops]
+  );
+  const namedRecents = useMemo(
+    () => withCatalogNames(recents, stops),
+    [recents, stops]
+  );
 
   useEffect(() => {
     const currentStopId = stopFromLocation();
@@ -176,13 +197,12 @@ function App() {
   // could not be told apart.
   useEffect(() => {
     // The page's own title in index.html is this same phrase.
-    document.title =
-      stopId && displayStopName
-        ? t("{name} ({id}) · Föli departures", {
-            name: displayStopName,
-            id: stopId,
-          })
-        : t("Turku bus departures · Föli live times");
+    document.title = stopId
+      ? t("{name} ({id}) · Föli departures", {
+          name: displayStopName || t("Stop {id}", { id: stopId }),
+          id: stopId,
+        })
+      : t("Turku bus departures · Föli live times");
   }, [displayStopName, language, stopId]);
 
   const selectStop = (nextStopId) => {
@@ -203,7 +223,8 @@ function App() {
   const currentStop = stopId
     ? {
         id: stopId,
-        name: displayStopName || t("Stop {id}", { id: stopId }),
+        // Stored with a favourite, so never a stand-in.
+        name: displayStopName,
       }
     : null;
 
@@ -331,8 +352,8 @@ function App() {
         </section>
 
         <QuickStops
-          favorites={favorites}
-          recents={recents}
+          favorites={namedFavorites}
+          recents={namedRecents}
           activeStopId={stopId}
           onSelect={selectStop}
         />

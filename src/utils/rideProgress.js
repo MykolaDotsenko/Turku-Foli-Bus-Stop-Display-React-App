@@ -1,4 +1,4 @@
-import { t } from "../i18n";
+import { realStopName } from "./stopNames";
 
 export const RIDE_STAGE = Object.freeze({
   BOARDED: "boarded",
@@ -86,7 +86,9 @@ function stopDetails(stopId, stopsById) {
     id: String(stopId),
     // A stop the catalogue does not name is shown, spoken and notified by
     // number, in the language the ride was started in: the plan keeps it.
-    name: String(stop?.name || t("Stop {id}", { id: stopId })),
+    // Saved with the ride, so only Föli's own name. The screen names a
+    // nameless stop by its number, in the language of the moment.
+    name: realStopName(stop?.name),
     ...(lat !== null && lon !== null ? { lat, lon } : {}),
   };
 }

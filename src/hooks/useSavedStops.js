@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { realStopName } from "../utils/stopNames";
 
 const STORAGE_KEY = "foli-saved-stops-v1";
 const MAX_RECENTS = 5;
@@ -13,7 +14,9 @@ function normalizeStop(stop) {
 
   return {
     id,
-    name: name || `Stop ${id}`,
+    // Only Föli's own name. A stand-in, including one stored by an earlier
+    // version, is left out and worked out on screen (utils/stopNames.js).
+    name: realStopName(name),
   };
 }
 

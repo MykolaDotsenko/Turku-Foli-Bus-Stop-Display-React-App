@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { t, useLanguage } from "../i18n";
 import styles from "./SafePlaceDriverCard.module.css";
+import { realStopName } from "../utils/stopNames";
 
 // What the driver reads and hears is the same whichever language the app is
 // in: Finnish, with English beside it for a driver or passenger who reads
@@ -84,12 +85,15 @@ function SafePlaceDriverCard({
 
   const titleId = `${idPrefix}-driver-${place.id}-title`;
   const canReadAloud = speechSupported();
+  const realName = realStopName(primaryStop.name);
 
   const readAloud = () => {
     if (!canReadAloud) return;
 
     const utterance = new globalThis.SpeechSynthesisUtterance(
-      `Tarvitsen apua. Olen menossa pysäkille ${primaryStop.name}, pysäkki ${primaryStop.id}. ${FINNISH_HELP}`
+      realName
+        ? `Tarvitsen apua. Olen menossa pysäkille ${realName}, pysäkki ${primaryStop.id}. ${FINNISH_HELP}`
+        : `Tarvitsen apua. Olen menossa pysäkille ${primaryStop.id}. ${FINNISH_HELP}`
     );
     utterance.lang = "fi-FI";
     utterance.rate = 0.9;
@@ -118,7 +122,9 @@ function SafePlaceDriverCard({
           {FINNISH_LEAD}
         </p>
         <h3 id={titleId} className={styles.stop}>
-          {primaryStop.name}
+          {/* For the driver, so a nameless stop is named in Finnish in
+              either interface. */}
+          {realName || `${FINNISH_STOP} ${primaryStop.id}`}
           <span>
             <span lang="fi">{FINNISH_STOP}</span> /{" "}
             <span lang="en">
