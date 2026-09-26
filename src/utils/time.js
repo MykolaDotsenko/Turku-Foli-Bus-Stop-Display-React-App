@@ -136,8 +136,9 @@ export function formatDelay(delaySeconds) {
   if (!Number.isFinite(seconds)) return null;
   if (Math.abs(seconds) < 30) return "on time";
 
+  // "+1 min" is transit shorthand; "1 min late" is what it means.
   const minutes = Math.max(1, Math.round(Math.abs(seconds) / 60));
-  return seconds > 0 ? `+${minutes} min` : `${minutes} min early`;
+  return seconds > 0 ? `${minutes} min late` : `${minutes} min early`;
 }
 
 export function dataAgeSeconds(recordedAt, serverTime) {

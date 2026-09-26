@@ -5,7 +5,7 @@ import RideSetup from "./RideSetup";
 import useClockTick from "../hooks/useClockTick";
 import useTripEnrichment from "../hooks/useTripEnrichment";
 import { distanceInMeters, formatDistance, hasCoordinates } from "../utils/geo";
-import { accessibleRouteTextColor } from "../utils/routes";
+import { accessibleRouteTextColor, contrastRatio } from "../utils/routes";
 import {
   advanceServerTime,
   dataAgeSeconds,
@@ -92,9 +92,16 @@ function departureKeys(arrivals, referenceTime, stopId) {
 function routeBadgeStyle(route) {
   if (!route?.color) return undefined;
 
+  // A route colour close to white (line 1's yellow is 1.07:1 against the
+  // row) leaves the badge with no edge, so it gets a hairline outline.
+  const blendsIntoRow = (contrastRatio(route.color, "#ffffff") ?? 21) < 1.5;
+
   return {
     backgroundColor: route.color,
     color: accessibleRouteTextColor(route.color, route.textColor || "#ffffff"),
+    ...(blendsIntoRow
+      ? { boxShadow: "inset 0 0 0 1px rgba(0, 0, 0, 0.22)" }
+      : {}),
   };
 }
 

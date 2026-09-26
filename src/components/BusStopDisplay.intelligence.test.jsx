@@ -472,3 +472,34 @@ test("keeps a future planned row visible when its realtime estimate has gone sta
   expect(screen.getByText("Varissuo")).toBeInTheDocument();
   expect(screen.getByText("5 min")).toBeInTheDocument();
 });
+
+// Line 1's yellow is 1.07:1 against the white row, so the badge had no
+// visible edge at all: only the black number floated there.
+test("outlines a line badge too light to stand out from the row", () => {
+  const now = Math.floor(Date.now() / 1000);
+  const routes = new Map([
+    ["1", { id: "1", shortName: "1", color: "#ffff00", textColor: "#000000" }],
+    ["7", { id: "7", shortName: "7", color: "#007985", textColor: "#ffffff" }],
+  ]);
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      stops={[]}
+      routesByShortName={routes}
+      serverTime={now}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+      arrivals={[
+        { lineref: "1", destinationdisplay: "Satama", aimeddeparturetime: now + 200 },
+        { lineref: "7", destinationdisplay: "Runosmäki", aimeddeparturetime: now + 400 },
+      ]}
+    />
+  );
+
+  expect(screen.getByText("1").style.boxShadow).toContain("inset");
+  expect(screen.getByText("7").style.boxShadow).toBe("");
+});

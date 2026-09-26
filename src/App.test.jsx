@@ -26,7 +26,7 @@ test("falls back through the documented Föli time fields", () => {
 });
 
 test("formats Föli delay values as seconds", () => {
-  expect(formatDelay(125)).toBe("+2 min");
+  expect(formatDelay(125)).toBe("2 min late");
   expect(formatDelay(-61)).toBe("1 min early");
   expect(formatDelay(15)).toBe("on time");
 });
@@ -35,7 +35,7 @@ test("formats Föli delay values as seconds", () => {
 
 test("surfaces aged realtime data instead of overstating freshness", () => {
   expect(formatServiceStatus(true, 60, 100, 250)).toBe(
-    "Live data · 3 min old · +1 min"
+    "Live data · 3 min old · 1 min late"
   );
 });
 
@@ -82,7 +82,7 @@ test("renders departure time and compact trip status", () => {
   expect(screen.getByText("Satama")).toBeInTheDocument();
   expect(
     screen.getByText((text) =>
-      text.includes(`Live · +1 min · ${formatClock(departureTime)}`)
+      text.includes(`Live · 1 min late · ${formatClock(departureTime)}`)
     )
   ).toBeInTheDocument();
 });
