@@ -31,13 +31,24 @@ const STAGE_COPY = {
   },
 };
 
-function etaLabel(seconds, stage) {
+function etaLabel(seconds, stage, { source = "", remainingStops = null } = {}) {
   if (stage === RIDE_STAGE.NOW) return "now";
   if (stage === RIDE_STAGE.MISSED) return "";
   if (seconds === null || seconds === undefined || seconds === "") return "";
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "";
-  if (value <= 30) return "about now";
+  if (value <= 30) {
+    // The timetable's time for the stop has come but stops remain, so the
+    // bus is behind it. A live or location estimate is trusted over the
+    // timetable's own count of stops.
+    const remaining = Number(remainingStops);
+    return source === "schedule" &&
+      remainingStops !== null &&
+      Number.isFinite(remaining) &&
+      remaining > 1
+      ? "running late"
+      : "about now";
+  }
   const minutes = Math.max(1, Math.ceil(value / 60));
   return `~${minutes} min`;
 }
@@ -54,8 +65,40 @@ function remainingLabel(value, stage) {
 
 function trackingLabel(health) {
   if (health === "live") return "Following your bus";
-  if (health === "delayed") return "Your bus is lagging behind";
+  // About the data, not the bus: "lagging behind" read as a late bus.
+  if (health === "delayed") return "Live tracking is catching up";
   return "Going by the timetable";
+}
+
+// The row under the badge says what the live data shows, from the same
+// evidence the badge uses, so the two cannot disagree: the badge once said
+// "Following your bus" over "Looking for your bus", and "Your bus is
+// confirmed" outlived the tracking it described.
+function liveEvidence(runtime, session) {
+  if (runtime.targetLive === true) {
+    return {
+      title: "Your bus is confirmed",
+      detail: "in Föli’s live arrival data",
+    };
+  }
+  if (runtime.trackingHealth === "live" && runtime.previousSeen === true) {
+    return {
+      title: "Your bus is confirmed",
+      detail: session.previousStop?.name
+        ? `on its way to ${session.previousStop.name}`
+        : "in Föli’s live arrival data",
+    };
+  }
+  if (runtime.trackingHealth === "delayed") {
+    return {
+      title: "Waiting for a live update",
+      detail: "last seen in Föli’s live data about a minute ago",
+    };
+  }
+  return {
+    title: "Looking for your bus",
+    detail: "in Föli’s live arrival data",
+  };
 }
 
 // The same window the stage logic uses to decide a fix is still evidence.
@@ -160,7 +203,11 @@ export default function RideMode({
   // begins, and never during it.
   const beforeTheApproach =
     rideStageRank(session.stage) < rideStageRank(RIDE_STAGE.NEXT);
-  const eta = etaLabel(runtime.etaSec, session.stage);
+  const eta = etaLabel(runtime.etaSec, session.stage, {
+    source: runtime.etaSource,
+    remainingStops: runtime.remainingStops,
+  });
+  const evidence = liveEvidence(runtime, session);
   const remaining = remainingLabel(runtime.remainingStops, session.stage);
 
   const recoverAtNextStop = () => {
@@ -263,12 +310,8 @@ export default function RideMode({
       {!gettingOffNow && (
         <div className={styles.statusGrid}>
           <span>
-            <strong>
-              {runtime.targetMatchBy
-                ? "Your bus is confirmed"
-                : "Looking for your bus"}
-            </strong>
-            <small>in Föli&apos;s live arrival data</small>
+            <strong>{evidence.title}</strong>
+            <small>{evidence.detail}</small>
           </span>
           <span>
             <strong>

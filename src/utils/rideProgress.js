@@ -555,10 +555,20 @@ export function evaluateRideStage(currentStage, signals = {}) {
   // at their own destination to get off at the next stop — the worst possible
   // advice for the person this feature exists for. After NOW, only positive
   // evidence of still travelling along the route past the target counts.
+  //
+  // Even that positive evidence has a walking twin: someone who got off and
+  // walks on down the same street also ends up past the stop along the
+  // route. Only riding pace tells the two apart, and without a speed from
+  // the phone, only time does: a bus carrying someone on is well past the
+  // stop within a minute and a half, where a walker is not.
   const reachedNow =
     rideStageRank(currentStage) >= rideStageRank(RIDE_STAGE.NOW);
+  const speed = finiteNumber(signals.gpsSpeedMps);
+  const stageAge = finiteNumber(signals.stageAgeSec);
+  const stillRiding =
+    speed !== null ? speed >= 3 : stageAge === null || stageAge <= 90;
   const missedEvidence = reachedNow
-    ? signals.gpsPassedTarget === true
+    ? signals.gpsPassedTarget === true && stillRiding
     : signals.targetPassedConfirmed === true ||
       signals.gpsPassedTarget === true ||
       signals.gpsMovedAwayAfterNear === true;

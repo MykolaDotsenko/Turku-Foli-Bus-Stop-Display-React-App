@@ -94,6 +94,13 @@ A matched row is live evidence only when the feed is tracking it (`monitored: tr
 - an answer without realtime data (`NO_SIRI_DATA`, `PENDING`) at the target stop means the bus is not in the live data: a stop with nothing more coming can answer that way once the bus has left it, so holding the last sighting would keep the get-off alarm repeating
 - the same answer at the previous stop never counts as the bus leaving it: that count raises NEXT, so it only follows answers that carry realtime data
 
+Everything read from the target stop's row is only as current as the answer it arrived in:
+
+- its live ETA counts down from that moment, and stops counting as live 120 s after it, when the timetable takes over
+- its vehicle position ages from that moment too, so a failed poll cannot keep an old position (a loop's first pass near the stop, say) fresh enough to raise NOW
+- sightings at the previous stop keep the ride's tracking badge live, but never refresh the target's estimate
+- the panel says "Your bus is confirmed" only while the target (or the stop before it) answered live within the last 45 s, the same window the badge calls live
+
 ## Client MVP data flow
 
 ```text
@@ -152,12 +159,21 @@ Requires stronger evidence:
 
 Message: **This is your stop. Exit now.**
 
+The alert repeats every 5 s until one of these ends it:
+
+- the passenger confirms
+- two answers from the target stop after NOW began no longer list the bus; no sighting of the bus standing at the stop is needed, because a reloaded page has none and a 20 s poll can miss a short dwell
+- three minutes have passed, which also covers a network that can report nothing at all
+
 ### MISSED
 
-Requires post-target evidence:
+Requires post-target evidence. Before NOW has fired:
 
 - target was previously reported at stop and is then absent
-- or local GPS was near the target and subsequently moves > 250 m away after NOW
+- or local GPS passes the target along the route shape
+- or local GPS was near the target and then moves > 250 m away
+
+After NOW, the bus leaving and the phone moving away is exactly what a successful exit looks like, so only GPS passing the target along the route counts, and only at riding pace: a reported speed of at least 3 m/s, or, when the phone reports no speed, within 90 s of NOW. Someone who got off and walks on down the same street is not told their stop is behind them.
 
 Message: **It looks like your stop is behind you. Get off at the next stop.**
 
@@ -214,14 +230,16 @@ The persisted ride contains public transit identifiers, target stop identity, ro
 - stage monotonicity
 - SOON/NEXT schedule fallback
 - NOW strong-evidence requirement
-- MISSED strong-evidence requirement
+- MISSED strong-evidence requirement, and no MISSED for someone walking on after NOW
 
 ### Hook/component tests
 
 - persisted ride restore
 - GPS cleanup
 - alert transition de-duplication
-- NOW repeat stops after ride completion
+- NOW repeat stops after ride completion, once the bus has gone (including after a reload at NOW), and after three minutes
+- target estimates count down and target positions age while polls fail
+- the tracking badge and the "confirmed" row never disagree
 
 ### E2E
 

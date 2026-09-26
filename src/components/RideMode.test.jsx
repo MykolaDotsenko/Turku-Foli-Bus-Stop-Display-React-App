@@ -382,3 +382,75 @@ test("offers recovery at the next stop after a missed-stop signal", () => {
   expect(onEndRide).toHaveBeenCalledTimes(1);
   expect(onOpenStop).toHaveBeenCalledWith("4");
 });
+
+function renderPanel(runtime, stage = "soon") {
+  return render(
+    <RideMode
+      session={session(stage)}
+      runtime={{
+        trackingHealth: "schedule",
+        remainingStops: 2,
+        targetMatchBy: "",
+        ...runtime,
+      }}
+      gps={{ status: "off", error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+}
+
+test("never calls the bus confirmed once live tracking has been lost", () => {
+  // The last match survives failed polls. Beside "Going by the timetable"
+  // and the degraded banner, "Your bus is confirmed" said the opposite.
+  renderPanel({ trackingHealth: "schedule", targetMatchBy: "dated-journey" });
+
+  expect(screen.getByText("Going by the timetable")).toBeInTheDocument();
+  expect(screen.getByText("Looking for your bus")).toBeInTheDocument();
+  expect(screen.queryByText("Your bus is confirmed")).not.toBeInTheDocument();
+});
+
+test("agrees with its own badge when the bus is seen at the stop before", () => {
+  // Live at the stop before, not yet listed at the exit stop: the badge said
+  // "Following your bus" while the row beneath it said "Looking for it".
+  renderPanel({
+    trackingHealth: "live",
+    previousSeen: true,
+    targetLive: false,
+  });
+
+  expect(screen.getByText("Following your bus")).toBeInTheDocument();
+  expect(screen.getByText("Your bus is confirmed")).toBeInTheDocument();
+  expect(screen.getByText("on its way to Kauppatori")).toBeInTheDocument();
+  expect(screen.queryByText("Looking for your bus")).not.toBeInTheDocument();
+});
+
+test("says the live data is catching up, not that the bus is late", () => {
+  renderPanel({ trackingHealth: "delayed" });
+
+  expect(screen.getByText("Live tracking is catching up")).toBeInTheDocument();
+  expect(screen.queryByText(/lagging/i)).not.toBeInTheDocument();
+});
+
+test("does not say about now while the timetable is behind the bus", () => {
+  // The timetable's time for the stop has come, but two stops remain.
+  renderPanel({ etaSec: 10, etaSource: "schedule", remainingStops: 2 });
+
+  expect(screen.getByText("running late")).toBeInTheDocument();
+  expect(screen.queryByText("about now")).not.toBeInTheDocument();
+});
+
+test("trusts a live estimate of about now even when the timetable counts more stops", () => {
+  renderPanel({
+    trackingHealth: "live",
+    targetLive: true,
+    etaSec: 20,
+    etaSource: "live",
+    remainingStops: 2,
+  });
+
+  expect(screen.getByText("about now")).toBeInTheDocument();
+  expect(screen.getByText("Your bus is confirmed")).toBeInTheDocument();
+});

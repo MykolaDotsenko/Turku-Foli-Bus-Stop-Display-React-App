@@ -449,6 +449,47 @@ describe("ride progress", () => {
     expect(afterGettingOff.stage).toBe(RIDE_STAGE.NOW);
   });
 
+  it("does not take someone walking on from their stop for a missed stop", () => {
+    // Off the bus at NOW and walking on down the same street, the phone ends
+    // up past the stop along the route just as a bus would, only at walking
+    // pace. "Get off at the next stop" would send them back onto a bus.
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: 1.3,
+        stageAgeSec: 150,
+      }).stage
+    ).toBe(RIDE_STAGE.NOW);
+
+    // No speed from the phone, and long after the alert: a bus carrying them
+    // on would have been past the stop long before this.
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: null,
+        stageAgeSec: 180,
+      }).stage
+    ).toBe(RIDE_STAGE.NOW);
+  });
+
+  it("still catches a passenger the bus carried past the stop after the alert", () => {
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: 8,
+        stageAgeSec: 150,
+      }).stage
+    ).toBe(RIDE_STAGE.MISSED);
+
+    expect(
+      evaluateRideStage(RIDE_STAGE.NOW, {
+        gpsPassedTarget: true,
+        gpsSpeedMps: null,
+        stageAgeSec: 60,
+      }).stage
+    ).toBe(RIDE_STAGE.MISSED);
+  });
+
   it("computes live and planned ETA", () => {
     expect(
       arrivalEtaSeconds({ expectedarrivaltime: 1_120 }, 1_000)

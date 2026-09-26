@@ -721,3 +721,388 @@ test("an outage at the stop before yours cannot fake the bus passing it", async 
   unmount();
   mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });
+
+function liveExitRow(serverTime, overrides = {}) {
+  return {
+    datedvehiclejourneyref: "journey-1",
+    monitored: true,
+    vehicleatstop: false,
+    recordedattime: serverTime,
+    ...overrides,
+  };
+}
+
+// Answers the exit stop once with `first`, then as `after` says. The stop
+// before it lists nothing, so it never counts as a sighting.
+function exitStopAnswersOnce(first, after) {
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    if (String(stopId) !== "32") {
+      return Promise.resolve({ serverTime, arrivals: [] });
+    }
+    exitStopAnswers += 1;
+    return exitStopAnswers === 1 ? Promise.resolve(first) : after(serverTime);
+  });
+}
+
+const offline = () => Promise.reject(new Error("network unavailable"));
+
+function startTimedRide(result, nowSec, stopOffsets) {
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + stopOffsets[stopOffsets.length - 1],
+        stopsToTarget: stopOffsets.map((offset, index) => ({
+          id: index === stopOffsets.length - 1 ? "32" : String(11 + index),
+          name: index === stopOffsets.length - 1 ? "Puistokatu" : `Stop ${index}`,
+          predictedEpochSec: nowSec + offset,
+        })),
+      },
+    });
+  });
+}
+
+async function advance(ms) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+}
+
+test("a failed poll cannot keep an old bus position fresh enough to say get off now", async () => {
+  // The loop's outbound leg passes 44 m from the exit stop minutes before
+  // the bus serves it. Every poll after that one fails, and the position
+  // used to be carried forward with the age it had when it arrived, so the
+  // timetable reaching NEXT turned it into "Get off now".
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 8, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.announceRideStage.mockClear();
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [
+        liveExitRow(nowSec, {
+          latitude: 60.4492,
+          longitude: 22.255,
+          expectedarrivaltime: nowSec + 480,
+        }),
+      ],
+    },
+    offline
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [150, 330, 480]);
+  await advance(0);
+  expect(result.current.session?.stage).toBe("boarded");
+
+  await advance(400_000);
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(mocks.announceRideStage.mock.calls.map(([stage]) => stage)).not.toContain(
+    "now"
+  );
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("the live estimate keeps counting down while polls fail", async () => {
+  // A hundred seconds out, then silence. Frozen at 100, "Press STOP" came
+  // after the bus was due at the stop.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 9, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [liveExitRow(nowSec, { expectedarrivaltime: nowSec + 100 })],
+    },
+    offline
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [150, 300, 450, 600]);
+  await advance(0);
+  expect(result.current.session?.stage).toBe("soon");
+
+  await advance(20_000);
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(result.current.session?.stageReason).toBe("live-eta");
+  expect(result.current.runtime.etaSec).toBeLessThanOrEqual(80);
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("an exit stop that keeps failing cannot freeze the estimate while the stop before answers", async () => {
+  // Sightings at the stop before kept the ride's "last live" time fresh, so
+  // the exit stop's last estimate counted as live for as long as they came.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 10, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    if (String(stopId) !== "32") {
+      return Promise.resolve({
+        serverTime,
+        arrivals: [liveExitRow(serverTime, { expectedarrivaltime: nowSec + 450 })],
+      });
+    }
+    exitStopAnswers += 1;
+    return exitStopAnswers === 1
+      ? Promise.resolve({
+          serverTime,
+          arrivals: [liveExitRow(serverTime, { expectedarrivaltime: nowSec + 600 })],
+        })
+      : offline();
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [150, 300, 450, 600]);
+  await advance(0);
+  expect(result.current.runtime.etaSec).toBe(600);
+
+  await advance(200_000);
+  // Past the point where the exit stop's estimate still counts: the panel
+  // shows the timetable's, not a frozen 600.
+  expect(result.current.runtime.etaSec).toBe(400);
+
+  await advance(320_000);
+  expect(result.current.session?.stage).toBe("next");
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a get-off alarm raised by the bus's position stops once the bus has gone", async () => {
+  // Polled every 20 s, a bus that dwells 15 s is never seen standing at the
+  // stop, and only a bus seen standing there could end the alarm.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 11, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.repeatNowRideSignal.mockClear();
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [
+        liveExitRow(nowSec, {
+          latitude: 60.4489,
+          longitude: 22.2552,
+          expectedarrivaltime: nowSec + 40,
+        }),
+      ],
+    },
+    (serverTime) => Promise.resolve({ serverTime, arrivals: [] })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [60]);
+  await advance(0);
+  expect(result.current.session?.stage).toBe("now");
+  expect(result.current.session?.stageReason).toBe("provider-near-target");
+
+  await advance(60_000);
+  const repeatsSoFar = mocks.repeatNowRideSignal.mock.calls.length;
+  expect(repeatsSoFar).toBeGreaterThan(0);
+
+  await advance(60_000);
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalledTimes(repeatsSoFar);
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a reload during the get-off alarm still lets it stop once the bus has gone", async () => {
+  // The reloaded page starts with no sighting of the bus, and the count of
+  // answers without it only ever started after one.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 12, 0, 0);
+  vi.setSystemTime(startMs);
+  mocks.repeatNowRideSignal.mockClear();
+  mocks.fetchStopMonitor.mockImplementation(() =>
+    Promise.resolve({ serverTime: Math.floor(Date.now() / 1000), arrivals: [] })
+  );
+  localStorage.setItem(
+    "foli-active-ride-v1",
+    JSON.stringify({
+      id: "ride-reloaded",
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      stage: "now",
+      stageReason: "target-at-stop",
+      stageConfidence: "live",
+      startedAt: startMs - 600_000,
+      stageChangedAt: startMs - 5_000,
+      expiresAt: startMs + 3_600_000,
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  expect(result.current.session?.stage).toBe("now");
+
+  await advance(60_000);
+  const repeatsSoFar = mocks.repeatNowRideSignal.mock.calls.length;
+  expect(repeatsSoFar).toBeGreaterThan(0);
+
+  await advance(60_000);
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalledTimes(repeatsSoFar);
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("the get-off alarm gives up after three minutes with no news at all", async () => {
+  // With the network gone nothing can say the bus has left, and a phone in a
+  // pocket repeated "get off now" until the ride expired hours later.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 13, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.repeatNowRideSignal.mockClear();
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [
+        liveExitRow(nowSec, { vehicleatstop: true, expectedarrivaltime: nowSec }),
+      ],
+    },
+    offline
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, nowSec, [30]);
+  await advance(0);
+  expect(result.current.session?.stage).toBe("now");
+
+  await advance(170_000);
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalled();
+
+  await advance(20_000);
+  const repeatsSoFar = mocks.repeatNowRideSignal.mock.calls.length;
+  await advance(120_000);
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalledTimes(repeatsSoFar);
+  // The ride itself stays open, for the recovery actions.
+  expect(result.current.session?.stage).toBe("now");
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+// A straight street through the exit stop at 1100 m and on beyond it, so a
+// phone can be placed a given way past the stop along the route.
+const throughTheStop = [
+  { lat: 60.4518, lon: 22.2666, traveled: 0 },
+  { lat: 60.4488, lon: 22.255, traveled: 1100 },
+  { lat: 60.4458, lon: 22.2434, traveled: 2200 },
+];
+
+function pastTheStop(fraction) {
+  return {
+    latitude: 60.4488 - 0.003 * fraction,
+    longitude: 22.255 - 0.0116 * fraction,
+    accuracy: 10,
+  };
+}
+
+async function rideToGetOffNow() {
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 22, 14, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.announceRideStage.mockClear();
+  mocks.fetchTripShape.mockResolvedValueOnce(throughTheStop);
+  let deliverGps = null;
+  watchPosition.mockImplementation((success) => {
+    deliverGps = success;
+    return 93;
+  });
+  exitStopAnswersOnce(
+    {
+      serverTime: nowSec,
+      arrivals: [
+        liveExitRow(nowSec, { vehicleatstop: true, expectedarrivaltime: nowSec }),
+      ],
+    },
+    (serverTime) => Promise.resolve({ serverTime, arrivals: [] })
+  );
+
+  const hook = renderHook(() => useRideMode());
+  act(() => {
+    hook.result.current.startRide({
+      ...rideConfig,
+      options: { locationBackup: true, notifications: false },
+      plan: {
+        ...rideConfig.plan,
+        targetPredictedEpochSec: nowSec + 30,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 30 },
+        ],
+      },
+    });
+  });
+  await advance(0);
+  expect(hook.result.current.gps.shapeStatus).toBe("ready");
+  expect(hook.result.current.session?.stage).toBe("now");
+
+  return {
+    ...hook,
+    startMs,
+    deliver: (coords) =>
+      act(() => {
+        deliverGps({ coords });
+      }),
+  };
+}
+
+test("walking on down the street after getting off is not a missed stop", async () => {
+  const { result, unmount, startMs, deliver } = await rideToGetOffNow();
+
+  deliver({ ...pastTheStop(0), speed: 0 });
+  vi.setSystemTime(startMs + 160_000);
+  deliver({ ...pastTheStop(0.2), speed: 1.3 });
+
+  expect(result.current.gps.passedTarget).toBe(true);
+  expect(result.current.session?.stage).toBe("now");
+  expect(mocks.announceRideStage.mock.calls.map(([stage]) => stage)).not.toContain(
+    "missed"
+  );
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a phone that reports no speed still catches a ride past the stop", async () => {
+  // Browsers send a speed they do not have as null, which used to become
+  // 0 m/s: standing still, however fast the bus was carrying them on.
+  const { result, unmount, startMs, deliver } = await rideToGetOffNow();
+
+  vi.setSystemTime(startMs + 60_000);
+  deliver({ ...pastTheStop(0.2), speed: null });
+
+  expect(result.current.gps.speedMps).toBeNull();
+  expect(result.current.session?.stage).toBe("missed");
+
+  act(() => result.current.endRide());
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
