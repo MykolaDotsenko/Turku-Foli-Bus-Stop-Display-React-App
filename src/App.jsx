@@ -22,6 +22,10 @@ import { buildRouteIndexes } from "./utils/routes";
 import { clearSharedPlaceHash, parseSharedPlaceHash } from "./utils/sharedPlaces";
 
 
+// The page's own title, from index.html, for when no stop is open.
+const DEFAULT_TITLE =
+  typeof document === "undefined" ? "" : document.title;
+
 function stopFromLocation() {
   const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : "";
@@ -163,6 +167,15 @@ function App() {
       rememberRecent({ id: stopId, name: displayStopName });
     }
   }, [displayStopName, rememberRecent, stopId]);
+
+  // Every stop used to share one title, so tabs, bookmarks and history
+  // could not be told apart.
+  useEffect(() => {
+    document.title =
+      stopId && displayStopName
+        ? `${displayStopName} (${stopId}) · Föli departures`
+        : DEFAULT_TITLE;
+  }, [displayStopName, stopId]);
 
   const selectStop = (nextStopId) => {
     if (!/^\d+$/.test(nextStopId || "")) return;
@@ -385,18 +398,67 @@ function App() {
       )}
 
       <footer className="source-note">
-        Independent app · Data: Turku region public transport ·{" "}
-        <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
-          data.foli.fi
-        </a>{" "}
-        ·{" "}
-        <a
-          href="https://creativecommons.org/licenses/by/4.0/"
-          target="_blank"
-          rel="noreferrer"
-        >
-          CC BY 4.0
-        </a>
+        <p className="source-line">
+          Independent app · Data: Turku region public transport ·{" "}
+          <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
+            data.foli.fi
+          </a>{" "}
+          ·{" "}
+          <a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            CC BY 4.0
+          </a>
+        </p>
+
+        {/* Trust needs one place that says who makes this, what stays on
+            the phone and what leaves it. The facts were spread over a
+            dozen fine-print lines, and "Independent app" was all a
+            passenger saw without scrolling to the bottom. */}
+        <details className="about">
+          <summary>About &amp; privacy</summary>
+          <dl>
+            <dt>Who makes it</dt>
+            <dd>
+              An independent app, not made by or affiliated with Föli (Turku
+              region public transport) or the City of Turku. For tickets and
+              official journey planning, use Föli&apos;s own services.
+            </dd>
+            <dt>Where the times come from</dt>
+            <dd>
+              Föli open data at data.foli.fi, under CC BY 4.0. Live times are
+              estimates from the buses and can change.
+            </dd>
+            <dt>What stays on this phone</dt>
+            <dd>
+              Favourites, recent stops, My Places (public stop numbers and
+              names, never an address), the last few departure boards for up
+              to 15 minutes, and a ride in progress for up to six hours.
+              Clearing this site&apos;s data removes all of it.
+            </dd>
+            <dt>What leaves it</dt>
+            <dd>
+              Each stop you look up is requested from data.foli.fi, which
+              sees your IP address and that stop. Your location is used only
+              when you ask, stays on the phone and is never saved. Google Maps
+              opens only when you tap a route link.
+            </dd>
+            <dt>What there is not</dt>
+            <dd>No account, no ads, no analytics.</dd>
+          </dl>
+          <p>
+            Feedback and source code:{" "}
+            <a
+              href="https://github.com/MykolaDotsenko/foli-live-departures/issues"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </p>
+        </details>
       </footer>
     </main>
   );

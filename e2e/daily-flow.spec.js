@@ -1651,6 +1651,30 @@ test("a browser that blocks site data still gets departures", async ({
   expect(pageErrors).toEqual([]);
 });
 
+test("each stop gets its own tab title, and the app says who makes it", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  await page.goto("/");
+  const defaultTitle = await page.title();
+  expect(defaultTitle).toContain("Föli");
+
+  await page.goto("/?stop=164");
+  await expect(page).toHaveTitle("Kauppatori (164) · Föli departures");
+
+  const about = page.locator("details.about");
+  await about.getByText("About & privacy").click();
+  await expect(about.getByText(/not made by or affiliated with Föli/)).toBeVisible();
+  await expect(about.getByText("No account, no ads, no analytics.")).toBeVisible();
+  await expect(
+    about.getByRole("link", { name: "GitHub" })
+  ).toHaveAttribute("href", /github\.com\/MykolaDotsenko\/foli-live-departures/);
+
+  await page.goto("/");
+  await expect(page).toHaveTitle(defaultTitle);
+});
+
 test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
   await page.goto("/?stop=4");
   await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
