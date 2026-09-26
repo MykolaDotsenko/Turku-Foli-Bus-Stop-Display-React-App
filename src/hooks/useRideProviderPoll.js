@@ -7,12 +7,13 @@ const REALTIME_ONLY = Object.freeze({ scheduleFallback: false });
 
 // What one stop's answer says about the ride. Only a row the feed is tracking
 // is evidence of where the bus is. The feed also lists journeys it is not
-// tracking, with the timetable time under the same trip id, and NO_SIRI_DATA
-// says nothing either way. Counting those as sightings showed "Following your
-// bus" and a timetable-timed "Press STOP now" just as live tracking was lost.
+// tracking, with the timetable time under the same trip id; counting those as
+// sightings showed "Following your bus" and a timetable-timed "Press STOP now"
+// just as live tracking was lost. An answer with no rows, NO_SIRI_DATA
+// included, means the bus is not in the live data: a stop with nothing more
+// coming can answer that way once the bus has left it, and holding the last
+// sighting then kept the get-off alarm repeating for the rest of the ride.
 function rideSighting(answer, identity) {
-  if (answer?.realtimeAvailable === false) return { kind: "unknown" };
-
   const match = matchRideArrival(answer?.arrivals, identity);
   if (!match) return { kind: "absent" };
 
@@ -100,10 +101,9 @@ export default function useRideProviderPoll({
                 current.targetStop
               )
             );
-          } else if (target.kind !== "unknown") {
+          } else {
             // Absent, or listed without tracking: either way the bus is not
-            // in the live data. "unknown" keeps the last live picture, which
-            // then ages out exactly as it does after a failed poll.
+            // in the live data.
             next.targetListed = false;
             next.targetMatchBy = "";
             next.targetMissingCount =

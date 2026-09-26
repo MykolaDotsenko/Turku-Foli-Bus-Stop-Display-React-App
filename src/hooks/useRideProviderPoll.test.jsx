@@ -219,16 +219,21 @@ test("a tracked bus dropping to an untracked row reads as gone from live data", 
   expect(next.liveEtaSec).toBeNull();
 });
 
-// NO_SIRI_DATA is the feed being unavailable, not the journey having left.
-test("an answer without realtime data keeps the last live picture", async () => {
+// Föli also answers NO_SIRI_DATA for a stop with nothing coming, which is
+// exactly what the exit stop looks like once the bus has left it. Holding the
+// last live picture there kept the bus "at the stop" and the get-off alarm
+// repeating for the rest of the ride.
+test("an answer without realtime rows reads as the bus gone from live data", async () => {
   const before = {
     targetListed: true,
     targetMatchBy: "trip",
     targetMissingCount: 0,
-    targetWasAtStop: false,
-    liveEtaSec: 120,
+    targetWasAtStop: true,
+    liveEtaSec: 0,
+    providerDistanceM: 12,
+    providerPositionAgeSec: 5,
     previousSeen: true,
-    previousMissingCount: 1,
+    previousMissingCount: 0,
     lastLiveMatchAt: 5,
   };
   const { next } = await pollOnce(
@@ -239,12 +244,15 @@ test("an answer without realtime data keeps the last live picture", async () => 
     before
   );
 
-  expect(next.targetListed).toBe(true);
-  expect(next.targetMatchBy).toBe("trip");
-  expect(next.targetMissingCount).toBe(0);
-  expect(next.liveEtaSec).toBe(120);
-  expect(next.previousSeen).toBe(true);
+  expect(next.targetListed).toBe(false);
+  expect(next.targetMatchBy).toBe("");
+  expect(next.targetMissingCount).toBe(1);
+  expect(next.targetWasAtStop).toBe(true);
+  expect(next.liveEtaSec).toBeNull();
+  expect(next.providerDistanceM).toBeNull();
+  expect(next.providerPositionAgeSec).toBeNull();
   expect(next.previousMissingCount).toBe(1);
+  // Not a sighting, so live tracking still ages out on its own clock.
   expect(next.lastLiveMatchAt).toBe(5);
 });
 

@@ -500,3 +500,150 @@ test("a timetable-only listing at the target never reads as live tracking", asyn
   unmount();
   mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });
+
+test("the get-off alarm stops once the bus has left, even if the stop then reports no data", async () => {
+  // Once the bus leaves the exit stop, a stop with nothing else coming is
+  // answered with NO_SIRI_DATA. The alarm must still see the bus as gone.
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 14, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+  mocks.repeatNowRideSignal.mockClear();
+
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    if (String(stopId) !== "32") {
+      return Promise.resolve({ serverTime: nowSec, arrivals: [] });
+    }
+    exitStopAnswers += 1;
+    return Promise.resolve(
+      exitStopAnswers === 1
+        ? {
+            serverTime: nowSec,
+            arrivals: [
+              {
+                datedvehiclejourneyref: "journey-1",
+                monitored: true,
+                vehicleatstop: true,
+                recordedattime: nowSec,
+                expectedarrivaltime: nowSec,
+              },
+            ],
+          }
+        : { serverTime: nowSec, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 60,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 60 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.session?.stage).toBe("now");
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5_000);
+  });
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalled();
+
+  // Two polls without the bus: it has left the stop.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(40_000);
+  });
+  expect(result.current.runtime.targetMissingCount).toBeGreaterThanOrEqual(2);
+
+  const repeatsSoFar = mocks.repeatNowRideSignal.mock.calls.length;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(60_000);
+  });
+  expect(mocks.repeatNowRideSignal).toHaveBeenCalledTimes(repeatsSoFar);
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+test("a bus position from before the stop went quiet cannot raise the get-off alarm", async () => {
+  // A loop brings the bus within 45 m of the exit stop four minutes before it
+  // serves it; then the stop stops reporting. That position must not be kept
+  // as current, or the timetable's NEXT turns it into "Get off now".
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 15, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  let exitStopAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    if (String(stopId) !== "32") {
+      return Promise.resolve({ serverTime: nowSec, arrivals: [] });
+    }
+    exitStopAnswers += 1;
+    return Promise.resolve(
+      exitStopAnswers === 1
+        ? {
+            serverTime: nowSec,
+            arrivals: [
+              {
+                datedvehiclejourneyref: "journey-1",
+                monitored: true,
+                vehicleatstop: false,
+                recordedattime: nowSec,
+                latitude: 60.4492,
+                longitude: 22.255,
+                expectedarrivaltime: nowSec + 240,
+              },
+            ],
+          }
+        : { serverTime: nowSec, realtimeAvailable: false, arrivals: [] }
+    );
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 240,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 240 },
+        ],
+      },
+    });
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  expect(result.current.session?.stage).toBe("soon");
+
+  // Long enough for the old live answer to age out of the stage logic.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(140_000);
+  });
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(result.current.session?.stageReason).not.toBe("provider-near-target");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});

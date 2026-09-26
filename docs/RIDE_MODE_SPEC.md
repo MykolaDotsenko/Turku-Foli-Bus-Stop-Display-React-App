@@ -91,7 +91,7 @@ A matched row is live evidence only when the feed is tracking it (`monitored: tr
 
 - ride polling requests the realtime feed alone, never the departure board's GTFS timetable fallback, because those rows carry the same trip id
 - an untracked row counts as the bus not being in the live data, and it cannot later arm the previous-stop check by dropping off the board
-- a `NO_SIRI_DATA` or `PENDING` answer is treated like a failed poll: the last live picture ages out instead of being read as the bus having left
+- an answer without rows, `NO_SIRI_DATA` or `PENDING` included, means the bus is not in the live data: a stop with nothing more coming can answer that way once the bus has left it, so holding the last sighting would keep the get-off alarm repeating
 
 ## Client MVP data flow
 
