@@ -445,7 +445,7 @@ test("mentions vibration only where the phone can vibrate", async () => {
   renderThreeStopSetup();
   await screen.findByDisplayValue("3");
   expect(
-    screen.getByText(/check your sound now rather than when it matters: this phone will not vibrate/)
+    screen.getByText(/check the sound now; this phone will not vibrate/)
   ).toBeInTheDocument();
   expect(screen.queryByText(/sound and vibration/i)).not.toBeInTheDocument();
 });
@@ -476,7 +476,7 @@ test("sets up the ride in Finnish, with stop names as Föli publishes them", asy
   );
   expect(screen.getByText(/^Seuraava pysäkki · /)).toBeInTheDocument();
   expect(
-    screen.getByText(/^Jää pois: Turun linna · Linja 1 lähtee klo \d\d:\d\d$/)
+    screen.getByText(/^Jäät pois: Turun linna · Linja 1 lähtee klo \d\d:\d\d$/)
   ).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Käynnistä matkatila" }));
@@ -516,5 +516,5 @@ test("follows a language switch while the stop is being chosen", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent(
     "Tälle bussille ei ole vielä lähtöaikaa. Odota, että lähtötaulu päivittyy, ja yritä uudelleen."
   );
-  expect(screen.getByText(/^Jää pois: Puistokatu · Linja 1$/)).toBeInTheDocument();
+  expect(screen.getByText(/^Jäät pois: Puistokatu · Linja 1$/)).toBeInTheDocument();
 });

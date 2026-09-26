@@ -49,7 +49,7 @@ test("offers one-tap transit recovery without embedding the current origin", () 
     })
   ).toBeInTheDocument();
   expect(
-    screen.getByText(/travel help, not an emergency service/i)
+    screen.getByText(/In an emergency, call 112/)
   ).toBeInTheDocument();
 
   const getHome = screen.getByRole("link", {
@@ -61,7 +61,7 @@ test("offers one-tap transit recovery without embedding the current origin", () 
   expect(url.searchParams.get("travelmode")).toBe("transit");
   expect(url.searchParams.has("origin")).toBe(false);
   expect(
-    screen.getByText(/Google Maps.*saved Home stop.*Check the suggested itinerary/i)
+    screen.getByText("Get me Home opens a route in Google Maps. Check it before you travel.")
   ).toBeInTheDocument();
 });
 
@@ -103,7 +103,7 @@ test("exposes saved backup stops only on demand", () => {
   render(<HomeRecovery home={home} stops={stops} onOpenStop={onOpenStop} />);
 
   fireEvent.click(
-    screen.getByText("Other saved Home stop")
+    screen.getByText("Backup Home stop")
   );
 
   const backupRoute = screen.getByRole("link", {
@@ -154,7 +154,7 @@ test("can print a public-stop-only Home backup card before the phone dies", () =
 
   render(<HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />);
 
-  fireEvent.click(screen.getByText("Prepare for no battery"));
+  fireEvent.click(screen.getByText("Print a backup card"));
   expect(
     screen.getByText(/A web app cannot help after the phone powers off/i)
   ).toBeInTheDocument();

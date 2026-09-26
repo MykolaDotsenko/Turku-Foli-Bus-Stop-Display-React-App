@@ -69,7 +69,7 @@ export default {
   "Other lines are leaving from this stop.":
     "Tältä pysäkiltä lähtee muita linjoja.",
   "Show all lines": "Näytä kaikki linjat",
-  realtime: ({ count }) => (count === 1 ? "reaaliaikainen" : "reaaliaikaista"),
+  live: ({ count }) => (count === 1 ? "reaaliaikainen" : "reaaliaikaista"),
   "{count} scheduled": ({ count }) =>
     count === 1 ? "1 aikataulun mukainen" : `${count} aikataulun mukaista`,
   "Live update failed": "Reaaliaikapäivitys epäonnistui",
@@ -86,12 +86,12 @@ export default {
   "Connecting to Föli": "Yhdistetään Föliin",
   "Loading departures…": "Ladataan lähtöjä…",
   "Couldn’t load departures.": "Lähtöjä ei voitu ladata.",
-  "Check the stop number or connection and try again.":
-    "Tarkista pysäkin numero tai yhteys ja yritä uudelleen.",
+  "Föli’s live times aren’t loading right now. Try again in a moment.":
+    "Fölin reaaliaikatiedot eivät juuri nyt lataudu. Yritä hetken päästä uudelleen.",
   "Try again": "Yritä uudelleen",
-  "No live departures right now.": "Ei reaaliaikaisia lähtöjä juuri nyt.",
+  "No live departures right now.": "Reaaliaikaisia lähtöjä ei nyt näy.",
   "The timetable could not be checked just now, so later buses may still run.":
-    "Aikataulua ei voitu juuri nyt tarkistaa, joten myöhempiä busseja voi vielä kulkea.",
+    "Aikataulua ei saatu tarkistettua, joten myöhemmin voi vielä kulkea busseja.",
   Updating: "Päivitetään",
   "Checking for the next departures…": "Tarkistetaan seuraavia lähtöjä…",
   "No upcoming departures.": "Ei tulevia lähtöjä.",
@@ -103,7 +103,7 @@ export default {
   "Cancelled at this stop · was due {time}":
     "Peruttu tällä pysäkillä · aikataulun mukaan klo {time}",
   "Ride Mode active": "Matkatila käytössä",
-  "Close get-off setup": "Sulje hälytyksen asetukset",
+  "Close get-off setup": "Sulje asetukset",
   "Alert me when to get off": "Muistuta, kun pitää jäädä pois",
   // The same button on a phone, where both of a row's actions share a line.
   // Its words must start the full phrase, which stays its accessible name.

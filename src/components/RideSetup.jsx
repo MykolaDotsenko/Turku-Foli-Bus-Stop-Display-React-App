@@ -338,7 +338,7 @@ export default function RideSetup({
           <h4>{t("Where do you want to get off?")}</h4>
           <p>
             {t(
-              "Pick your stop, then keep this page open with the sound on. You do not have to watch it: we tell you when to get ready, when to press STOP, and when to step off."
+              "Pick your stop and keep this page open with the sound on. You do not have to watch it: we tell you when to press STOP."
             )}
           </p>
         </div>
@@ -447,7 +447,7 @@ export default function RideSetup({
                   <strong>{t("Follow my location (recommended)")}</strong>
                   <small>
                     {t(
-                      "Alerts you by where you actually are, not only by where the timetable expects the bus to be. Your location stays on this phone and is forgotten when the ride ends."
+                      "Times the alerts to where you really are, not only to the timetable. Your location stays on this phone and is forgotten when the ride ends."
                     )}
                   </small>
                 </span>
@@ -484,14 +484,14 @@ export default function RideSetup({
             </div>
 
             <div className={styles.safetyNote}>
-              <strong>{t("Before you rely on it")}</strong>
+              <strong>{t("Check your sound")}</strong>
               <span>
                 {vibrates
                   ? t(
-                      "Starting plays a test alert, so you can check your sound and vibration now rather than when it matters. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it."
+                      "Starting plays a test alert, so you can check the sound and vibration now. We only say “get off now” when live bus data or your location confirms it."
                     )
                   : t(
-                      "Starting plays a test alert, so you can check your sound now rather than when it matters: this phone will not vibrate for these alerts. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it."
+                      "Starting plays a test alert, so you can check the sound now; this phone will not vibrate for these alerts. We only say “get off now” when live bus data or your location confirms it."
                     )}
               </span>
             </div>

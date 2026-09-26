@@ -129,6 +129,14 @@
   outline-offset: 2px;
 }
 
+/* One under the other on a phone: side by side, "Read aloud in Finnish"
+   wrapped onto two lines with its speaker off centre. */
+@media (max-width: 620px) {
+  .actions {
+    display: grid;
+  }
+}
+
 @media (forced-colors: active) {
   .speakButton,
   .closeButton,

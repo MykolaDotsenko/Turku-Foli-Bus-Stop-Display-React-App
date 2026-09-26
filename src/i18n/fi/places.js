@@ -11,7 +11,7 @@ export default {
   "My Places": "Omat paikat",
   "No address to remember": "Osoitetta ei tarvitse muistaa",
   "Save Home, School or Work as public stops — no address to type or remember.":
-    "Tallenna Koti, Koulu tai Työ julkisina pysäkkeinä – osoitetta ei tarvitse kirjoittaa eikä muistaa.",
+    "Tallenna kodin, koulun tai työpaikan lähin pysäkki – osoitetta ei tarvita.",
   "Finding the closest Föli stops…": "Etsitään lähimpiä Fölin pysäkkejä…",
   "Transit links open externally with only the public destination stop. Your starting location is not embedded in the link.":
     "Reittilinkit avautuvat toisessa palvelussa, ja niissä on vain julkinen määränpääpysäkki. Lähtösijaintiasi ei lisätä linkkiin.",
@@ -23,14 +23,16 @@ export default {
     "Lähin Fölin pysäkki on {distance} päässä. Mene lähemmäs paikkaa ennen kuin tallennat sen.",
 
   // A place not set up yet
-  "Not set": "Ei asetettu",
+  "Not set": "Ei vielä tallennettu",
   "Save the stops you use, without typing an address.":
     "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta.",
   "Use my location": "Käytä sijaintiani",
   "Use {name}": "Käytä pysäkkiä {name}",
 
   // Choosing a place's stops
-  "Choose stops for {label}": "Valitse pysäkit: {label}",
+  "Choose stops for Home": "Valitse kodin pysäkit",
+  "Choose stops for School": "Valitse koulun pysäkit",
+  "Choose stops for Work": "Valitse työpaikan pysäkit",
   "Tick the stops you use to get Home, and mark one as Primary.":
     "Valitse pysäkit, joita käytät kotimatkalla, ja merkitse yksi pääpysäkiksi.",
   "Tick the stops you use to get to School, and mark one as Primary.":
@@ -72,7 +74,7 @@ export default {
   "Location accuracy unavailable": "Sijainnin tarkkuus ei ole tiedossa",
   "no stop was preselected — choose and confirm an arrival stop yourself":
     "pysäkkiä ei valittu valmiiksi – valitse ja vahvista saapumispysäkki itse",
-  Primary: "Pääpysäkki",
+  "Main stop": "Pääpysäkki",
   "Yes, this is the right stop for Home.": "Kyllä, tämä on oikea pysäkki kotiin.",
   "Yes, these are the right stops for Home.":
     "Kyllä, nämä ovat oikeat pysäkit kotiin.",
@@ -99,7 +101,8 @@ export default {
   // A saved place
   "Needs review": "Tarkistettava",
   "stop {id}": "pysäkki {id}",
-  "Primary: {name} · stop {id}": "Pääpysäkki: {name} · pysäkki {id}",
+  "Main stop: {name} · stop {id}":
+    "Pääpysäkki: {name} · pysäkki {id}",
   "One or more saved stops no longer appear in the current Föli stop catalogue. Review this place before relying on it.":
     "Yksi tai useampi tallennettu pysäkki puuttuu Fölin nykyisestä pysäkkiluettelosta. Tarkista tämä paikka, ennen kuin luotat siihen.",
 
@@ -111,7 +114,7 @@ export default {
   "Open Work stop": "Avaa työpaikan pysäkki",
   "1 backup stop": "1 varapysäkki",
   "{count} backup stops": "{count} varapysäkkiä",
-  "Make primary": "Tee pääpysäkiksi",
+  "Make main stop": "Tee pääpysäkiksi",
 
   "Replace using where I am now": "Korvaa nykyisen sijaintini perusteella",
   "Share {label}": "Jaa {label}",
@@ -127,7 +130,8 @@ export default {
   // Get me Home
   "Travel recovery": "Matka-apu",
   "Need help getting home?": "Tarvitsetko apua kotimatkalla?",
-  "Travel help, not an emergency service.": "Matka-apua, ei hätäpalvelua.",
+  "Travel help. In an emergency, call 112.":
+    "Matka-apua. Hätätilanteessa soita 112.",
   "Home needs review because a saved stop changed or disappeared from the current Föli catalogue.":
     "Tarkista Koti: tallennettu pysäkki on muuttunut tai poistunut Fölin nykyisestä pysäkkiluettelosta.",
   "Get me Home": "Vie minut kotiin",
@@ -135,20 +139,20 @@ export default {
   "Home options": "Näytä lisää",
   "Fewer options": "Näytä vähemmän",
   "Open Home stop": "Avaa kotipysäkki",
-  "Opens Google Maps to this saved Home stop. Check the suggested itinerary before travelling.":
-    "Avaa reitin tälle tallennetulle kotipysäkille Google Mapsissa. Tarkista ehdotettu reitti ennen matkaa.",
+  "Get me Home opens a route in Google Maps. Check it before you travel.":
+    "Vie minut kotiin avaa reitin Google Mapsissa. Tarkista reitti ennen lähtöä.",
   "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work.":
     "Reittiohjeet eivät ole saatavilla, ennen kuin pysäkkien sijainnit latautuvat. Tallennettu pysäkkisi ja kuljettajalle näytettävä kortti toimivat silti.",
   "Directions need an internet connection.": "Reittiohjeet tarvitsevat verkkoyhteyden.",
-  "Other saved Home stop": "Muu tallennettu kotipysäkki",
-  "Other saved Home stops": "Muut tallennetut kotipysäkit",
+  "Backup Home stop": "Kodin varapysäkki",
+  "Backup Home stops": "Kodin varapysäkit",
   "If the usual stop is unavailable, choose another stop you approved for Home.":
     "Jos tavallista pysäkkiä ei voi käyttää, valitse toinen kotipysäkki, jonka olet hyväksynyt.",
   "Route there: backup Home stop {name}, stop {id}, by public transit":
     "Reitti sinne: kodin varapysäkki {name}, pysäkki {id}, joukkoliikenteellä",
   "Route there": "Reitti sinne",
   "Open stop": "Avaa pysäkki",
-  "Prepare for no battery": "Varaudu akun loppumiseen",
+  "Print a backup card": "Tulosta varakortti",
   "A web app cannot help after the phone powers off. Print or save a small Home backup card in advance so the destination still exists outside the phone. The card reveals the saved public Home stop area, so keep it only with the intended user.":
     "Verkkosovellus ei voi auttaa, kun puhelimesta on loppunut virta. Tulosta tai tallenna etukäteen pieni kotimatkakortti, niin määränpää on tallessa myös puhelimen ulkopuolella. Kortista näkee tallennetun kotipysäkin alueen, joten anna se vain sille, jolle se on tarkoitettu.",
   "Print / save Home backup card": "Tulosta / tallenna kotimatkakortti",

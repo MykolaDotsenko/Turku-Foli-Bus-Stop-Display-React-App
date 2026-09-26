@@ -167,7 +167,7 @@ test("the sweep finds English, and leaves names and marked English alone", () =>
   render(
     <div>
       <p>Kauppatori · Föli departures · Google Maps</p>
-      <p lang="en">Please help me get off at this stop.</p>
+      <p lang="en">Could you help me get off at the right stop?</p>
       <button type="button" aria-label="Näytä lähdöt">
         Näytä
       </button>

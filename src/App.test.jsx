@@ -143,6 +143,6 @@ test("shows a useful failure state when no stop data exists", () => {
 
   expect(screen.getByText("Couldn’t load departures.")).toBeInTheDocument();
   expect(
-    screen.getByText("Check the stop number or connection and try again.")
+    screen.getByText("Föli’s live times aren’t loading right now. Try again in a moment.")
   ).toBeInTheDocument();
 });

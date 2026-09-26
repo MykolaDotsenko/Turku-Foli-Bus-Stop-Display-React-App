@@ -676,7 +676,7 @@ test("sets up a place in Finnish, confirming it in the place's own words", () =>
   );
 
   expect(
-    screen.getByRole("heading", { name: "Valitse pysäkit: Koulu" })
+    screen.getByRole("heading", { name: "Valitse koulun pysäkit" })
   ).toBeInTheDocument();
   const save = screen.getByRole("button", { name: "Tallenna Koulu" });
   expect(save).toBeDisabled();

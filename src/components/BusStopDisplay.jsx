@@ -463,7 +463,7 @@ function BusStopDisplay({
           <span>{t("{count} upcoming", { count: visibleArrivals.length })}</span>
           <span>
             <strong>{realtimeCount}</strong>{" "}
-            {t("realtime", { count: realtimeCount })}
+            {t("live", { count: realtimeCount })}
           </span>
           <span>
             {t("{count} scheduled", {
@@ -587,7 +587,7 @@ function BusStopDisplay({
       ) : error && upcomingArrivals.length === 0 && !answerWasEmpty ? (
         <div className={styles.state} role="alert">
           <strong>{t("Couldn’t load departures.")}</strong>
-          <span>{t("Check the stop number or connection and try again.")}</span>
+          <span>{t("Föli’s live times aren’t loading right now. Try again in a moment.")}</span>
           <button type="button" className={styles.retryButton} onClick={onRefresh}>
             {t("Try again")}
           </button>

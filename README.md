@@ -150,9 +150,9 @@ It provides independent fallbacks:
 - **Open Home stop** — reopen the local departure board
 - **Show driver** — large destination card with a simple Finnish help sentence
 - **Backup Home stops** — user/parent-approved alternatives
-- **Prepare for no battery** — printable public-stop-only recovery card
+- **Print a backup card** — printable public-stop-only recovery card
 
-The interface deliberately describes this as travel help, not an emergency service.
+The interface deliberately describes this as travel help and points to 112 for emergencies.
 
 ### Location without overconfidence
 

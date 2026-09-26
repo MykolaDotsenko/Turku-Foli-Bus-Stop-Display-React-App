@@ -11,7 +11,8 @@ const FINNISH_STOP = "Pysäkki";
 const FINNISH_HELP =
   "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
 const ENGLISH_STOP = "Stop";
-const ENGLISH_HELP = "Please help me get off at this stop.";
+// What the Finnish request says, as the printed card has it.
+const ENGLISH_HELP = "Could you help me get off at the right stop?";
 
 function speechSupported() {
   return (

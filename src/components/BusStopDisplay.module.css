@@ -590,8 +590,14 @@
     display: none;
   }
 
+  /* Thumb-sized on a phone, like every other control on the board. */
   .filterButton {
+    min-height: 44px;
     margin-left: 0;
+  }
+
+  .lineChip {
+    min-height: 44px;
   }
 
   .lineFilter {

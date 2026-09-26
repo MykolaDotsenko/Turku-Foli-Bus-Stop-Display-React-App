@@ -1314,7 +1314,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
     })
   ).toBeVisible();
   await expect(
-    recovery.getByText(/travel help, not an emergency service/i)
+    recovery.getByText(/In an emergency, call 112/)
   ).toBeVisible();
 
   const getHome = recovery.getByRole("link", {
@@ -1339,7 +1339,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
   await driver.getByRole("button", { name: "Close" }).click();
-  await recovery.getByText("Other saved Home stop").click();
+  await recovery.getByText("Backup Home stop").click();
 
   const backupRoute = recovery.getByRole("link", {
     name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
@@ -1788,7 +1788,7 @@ test("mobile layout does not create horizontal page overflow", async ({
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
-  await recovery.getByText("Other saved Home stop").click();
+  await recovery.getByText("Backup Home stop").click();
   await expect(
     recovery.getByRole("link", {
       name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",

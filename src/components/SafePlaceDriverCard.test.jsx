@@ -139,7 +139,7 @@ test("fills the screen for the driver and leads in Finnish, without naming the p
   expect(dialog).toHaveAttribute("aria-modal", "true");
   expect(screen.getByRole("heading", { name: /Kauppatori/ })).toBeInTheDocument();
   expect(screen.getByText("Olen menossa pysäkille")).toHaveAttribute("lang", "fi");
-  expect(screen.getByText("Please help me get off at this stop.")).toBeInTheDocument();
+  expect(screen.getByText("Could you help me get off at the right stop?")).toBeInTheDocument();
   expect(dialog).not.toHaveTextContent(/Home/);
 });
 
@@ -222,7 +222,7 @@ test("shows the driver the same card in both languages, with the passenger's con
     "fi: Pysäkki",
     "en: Stop 164",
     "fi: Voitteko auttaa minua jäämään pois oikealla pysäkillä?",
-    "en: Please help me get off at this stop.",
+    "en: Could you help me get off at the right stop?",
   ]);
 
   expect(screen.getByText("Näytä tämä kuljettajalle")).toBeInTheDocument();

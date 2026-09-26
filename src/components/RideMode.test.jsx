@@ -648,7 +648,7 @@ test("asks a Finnish bus passenger to press STOP without inflecting a stop name"
   ).toBeInTheDocument();
   expect(screen.getByText("2 pysäkkiä")).toBeInTheDocument();
   expect(screen.getByText("~4 min")).toBeInTheDocument();
-  expect(screen.getByText("Bussisi on vahvistettu")).toBeInTheDocument();
+  expect(screen.getByText("Bussi löytyi")).toBeInTheDocument();
   expect(screen.getByLabelText("Matkan eteneminen")).toBeInTheDocument();
 });
 
@@ -673,7 +673,7 @@ test("follows a language switch in the middle of a ride", () => {
   expect(
     screen.getByRole("group", { name: "Hälytysäänen tarkistus" })
   ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Lopeta matka" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Lopeta matkatila" })).toBeInTheDocument();
 });
 
 test("gives a location problem in Finnish, and the destination as its sign says it", () => {

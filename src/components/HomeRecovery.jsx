@@ -65,7 +65,7 @@ function HomeRecovery({
         <p className={styles.kicker}>{t("Travel recovery")}</p>
         <h2 id="home-recovery-title">{t("Need help getting home?")}</h2>
         <p className={styles.description}>
-          {t("Travel help, not an emergency service.")}
+          {t("Travel help. In an emergency, call 112.")}
         </p>
       </div>
 
@@ -146,7 +146,7 @@ function HomeRecovery({
       {transitUrl && (
         <p className={styles.routeNote}>
           {t(
-            "Opens Google Maps to this saved Home stop. Check the suggested itinerary before travelling."
+            "Get me Home opens a route in Google Maps. Check it before you travel."
           )}
         </p>
       )}
@@ -165,8 +165,8 @@ function HomeRecovery({
         <details className={styles.backups}>
           <summary>
             {backupStops.length > 1
-              ? t("Other saved Home stops")
-              : t("Other saved Home stop")}
+              ? t("Backup Home stops")
+              : t("Backup Home stop")}
           </summary>
           <p className={styles.backupHint}>
             {t(
@@ -215,7 +215,7 @@ function HomeRecovery({
       )}
 
       <details className={styles.batteryBackup}>
-        <summary>{t("Prepare for no battery")}</summary>
+        <summary>{t("Print a backup card")}</summary>
         <p>
           {t(
             "A web app cannot help after the phone powers off. Print or save a small Home backup card in advance so the destination still exists outside the phone. The card reveals the saved public Home stop area, so keep it only with the intended user."

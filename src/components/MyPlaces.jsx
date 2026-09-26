@@ -34,6 +34,7 @@ const PLACE_PHRASES = {
       "Add backup stops only if you know they are suitable and familiar for arriving at Home."
     ),
     open: msg("Open Home stop"),
+    setupTitle: msg("Choose stops for Home"),
     locate: msg("Use my location to set up Home"),
     useStop: msg("Use {name} for Home"),
     manage: msg("Manage Home"),
@@ -50,6 +51,7 @@ const PLACE_PHRASES = {
       "Add backup stops only if you know they are suitable and familiar for arriving at School."
     ),
     open: msg("Open School stop"),
+    setupTitle: msg("Choose stops for School"),
     locate: msg("Use my location to set up School"),
     useStop: msg("Use {name} for School"),
     manage: msg("Manage School"),
@@ -66,6 +68,7 @@ const PLACE_PHRASES = {
       "Add backup stops only if you know they are suitable and familiar for arriving at Work."
     ),
     open: msg("Open Work stop"),
+    setupTitle: msg("Choose stops for Work"),
     locate: msg("Use my location to set up Work"),
     useStop: msg("Use {name} for Work"),
     manage: msg("Manage Work"),
@@ -146,7 +149,7 @@ function SetupPlace({
         <div>
           <p className={styles.kicker}>{t("My Places")}</p>
           <h3 id={`setup-${preset.id}-title`}>
-            {t("Choose stops for {label}", { label })}
+            {t(phrases.setupTitle)}
           </h3>
         </div>
         <button type="button" className={styles.textButton} onClick={onCancel}>
@@ -224,7 +227,7 @@ function SetupPlace({
                   disabled={!checked}
                   onChange={() => setPrimaryStopId(stop.id)}
                 />
-                {t("Primary")}
+                {t("Main stop")}
               </label>
             </div>
           );
@@ -410,7 +413,7 @@ function PlaceCard({
         <div>
           <h3>{label}</h3>
           <p>
-            {t("Primary: {name} · stop {id}", {
+            {t("Main stop: {name} · stop {id}", {
               name: stopLabel(primaryStop),
               id: primaryStop.id,
             })}
@@ -476,14 +479,14 @@ function PlaceCard({
                   <small>{t("Stop {id}", { id: stop.id })}</small>
                 </span>
                 {stop.id === primaryStop.id ? (
-                  <span className={styles.primaryBadge}>{t("Primary")}</span>
+                  <span className={styles.primaryBadge}>{t("Main stop")}</span>
                 ) : (
                   <button
                     type="button"
                     className={styles.textButton}
                     onClick={() => onSetPrimaryStop(place.id, stop.id)}
                   >
-                    {t("Make primary")}
+                    {t("Make main stop")}
                   </button>
                 )}
               </div>
