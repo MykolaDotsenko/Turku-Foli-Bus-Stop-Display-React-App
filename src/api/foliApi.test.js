@@ -754,6 +754,43 @@ test("keeps monitored vehicle coordinates from SIRI stop monitoring", async () =
   );
 });
 
+// Ride Mode reads this answer as evidence of where its bus is, so the
+// realtime-only form must never be padded with timetable rows.
+test("a realtime-only answer never reaches for the GTFS timetable", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: { status: "OK", servertime: 1900000000, result: [] },
+      });
+    }
+
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  const result = await fetchStopMonitor("621", undefined, {
+    scheduleFallback: false,
+  });
+
+  expect(result.arrivals).toEqual([]);
+  expect(result.realtimeAvailable).toBe(true);
+  expect(result.scheduleAvailable).toBe(false);
+  expect(mocks.get).toHaveBeenCalledTimes(1);
+});
+
+test("a realtime-only answer reports an unavailable feed instead of failing", async () => {
+  mocks.get.mockResolvedValue({
+    data: { status: "NO_SIRI_DATA", servertime: 1900000000, result: [] },
+  });
+
+  const result = await fetchStopMonitor("621", undefined, {
+    scheduleFallback: false,
+  });
+
+  expect(result.realtimeAvailable).toBe(false);
+  expect(result.arrivals).toEqual([]);
+  expect(mocks.get).toHaveBeenCalledTimes(1);
+});
+
 
 test("pins GTFS stops and routes to the same dataset metadata lookup", async () => {
   mocks.get.mockImplementation((url) => {

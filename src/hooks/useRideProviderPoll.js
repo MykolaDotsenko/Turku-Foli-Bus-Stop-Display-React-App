@@ -3,6 +3,24 @@ import { fetchStopMonitor } from "../api/foliApi";
 import { matchRideArrival } from "../utils/rideProgress";
 import { ridePollDelayMs } from "../utils/retry";
 
+const REALTIME_ONLY = Object.freeze({ scheduleFallback: false });
+
+// What one stop's answer says about the ride. Only a row the feed is tracking
+// is evidence of where the bus is. The feed also lists journeys it is not
+// tracking, with the timetable time under the same trip id, and NO_SIRI_DATA
+// says nothing either way. Counting those as sightings showed "Following your
+// bus" and a timetable-timed "Press STOP now" just as live tracking was lost.
+function rideSighting(answer, identity) {
+  if (answer?.realtimeAvailable === false) return { kind: "unknown" };
+
+  const match = matchRideArrival(answer?.arrivals, identity);
+  if (!match) return { kind: "absent" };
+
+  return match.arrival?.monitored === true
+    ? { kind: "live", match }
+    : { kind: "untracked" };
+}
+
 // Föli realtime is the confirmation source that runs independently of the
 // phone's own location: it watches the target stop, and the one before it,
 // for the journey the passenger actually boarded.
@@ -47,9 +65,9 @@ export default function useRideProviderPoll({
 
       try {
         const [targetResult, previousResult] = await Promise.allSettled([
-          fetchStopMonitor(current.targetStop.id, signal),
+          fetchStopMonitor(current.targetStop.id, signal, REALTIME_ONLY),
           current.previousStop?.id
-            ? fetchStopMonitor(current.previousStop.id, signal)
+            ? fetchStopMonitor(current.previousStop.id, signal, REALTIME_ONLY)
             : Promise.resolve(null),
         ]);
 
@@ -63,14 +81,12 @@ export default function useRideProviderPoll({
           consecutiveFailures = 0;
           next.lastProviderSuccessAt = Date.now();
 
-          const targetMatch = matchRideArrival(
-            targetResult.value?.arrivals,
-            identity
-          );
-          next.targetListed = Boolean(targetMatch);
-          next.targetMatchBy = targetMatch?.matchedBy || "";
+          const target = rideSighting(targetResult.value, identity);
 
-          if (targetMatch) {
+          if (target.kind === "live") {
+            const targetMatch = target.match;
+            next.targetListed = true;
+            next.targetMatchBy = targetMatch.matchedBy;
             next.lastLiveMatchAt = Date.now();
             next.targetMissingCount = 0;
             next.targetWasAtStop =
@@ -84,7 +100,12 @@ export default function useRideProviderPoll({
                 current.targetStop
               )
             );
-          } else {
+          } else if (target.kind !== "unknown") {
+            // Absent, or listed without tracking: either way the bus is not
+            // in the live data. "unknown" keeps the last live picture, which
+            // then ages out exactly as it does after a failed poll.
+            next.targetListed = false;
+            next.targetMatchBy = "";
             next.targetMissingCount =
               before.targetListed ||
               before.targetMissingCount > 0 ||
@@ -102,16 +123,19 @@ export default function useRideProviderPoll({
 
         if (previousResult.status === "fulfilled" && previousResult.value) {
           next.lastProviderSuccessAt = Date.now();
-          const previousMatch = matchRideArrival(
-            previousResult.value.arrivals,
-            identity
-          );
+          const previous = rideSighting(previousResult.value, identity);
 
-          if (previousMatch) {
+          if (previous.kind === "live") {
             next.lastLiveMatchAt = Date.now();
             next.previousSeen = true;
             next.previousMissingCount = 0;
-          } else if (before.previousSeen) {
+          } else if (previous.kind === "untracked") {
+            // An untracked row leaves the board when its timetable time
+            // passes, bus or no bus, so its disappearance cannot mean the bus
+            // left. Only a fresh live sighting re-arms that check.
+            next.previousSeen = false;
+            next.previousMissingCount = 0;
+          } else if (previous.kind === "absent" && before.previousSeen) {
             next.previousMissingCount = before.previousMissingCount + 1;
           }
         } else if (previousResult.status === "rejected") {

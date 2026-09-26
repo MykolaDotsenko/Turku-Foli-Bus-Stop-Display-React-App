@@ -229,6 +229,7 @@ test("falls back to the timetable once the live prediction has gone stale", asyn
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime: nowSec + 600,
                 vehicleatstop: false,
                 recordedattime: nowSec,
@@ -304,6 +305,7 @@ test("an early pass near the target cannot later fake a missed stop", async () =
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime:
                   Math.floor(Date.now() / 1000) + etaOffsetSec,
                 vehicleatstop: false,
@@ -383,6 +385,7 @@ test("the shown estimate falls back with the stage logic instead of freezing", a
           ? [
               {
                 datedvehiclejourneyref: "journey-1",
+                monitored: true,
                 expectedarrivaltime: nowSec + 120,
                 vehicleatstop: false,
                 recordedattime: nowSec,
@@ -431,4 +434,69 @@ test("the shown estimate falls back with the stage logic instead of freezing", a
     result.current.endRide();
   });
   unmount();
+});
+
+test("a timetable-only listing at the target never reads as live tracking", async () => {
+  // The feed still lists the journey but is not tracking it, so the time on
+  // the row is the raw timetable: one minute out. The plan, anchored to the
+  // real departure, has the bus five stops and eight minutes away. Reading
+  // that row as live showed "Following your bus" and "Press STOP now".
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 13, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: nowSec,
+      realtimeAvailable: true,
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              {
+                datedvehiclejourneyref: "journey-1",
+                tripref: "trip-1",
+                lineref: "1",
+                monitored: false,
+                vehicleatstop: false,
+                aimedarrivaltime: nowSec + 60,
+                aimeddeparturetime: nowSec + 60,
+              },
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        targetPredictedEpochSec: nowSec + 500,
+        stopsToTarget: [
+          { id: "11", name: "One", predictedEpochSec: nowSec + 100 },
+          { id: "12", name: "Two", predictedEpochSec: nowSec + 200 },
+          { id: "13", name: "Three", predictedEpochSec: nowSec + 300 },
+          { id: "14", name: "Four", predictedEpochSec: nowSec + 400 },
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 500 },
+        ],
+      },
+    });
+  });
+
+  await waitFor(() => expect(result.current.runtime.lastPollAt).not.toBeNull());
+
+  expect(result.current.runtime.trackingHealth).toBe("schedule");
+  expect(result.current.runtime.targetMatchBy).toBe("");
+  expect(result.current.runtime.etaSec).toBe(500);
+  expect(result.current.session?.stage).toBe("boarded");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
 });

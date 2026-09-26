@@ -87,6 +87,12 @@ A SIRI row is matched to the selected ride in this order:
 
 A line number alone is never sufficient because multiple vehicles on the same line can be close together.
 
+A matched row is live evidence only when the feed is tracking it (`monitored: true`):
+
+- ride polling requests the realtime feed alone, never the departure board's GTFS timetable fallback, because those rows carry the same trip id
+- an untracked row counts as the bus not being in the live data, and it cannot later arm the previous-stop check by dropping off the board
+- a `NO_SIRI_DATA` or `PENDING` answer is treated like a failed poll: the last live picture ages out instead of being read as the bus having left
+
 ## Client MVP data flow
 
 ```text
