@@ -5,12 +5,23 @@ import useRetrySignal from "./useRetrySignal";
 const CACHE_KEY = "foli-route-catalog-v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+// A stored entry that is not a route used to reach the board and crash it,
+// on every reload after, too.
+function isStoredRoute(route) {
+  return (
+    Boolean(route) &&
+    typeof route === "object" &&
+    typeof route.id === "string" &&
+    route.id !== ""
+  );
+}
+
 function readCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (Array.isArray(cached?.routes)) {
       return {
-        routes: cached.routes,
+        routes: cached.routes.filter(isStoredRoute),
         savedAt: Number(cached.savedAt) || 0,
       };
     }

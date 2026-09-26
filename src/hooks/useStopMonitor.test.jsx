@@ -290,3 +290,27 @@ test("discards a stored board that claims to come from the future", async () => 
     expect(screen.getByTestId("error")).toHaveTextContent("true");
   });
 });
+
+function ArrivalsHarness({ stopId }) {
+  const { arrivals } = useStopMonitor(stopId);
+  return <span data-testid="lines">{arrivals.map((row) => row.lineref).join(",")}</span>;
+}
+
+test("skips a saved departure that is not a departure instead of crashing on it", async () => {
+  localStorage.setItem(
+    SNAPSHOT_KEY,
+    JSON.stringify({
+      164: {
+        stopName: "Kauppatori",
+        arrivals: [null, "1", { lineref: "7" }],
+        serverTime: 1_900_000_000,
+        receivedAtMs: Date.now() - 60_000,
+      },
+    })
+  );
+  vi.mocked(fetchStopMonitor).mockReturnValue(new Promise(() => {}));
+
+  render(<ArrivalsHarness stopId="164" />);
+
+  expect(screen.getByTestId("lines")).toHaveTextContent("7");
+});

@@ -185,3 +185,27 @@ test("recovers the catalogue when connectivity returns", async () => {
   ]);
   expect(fetchStopCatalog).toHaveBeenCalledTimes(2);
 });
+
+// One bad entry in the saved catalogue took the whole app to its error
+// screen, and a reload read the same entry back: nothing could recover it.
+test("skips saved stops that are not stops instead of crashing on them", () => {
+  localStorage.setItem(
+    CACHE_KEY,
+    JSON.stringify({
+      savedAt: Date.now(),
+      stops: [
+        null,
+        "Kauppatori",
+        { id: 164 },
+        { id: "32" },
+        { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+      ],
+    })
+  );
+
+  const { result } = renderHook(() => useStopCatalog());
+
+  expect(result.current.stops).toEqual([
+    expect.objectContaining({ id: "164", name: "Kauppatori" }),
+  ]);
+});

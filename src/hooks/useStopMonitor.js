@@ -43,7 +43,10 @@ function readSnapshot(stopId, nowMs = Date.now()) {
   return {
     stopId: String(stopId),
     stopName: typeof entry.stopName === "string" ? entry.stopName : "",
-    arrivals: entry.arrivals,
+    // A stored row that is not a row crashed the board on every reopen.
+    arrivals: entry.arrivals.filter(
+      (arrival) => Boolean(arrival) && typeof arrival === "object"
+    ),
     serverTime:
       Number.isFinite(serverTime) && serverTime > 0 ? serverTime : null,
     realtimeAvailable:

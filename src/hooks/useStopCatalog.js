@@ -19,12 +19,25 @@ function stopHasCoordinates(stop) {
   );
 }
 
+// Stored data is only as good as whatever wrote it last. One entry that is
+// not a stop took the app to its error screen, and a reload read the same
+// entry straight back, so nothing short of clearing site data recovered.
+function isStoredStop(stop) {
+  return (
+    Boolean(stop) &&
+    typeof stop === "object" &&
+    typeof stop.id === "string" &&
+    stop.id !== "" &&
+    typeof stop.name === "string"
+  );
+}
+
 function readCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (Array.isArray(cached?.stops)) {
       return {
-        stops: cached.stops,
+        stops: cached.stops.filter(isStoredStop),
         savedAt: Number(cached.savedAt) || 0,
       };
     }
