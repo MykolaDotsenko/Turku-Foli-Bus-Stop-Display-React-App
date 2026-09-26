@@ -816,6 +816,60 @@ test("an open get-off setup survives a board refresh", async ({ page }) => {
   await expect(turunLinna).toBeChecked();
 });
 
+test("an open get-off setup does not follow the passenger to another stop", async ({
+  page,
+}) => {
+  // A neighbouring stop can list the same trip under the same planned minute,
+  // so its row looked like the one whose setup was open. Another stop's board
+  // starts fresh, and so does coming back to this one.
+  const plannedAt = Math.floor(Date.now() / 1000) + 205;
+  for (const [stopId, stopname] of [
+    ["164", "Kauppatori"],
+    ["4", "Turun linna"],
+  ]) {
+    await page.route(`https://data.foli.fi/siri/sm/${stopId}`, async (route) => {
+      const payload = monitorPayload("164");
+      payload.stopname = stopname;
+      payload.result[0].aimeddeparturetime = plannedAt;
+      payload.result[0].expecteddeparturetime = plannedAt + 35;
+      payload.result[1].aimeddeparturetime = plannedAt + 335;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(payload),
+      });
+    });
+  }
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+
+  const setupHeading = page.getByRole("heading", {
+    name: "Where do you want to get off?",
+  });
+  const alertButton = page
+    .getByRole("button", { name: "Alert me when to get off" })
+    .first();
+  await alertButton.click();
+  await expect(setupHeading).toBeVisible();
+
+  await page.getByLabel("Find your stop").fill("4");
+  await page.getByRole("button", { name: "Show departures" }).click();
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(
+    page.getByRole("heading", { name: "Turun linna", exact: true })
+  ).toBeVisible();
+  await expect(alertButton).toBeVisible();
+  await expect(setupHeading).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(
+    page.getByRole("heading", { name: "Kauppatori", exact: true })
+  ).toBeVisible();
+  await expect(alertButton).toBeVisible();
+  await expect(setupHeading).toHaveCount(0);
+});
+
 // A phone screen is tight, so the explanatory copy was hidden below 620px —
 // including the line that says what the app is, to the one person who does
 // not know. It is back, but only while it still earns the space.
