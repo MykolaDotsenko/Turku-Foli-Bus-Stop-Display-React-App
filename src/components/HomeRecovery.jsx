@@ -14,6 +14,10 @@ import StopName from "./StopName";
 const PRINTED_REQUEST_FINNISH =
   "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
 const PRINTED_REQUEST_ENGLISH = "Could you help me get off at the right stop?";
+// Held to the name by a no-break space: a narrow card broke the line before
+// the dot, and the next line started with it.
+const NAME_SEPARATOR = "\u00a0·";
+
 // Printed for the driver as the driver card shows it, whatever the
 // interface language: "Pysäkki / Stop 164".
 const PRINTED_STOP_FINNISH = "Pysäkki";
@@ -81,9 +85,10 @@ function HomeRecovery({
         <span>
           <strong>{label}</strong>
           <small>
-            <StopName stop={primaryStop} />{" "}
+            <StopName stop={primaryStop} />
+            {NAME_SEPARATOR}{" "}
             <span className={styles.stopNumber}>
-              · {t("stop {id}", { id: primaryStop.id })}
+              {t("stop {id}", { id: primaryStop.id })}
             </span>
           </small>
         </span>

@@ -628,7 +628,7 @@ function EmptyPlaceCard({
         </span>
         <div>
           <h3>{label}</h3>
-          <p>{t("Save the stops you use, without typing an address.")}</p>
+          <p>{t("Save the stops you use, without typing an address. Not at the stop? Open its departures first, then use it here.")}</p>
         </div>
         <div className={styles.emptyActions}>
           <button

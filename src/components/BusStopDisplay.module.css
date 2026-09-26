@@ -199,8 +199,11 @@
   font-weight: 750;
 }
 
+/* Centred as one block: stretched over the height, "Connecting to Föli"
+   and "Loading departures…" drifted apart. */
 .state {
   display: grid;
+  align-content: center;
   gap: 6px;
   place-items: center;
   min-height: 180px;
@@ -706,6 +709,30 @@
 
   .rideSetupRow > td {
     padding: 0 10px 12px;
+  }
+}
+
+/* A 360px phone: "Next stops" and "Get-off alert" missed one line by 4px,
+   and every row grew by the button's height. */
+@media (max-width: 380px) {
+  .rowActions {
+    gap: 0 6px;
+  }
+
+  .rideButton {
+    padding-inline: 0.5rem;
+  }
+
+  .table td {
+    padding-inline: 7px;
+  }
+
+  .table td:first-child {
+    padding-left: 12px;
+  }
+
+  .table td:last-child {
+    padding-right: 12px;
   }
 }
 

@@ -71,7 +71,8 @@
   overflow-wrap: anywhere;
 }
 
-/* A narrow card broke "stop | 164"; the number moves down whole. */
+/* A narrow card broke "stop | 164"; the number moves down whole, after
+   "Kauppatori ·". */
 .stopNumber {
   white-space: nowrap;
 }

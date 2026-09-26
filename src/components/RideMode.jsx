@@ -592,11 +592,15 @@ export default function RideMode({
 
 
 
-      <p className={styles.boundary}>
-        {t(
-          "Ride Mode is travel help, not a guaranteed alarm. A browser can pause a page it thinks you have left, so keep this screen open with the sound on."
-        )}
-      </p>
+      {/* Said on every screen before this one; at the stop it stood between
+          the passenger and the doors. */}
+      {!gettingOffNow && (
+        <p className={styles.boundary}>
+          {t(
+            "Ride Mode is travel help, not a guaranteed alarm. A browser can pause a page it thinks you have left, so keep this screen open with the sound on."
+          )}
+        </p>
+      )}
     </section>
   );
 }

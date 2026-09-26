@@ -756,6 +756,12 @@ test("Ride Mode says get off now once the bus is standing at the stop", async ({
     await page
       .locator('section[aria-labelledby="ride-mode-title"]')
       .screenshot({ path: "artifacts/screenshots/foli-ride-now.png" });
+    // And the whole screen, for the install sheet (public/screenshots).
+    await page.screenshot({
+      path: "artifacts/screenshots/manifest-ride-phone.jpg",
+      type: "jpeg",
+      quality: 80,
+    });
   }
 
   // The confirmation only exists at this stage, and it has to end the ride
@@ -2368,4 +2374,14 @@ test("captures the README's product screenshots", async ({ page }, testInfo) => 
     path: `artifacts/screenshots/${fileName}`,
     fullPage: testInfo.project.name === "chromium-desktop",
   });
+  // The install sheet's pictures (public/screenshots): one screen each.
+  if (testInfo.project.name !== "webkit-mobile") {
+    await page.screenshot({
+      path: `artifacts/screenshots/manifest-board-${
+        testInfo.project.name === "chromium-desktop" ? "wide" : "phone"
+      }.jpg`,
+      type: "jpeg",
+      quality: 80,
+    });
+  }
 });

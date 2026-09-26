@@ -26,8 +26,8 @@ export default {
   "Tick at least one stop to save.": "Valitse vähintään yksi pysäkki, niin voit tallentaa.",
   "Confirm the stop above to save.": "Vahvista pysäkki yllä, niin voit tallentaa.",
   "Not set": "Ei vielä tallennettu",
-  "Save the stops you use, without typing an address.":
-    "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta.",
+  "Save the stops you use, without typing an address. Not at the stop? Open its departures first, then use it here.":
+    "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta. Et ole pysäkillä? Avaa ensin sen lähdöt ja käytä sitä sitten tässä.",
   "Use my location": "Käytä sijaintiani",
   "Use {name}": "Käytä pysäkkiä {name}",
 
