@@ -5,6 +5,7 @@ import {
   formatClock,
   formatElapsedAge,
   serviceDateTimeFormat,
+  TRANSIT_CLOCK_LOCALE,
 } from "../utils/time";
 import useClockTick from "../hooks/useClockTick";
 
@@ -24,12 +25,16 @@ function formatValidity(validity) {
   if (!validity?.end) return "";
 
   try {
-    const formatter = serviceDateTimeFormat({
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formatter = serviceDateTimeFormat(
+      {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      },
+      TRANSIT_CLOCK_LOCALE
+    );
     return `Valid until ${formatter.format(new Date(validity.end * 1000))}`;
   } catch {
     return "";

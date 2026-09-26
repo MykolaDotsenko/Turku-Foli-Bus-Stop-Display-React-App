@@ -39,6 +39,16 @@ test("shows Turku-region clock times whatever zone the device is set to", () => 
   expect(formatClock(summerNoonUtc, "en-GB")).toBe("15:00");
 });
 
+test("keeps every clock time on the 24-hour clock printed at the stop", () => {
+  // Stop timetables and the signs on the buses use the 24-hour clock. A
+  // phone set to US English used to get "02:00 PM" on the board beside
+  // "Today 19:15" and "around 17:46" elsewhere on the same screen.
+  const winterNoonUtc = Date.UTC(2026, 0, 15, 12, 0, 0) / 1000;
+
+  expect(formatClock(winterNoonUtc)).toBe("14:00");
+  expect(formatClock(winterNoonUtc, "en-US")).toBe("14:00");
+});
+
 test("labels distant scheduled departures as today or tomorrow", () => {
   const nowMs = Date.parse("2026-09-21T12:45:00Z"); // 15:45 Helsinki
 

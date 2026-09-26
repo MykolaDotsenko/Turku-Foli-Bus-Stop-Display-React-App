@@ -51,7 +51,11 @@ export function serviceDateTimeFormat(options, locale) {
   }
 }
 
-export function formatClock(unixSeconds, locale) {
+// Stop timetables and the signs on the buses use the 24-hour clock, so every
+// transit time does too, whatever language the phone is set to.
+export const TRANSIT_CLOCK_LOCALE = "en-GB";
+
+export function formatClock(unixSeconds, locale = TRANSIT_CLOCK_LOCALE) {
   const seconds = Number(unixSeconds);
   if (!Number.isFinite(seconds) || seconds <= 0) return "—";
 
@@ -59,6 +63,7 @@ export function formatClock(unixSeconds, locale) {
     {
       hour: "2-digit",
       minute: "2-digit",
+      hourCycle: "h23",
     },
     locale
   ).format(new Date(seconds * 1000));
@@ -110,7 +115,7 @@ export function formatDue(unixSeconds, nowMs = Date.now()) {
 
   const departureMs = Number(unixSeconds) * 1000;
   const days = dayDistance(serviceDayKey(nowMs), serviceDayKey(departureMs));
-  const clock = formatClock(unixSeconds, "en-GB");
+  const clock = formatClock(unixSeconds);
 
   if (days === 0) return `Today ${clock}`;
   if (days === 1) return `Tomorrow ${clock}`;
@@ -120,8 +125,9 @@ export function formatDue(unixSeconds, nowMs = Date.now()) {
       weekday: "short",
       hour: "2-digit",
       minute: "2-digit",
+      hourCycle: "h23",
     },
-    "en-GB"
+    TRANSIT_CLOCK_LOCALE
   ).format(new Date(departureMs));
 }
 
