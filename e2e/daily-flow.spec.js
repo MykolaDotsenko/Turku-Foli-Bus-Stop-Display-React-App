@@ -1171,6 +1171,36 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
 });
 
 
+// The shared-place token rode along into every stop URL, so after "Not now"
+// a single Back brought the "Add Home?" question straight back.
+test("a dismissed shared place stays dismissed after moving between stops", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  const token = encodeSharedPlaceForTest({
+    v: 1,
+    p: "home",
+    m: "164",
+    s: [["164", "Kauppatori"]],
+  });
+
+  await page.goto(`/?stop=164#place=${token}`);
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toBeVisible();
+
+  const input = page.getByRole("combobox", { name: "Find your stop" });
+  await input.fill("4");
+  await page.getByRole("button", { name: "Show departures" }).click();
+  await expect(page).toHaveURL(/\?stop=4$/);
+
+  await page.getByRole("button", { name: "Not now" }).click();
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\?stop=164$/);
+  await expect(page.getByRole("heading", { name: "Add Home?" })).toHaveCount(0);
+});
+
 test("recovers to Home with one clear action and resilient fallbacks", async ({
   page,
 }) => {

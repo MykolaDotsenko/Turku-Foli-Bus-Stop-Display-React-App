@@ -27,13 +27,21 @@ function stopFromLocation() {
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : "";
 }
 
-function stopUrl(stopId) {
+// A shared-place token belongs to the page it arrived on. Carried into
+// every stop URL, it put the "Add Home?" question back one Back press
+// after "Not now". So an entry keeps it only while it is the page the link
+// opened; leaving for another stop drops it from both entries.
+function stopUrl(stopId, { keepSharedPlace = false } = {}) {
   const url = new globalThis.URL(window.location.href);
 
   if (/^\d+$/.test(stopId || "")) {
     url.searchParams.set("stop", stopId);
   } else {
     url.searchParams.delete("stop");
+  }
+
+  if (!keepSharedPlace && url.hash.startsWith("#place=")) {
+    url.hash = "";
   }
 
   return `${url.pathname}${url.search}${url.hash}`;
@@ -45,8 +53,12 @@ function currentHistoryState() {
     : {};
 }
 
-function canonicalizeCurrentStop(stopId) {
-  window.history.replaceState(currentHistoryState(), "", stopUrl(stopId));
+function canonicalizeCurrentStop(stopId, options) {
+  window.history.replaceState(
+    currentHistoryState(),
+    "",
+    stopUrl(stopId, options)
+  );
 }
 
 function App() {
@@ -114,7 +126,7 @@ function App() {
 
   useEffect(() => {
     const currentStopId = stopFromLocation();
-    canonicalizeCurrentStop(currentStopId);
+    canonicalizeCurrentStop(currentStopId, { keepSharedPlace: true });
 
     const handlePopState = () => {
       // The shareable URL is the single source of truth for browser history.
