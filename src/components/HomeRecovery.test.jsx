@@ -163,7 +163,7 @@ test("can print a public-stop-only Home backup card before the phone dies", () =
   );
 
   expect(print).toHaveBeenCalledTimes(1);
-  expect(screen.getByText("Föli Home backup card")).toBeInTheDocument();
+  expect(screen.getByText("Home backup card")).toBeInTheDocument();
   expect(screen.getAllByText("Kauppatori").length).toBeGreaterThan(0);
   expect(screen.getAllByText(/Stop 164/).length).toBeGreaterThan(0);
   expect(screen.queryByText("60.4518")).not.toBeInTheDocument();

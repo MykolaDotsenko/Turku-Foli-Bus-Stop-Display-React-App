@@ -198,16 +198,18 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
         )}
       </details>
 
+      {/* Handed to a driver, so it must not read as a Föli document, and
+          it keeps to words a child holding it can follow. */}
       <section className={styles.printCard} aria-hidden="true">
-        <p className={styles.printKicker}>Föli Home backup card</p>
+        <p className={styles.printKicker}>Home backup card</p>
         <h2>Home</h2>
         <p className={styles.printPrimary}>
           {primaryStop.name}
-          <span>Stop {primaryStop.id} · primary</span>
+          <span>Stop {primaryStop.id}</span>
         </p>
         {backupStops.length > 0 && (
           <div className={styles.printBackups}>
-            <strong>Other approved safe stops</strong>
+            <strong>Backup stops</strong>
             {backupStops.map((stop) => (
               <p key={stop.id}>
                 {stop.name} · Stop {stop.id}
@@ -215,8 +217,9 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             ))}
           </div>
         )}
-        <p className={styles.printHelp}>
+        <p className={styles.printHelp} lang="fi">
           Voitteko auttaa minua jäämään pois oikealla pysäkillä?
+          <span lang="en">Could you help me get off at the right stop?</span>
         </p>
         <p className={styles.printNote}>
           Show this card to a driver or trusted adult. This card contains public

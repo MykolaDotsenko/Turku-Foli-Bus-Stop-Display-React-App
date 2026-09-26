@@ -629,6 +629,30 @@ test("the get-off panel fits a small phone with its button in reach", async ({
   ).toBeInViewport();
 });
 
+// The panel pins itself to the top of the screen for the whole ride. At
+// 836px against a 640px screen, that pinned "End ride" and "Test alert"
+// below the fold for good: scrolling moved the page under the panel, never
+// the panel's own bottom into view.
+test("a ride's own controls stay reachable on a small phone", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-mobile");
+  await page.setViewportSize({ width: 360, height: 640 });
+  await routeTargetStop(page, { expectedarrivaltime: 0, aimedarrivaltime: 0 });
+
+  await page.goto("/?stop=164");
+  await seedHome(page);
+  await startRide(page, { gps: false });
+  const panel = page.locator('section[aria-labelledby="ride-mode-title"]');
+  await expect(panel).toBeVisible();
+
+  for (const name of ["Test alert", "End ride"]) {
+    const control = panel.getByRole("button", { name });
+    await control.scrollIntoViewIfNeeded();
+    await expect(control).toBeInViewport();
+  }
+});
+
 test("Ride Mode says get off now once the bus is standing at the stop", async ({
   page,
 }) => {
@@ -1209,10 +1233,13 @@ test("renders a public-stop-only Home backup card in print mode", async ({
   await seedHome(page);
   await page.emulateMedia({ media: "print" });
 
-  const printCard = page.getByText("Föli Home backup card");
+  const printCard = page.locator('section[aria-hidden="true"]', {
+    has: page.getByText("Home backup card", { exact: true }),
+  });
   await expect(printCard).toBeVisible();
-  await expect(page.getByText("Stop 164 · primary")).toBeVisible();
-  await expect(page.getByText("Puistokatu · Stop 32")).toBeVisible();
+  await expect(printCard.getByText("Stop 164", { exact: true })).toBeVisible();
+  await expect(printCard.getByText("Backup stops")).toBeVisible();
+  await expect(printCard.getByText("Puistokatu · Stop 32")).toBeVisible();
 
   const headerVisibility = await page
     .locator(".topbar")
@@ -1220,6 +1247,11 @@ test("renders a public-stop-only Home backup card in print mode", async ({
       (element) => globalThis.getComputedStyle(element).visibility
     );
   expect(headerVisibility).toBe("hidden");
+
+  // Hidden, the rest of the page still took up its space, so the card came
+  // out with blank pages behind it.
+  const pdf = (await page.pdf({ format: "A4" })).toString("latin1");
+  expect(pdf.match(/\/Type\s*\/Page\b(?!s)/g)).toHaveLength(1);
 });
 
 test("production PWA reopens offline with Safe Places and driver help", async ({

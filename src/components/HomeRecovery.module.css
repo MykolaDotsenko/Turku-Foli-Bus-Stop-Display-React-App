@@ -287,8 +287,30 @@
 }
 
 @media print {
+  /* Hidden alone, the rest of the page still took up its space, and the
+     card printed with blank pages behind it. Everything but the card is
+     taken out of the layout; the visibility rules stay for a browser
+     without :has(). */
   :global(body *) {
     visibility: hidden !important;
+  }
+
+  :global(.app-shell) > :not(:has(.printCard)),
+  .wrapper > :not(.printCard) {
+    display: none !important;
+  }
+
+  :global(.app-shell):has(.printCard) {
+    padding: 0 !important;
+  }
+
+  .wrapper {
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
   }
 
   .printCard,
@@ -296,15 +318,17 @@
     visibility: visible !important;
   }
 
+  /* Wallet size, with the dashed edge as the line to cut along. */
   .printCard {
     position: absolute;
     top: 0;
     left: 0;
     display: grid !important;
     width: 100%;
-    max-width: 620px;
+    max-width: 100mm;
     gap: 12px;
-    padding: 24px;
+    padding: 6mm;
+    border: 1px dashed #111;
     background: #fff;
     color: #111;
     font-family: Arial, sans-serif;
@@ -349,6 +373,13 @@
     font-size: 15pt;
     font-weight: 700;
     line-height: 1.35;
+  }
+
+  .printHelp span {
+    display: block;
+    margin-top: 4px;
+    font-size: 10pt;
+    font-weight: 600;
   }
 
   .printNote {
