@@ -277,3 +277,69 @@ test("moving to another stop replaces the field whatever was in it", () => {
 
   expect(input).toHaveValue("Turun linna");
 });
+
+async function locateWith(coords, extraProps = {}) {
+  const originalGeolocation = navigator.geolocation;
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: { getCurrentPosition: (success) => success({ coords }) },
+  });
+
+  try {
+    render(
+      <BusStopForm
+        activeStopId=""
+        stops={[
+          { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
+          { id: "4", name: "Turun linna", lat: 60.4355, lon: 22.2345 },
+        ]}
+        coordinatesStatus="ready"
+        onSubmit={vi.fn()}
+        {...extraProps}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Use current location" }));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toBeInTheDocument()
+    );
+  } finally {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: originalGeolocation,
+    });
+  }
+}
+
+// The locate button filled in whatever stop was nearest, however rough the
+// fix and however far away the stop: ±3 km in Helsinki gave a stop in Salo.
+test("does not fill in a stop from an approximate location", async () => {
+  await locateWith({ latitude: 60.45182, longitude: 22.26662, accuracy: 3_000 });
+
+  expect(screen.getByRole("combobox", { name: "Find your stop" })).toHaveValue("");
+  expect(screen.getByRole("alert")).toHaveTextContent(/approximate/i);
+});
+
+test("does not fill in a stop far from where the passenger is", async () => {
+  await locateWith({ latitude: 60.1699, longitude: 24.9384, accuracy: 10 });
+
+  expect(screen.getByRole("combobox", { name: "Find your stop" })).toHaveValue("");
+  expect(screen.getByRole("alert")).toHaveTextContent(/away/i);
+});
+
+// A hub where eight stops share one name: the form asks the passenger to
+// pick the right stop number from the suggestions, so all eight must be
+// there, not the first six.
+test("lists every stop that shares the exact name typed", () => {
+  const hub = Array.from({ length: 8 }, (_, index) => ({
+    id: String(1 + index),
+    name: "Kauppatori",
+  }));
+
+  render(<BusStopForm activeStopId="" stops={hub} onSubmit={vi.fn()} />);
+
+  const input = screen.getByRole("combobox", { name: "Find your stop" });
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "Kauppatori" } });
+
+  expect(screen.getAllByRole("option")).toHaveLength(8);
+});

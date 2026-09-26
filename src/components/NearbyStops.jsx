@@ -9,29 +9,15 @@ import {
 } from "../utils/geo";
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildWalkingDirectionsUrl } from "../utils/maps";
+import {
+  AUTO_SELECT_MAX_ACCURACY_METERS,
+  AUTO_SELECT_MAX_DISTANCE_METERS,
+  OUTSIDE_NETWORK_WARNING_METERS,
+  nearestChoiceIsAmbiguous,
+} from "../utils/nearestStop";
 import styles from "./NearbyStops.module.css";
 
 const NEARBY_STOP_LIMIT = 6;
-const AUTO_SELECT_MAX_DISTANCE_METERS = 2_000;
-const OUTSIDE_NETWORK_WARNING_METERS = 10_000;
-const AUTO_SELECT_MAX_ACCURACY_METERS = 250;
-const MIN_AMBIGUITY_GAP_METERS = 25;
-const MAX_AMBIGUITY_GAP_METERS = 150;
-function nearestChoiceIsAmbiguous(nearbyStops, accuracy) {
-  if (nearbyStops.length < 2) return false;
-
-  const uncertainty = Number.isFinite(accuracy)
-    ? Math.min(
-        MAX_AMBIGUITY_GAP_METERS,
-        Math.max(MIN_AMBIGUITY_GAP_METERS, accuracy)
-      )
-    : MIN_AMBIGUITY_GAP_METERS;
-
-  return (
-    nearbyStops[1].distanceMeters - nearbyStops[0].distanceMeters <
-    uncertainty
-  );
-}
 
 function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
   const directionsUrl = online ? buildWalkingDirectionsUrl(stop) : "";

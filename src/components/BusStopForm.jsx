@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { findNearestStops, hasCoordinates } from "../utils/geo";
+import { formatAccuracy, formatDistance, hasCoordinates } from "../utils/geo";
 import {
   locationErrorMessage,
   requestOneTimePosition,
 } from "../utils/location";
+import { judgeNearestStop } from "../utils/nearestStop";
 import styles from "./BusStopForm.module.css";
 
 const MAX_SUGGESTIONS = 6;
@@ -32,7 +33,7 @@ function findMatches(stops, query) {
   const normalizedQuery = normalize(query);
   if (!normalizedQuery) return [];
 
-  return stops
+  const ranked = stops
     .map((stop) => ({ stop, score: scoreStop(stop, normalizedQuery) }))
     .filter(({ score }) => Number.isFinite(score))
     .sort(
@@ -41,15 +42,45 @@ function findMatches(stops, query) {
         a.stop.name.localeCompare(b.stop.name, undefined, {
           sensitivity: "base",
         })
-    )
-    .slice(0, MAX_SUGGESTIONS)
+    );
+  // Stops sharing the exact name typed are all listed, however many: the
+  // form asks the passenger to tell them apart by number, and a hub with
+  // eight "Kauppatori" stops showed only six to choose from.
+  const exactNameCount = ranked.filter(
+    ({ stop }) => normalize(stop.name) === normalizedQuery
+  ).length;
+
+  return ranked
+    .slice(0, Math.max(MAX_SUGGESTIONS, exactNameCount))
     .map(({ stop }) => stop);
+}
+
+// Why a location did not pick a stop, in the words the passenger needs to
+// decide what to do instead.
+function locationDoubt(verdict, stop, position) {
+  if (verdict === "approximate") {
+    const accuracy = Number.isFinite(position?.accuracy)
+      ? ` (${formatAccuracy(position.accuracy)})`
+      : "";
+    return `Your location is too approximate${accuracy} to pick a stop for you. Search by name, or try again outdoors.`;
+  }
+  if (verdict === "outside-area") {
+    return "You appear to be outside the Föli area, so no stop was filled in. Search by name instead.";
+  }
+  if (verdict === "far") {
+    return `The nearest stop is ${formatDistance(stop.distanceMeters)} away, so it was not filled in. Search by name instead.`;
+  }
+  if (verdict === "ambiguous") {
+    return "Two stops are almost equally close. Search for the one that serves your direction.";
+  }
+  return "No nearby Föli stop could be resolved from your location. Search manually instead.";
 }
 
 function BusStopForm({
   activeStopId,
   stops,
   coordinatesStatus = "idle",
+  serviceBoundary = null,
   onSubmit,
 }) {
   // The field accepts a name or a number equally, so it should give back
@@ -171,12 +202,14 @@ function BusStopForm({
 
     try {
       const position = await requestOneTimePosition(navigator.geolocation);
-      const [nearest] = findNearestStops(stops, position, 1);
+      const { verdict, stop: nearest } = judgeNearestStop(
+        stops,
+        position,
+        serviceBoundary
+      );
 
-      if (!nearest) {
-        setValidationError(
-          "No nearby Föli stop could be resolved from your location. Search manually instead."
-        );
+      if (verdict !== "confident") {
+        setValidationError(locationDoubt(verdict, nearest, position));
         return;
       }
 
@@ -192,6 +225,14 @@ function BusStopForm({
       setLocating(false);
     }
   };
+
+  // Keyboard selection can move past the visible part of a long list.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    document
+      .getElementById(`foli-stop-option-${activeIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [activeIndex]);
 
   const handleKeyDown = (event) => {
     if (!showSuggestions) return;

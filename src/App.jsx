@@ -271,6 +271,7 @@ function App() {
           activeStopId={stopId}
           stops={stops}
           coordinatesStatus={coordinatesStatus}
+          serviceBoundary={serviceBoundary}
           onSubmit={selectStop}
         />
       </section>
