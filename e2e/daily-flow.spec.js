@@ -1640,6 +1640,59 @@ test("ten departures remain scan-friendly without horizontal table scrolling", a
     });
 });
 
+test("an opened disruption notice shows its whole message on a phone", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    !["webkit-mobile", "chromium-mobile"].includes(testInfo.project.name)
+  );
+
+  const message =
+    "Line 1 runs via Aurakatu because of roadworks. The Kauppatori stop " +
+    "on Eerikinkatu is not served; board at the temporary stop on " +
+    "Linnankatu instead, about 150 metres away.";
+
+  await page.route("https://data.foli.fi/alerts", async (route) => {
+    const now = Math.floor(Date.now() / 1000);
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        servertime: now,
+        global_message: {},
+        emergency_message: {},
+        messages: [
+          {
+            message_id: 700,
+            isactive: true,
+            priority: 1000,
+            effect: "DETOUR",
+            cause: "CONSTRUCTION",
+            affected_stops: ["164"],
+            affected_routes: [],
+            header: "Line 1 temporary stop",
+            message,
+            repeat: [[now - 60, now + 3600]],
+            images: [],
+          },
+        ],
+        cancellations: [],
+      }),
+    });
+  });
+
+  await page.goto("/?stop=164");
+  await page.getByText("Line 1 temporary stop").click();
+
+  // The notice is the only place a passenger learns where the moved stop
+  // is. Cut to one line, it ended mid-sentence with no way to read on.
+  const body = page.getByText(message);
+  await expect(body).toBeVisible();
+  const clipped = await body.evaluate(
+    (element) => element.scrollHeight - element.clientHeight
+  );
+  expect(clipped).toBeLessThanOrEqual(1);
+});
+
 test("six simultaneous alerts stay compact and keep departures reachable", async ({
   page,
 }, testInfo) => {
