@@ -468,6 +468,32 @@
     align-items: center;
   }
 
+  /* display: flex removes a summary's own disclosure triangle, and these
+     rows then read as plain labels. A drawn chevron puts the cue back
+     without adding text for a screen reader to announce. */
+  .backups summary::after,
+  .batteryBackup summary::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    margin-right: 4px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  .backups[open] > summary::after,
+  .batteryBackup[open] > summary::after {
+    transform: rotate(45deg);
+  }
+
+  .backups summary::-webkit-details-marker,
+  .batteryBackup summary::-webkit-details-marker {
+    display: none;
+  }
+
   .backupActions a,
   .backupActions button,
   .printButton {

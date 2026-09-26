@@ -303,6 +303,28 @@
     align-items: center;
   }
 
+  /* display: flex removes a summary's own disclosure triangle, and these
+     rows then read as plain labels. A drawn chevron puts the cue back
+     without adding text for a screen reader to announce. */
+  .details summary::after {
+    content: "";
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-left: 10px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+  }
+
+  .details[open] > summary::after {
+    transform: rotate(45deg);
+  }
+
+  .details summary::-webkit-details-marker {
+    display: none;
+  }
+
   .moreButton {
     min-height: 44px;
   }
