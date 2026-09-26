@@ -409,7 +409,7 @@ shape_dist_traveled
 timepoint
 ```
 
-**Application use:** ✅ **Yes, selectively.** `/stop_times/stop/<stop_id>` participates in complete route-alert membership and excludes `pickup_type=1`; `/stop_times/trip/<trip_id>` is loaded only when the user expands “Next stops”. `timepoint=0` is presented as an approximate planned time.
+**Application use:** ✅ **Yes, selectively.** `/stop_times/stop/<stop_id>` participates in complete route-alert membership and excludes `pickup_type=1`, and feeds the timetable fallback when SIRI has nothing ahead. `/stop_times/trip/<trip_id>` is loaded only when the user expands “Next stops” or opens a get-off setup; on a loop that visits the stop twice, the departure's planned time picks the pass being boarded, and `drop_off_type=1` stops are not offered as exits. `timepoint=0` is presented as an approximate planned time.
 
 **Remaining future value:** planned fallback information beyond the current journey-detail flow.
 
@@ -435,8 +435,8 @@ traveled  cumulative shape distance
 
 A shape belongs to a **trip**, not inherently to a line; trips on the same route can legally use different shapes.
 
-**Application use:** ❌ No.  
-**Future value:** medium/high if a route map, directional vehicle progress or detour visualization is added. Do not select a route shape by blindly taking the first trip if correctness matters.
+**Application use:** ✅ **Ride Mode only.** The boarded trip's own `shape_id` (from `/trips/trip/<trip_id>`) is loaded when location backup is on, and the phone's position is map-matched to it for along-route distance to the exit stop. The documentation gives `traveled` no unit while Ride Mode's thresholds are in metres, so a shape is used only when its `traveled` total agrees with the drawn path's length to within a factor of two; otherwise the ride falls back to straight-line distance and SIRI.  
+**Future value:** medium/high if a route map or detour visualization is added. Do not select a route shape by blindly taking the first trip if correctness matters.
 
 ---
 
@@ -566,22 +566,22 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | `delay` | Delay value supplied by current JSON adapter | ✅ |
 | `recordedattime` | Vehicle observation time | ✅ freshness |
 | `latitude`, `longitude` | Provider-estimated vehicle location, WGS84 | ✅ straight-line vehicle/stop proximity |
-| `originaimeddeparturetime` | Planned departure at trip origin | ✅ retained |
+| `originaimeddeparturetime` | Planned departure at trip origin | ✅ Ride Mode identity (with `lineref`, or to tell apart two runs of one vehicle) |
 | `destinationaimedarrivaltime` | Planned arrival at final destination | ✅ retained |
 | `aimedarrivaltime` | Planned arrival at selected stop | ✅ time fallback |
 | `expectedarrivaltime` | Estimated arrival at selected stop | ✅ time fallback |
 | `aimeddeparturetime` | Planned departure at selected stop | ✅ time fallback |
 | `expecteddeparturetime` | Estimated departure at selected stop | ✅ preferred due time |
 | `vehicleatstop` | Provider says vehicle is at stop | ✅ preferred over distance inference when fresh |
-| `vehicleref` | Vehicle identifier | ❌ candidate for stronger row identity/debugging |
+| `vehicleref` | Vehicle identifier | ✅ Ride Mode identity fallback; a bus listed twice (two runs) is told apart by origin time |
 | `incongestion` | Congestion flag | ❌ candidate, semantics should remain provider-attributed |
 | `directionname` | Direction label | ❌ |
 | `destinationref` | Destination stop/reference | ❌ |
 | `originref` | Origin reference | ❌ |
-| `visitnumber` | Visit sequence/reference | ❌ |
+| `visitnumber` | Visit sequence/reference | ❌ not relied on; a loop's two visits are told apart by planned time instead |
 | `blockref` | SIRI block reference | ❌; do not assume perfect GTFS block match |
 | `dataframeref` | SIRI data frame identity | ❌ |
-| `datedvehiclejourneyref` | SIRI journey identity | ❌ |
+| `datedvehiclejourneyref` | SIRI journey identity | ✅ Ride Mode's strongest identity for the boarded journey |
 | `__directionid` | Provider adapter/internal helper field observed live | ❌ do not depend on undocumented `__*` fields |
 | `__routeref` | Provider adapter/internal route helper observed live | ❌ do not make a hard contract |
 | `__tripref` | Provider adapter/internal trip helper observed live | ✅ optional enrichment key only; never required for core departures |
@@ -876,7 +876,7 @@ isactive
 
 The provider documents `isactive` as becoming true around ten minutes before the theoretical stop arrival and false around five minutes after passage.
 
-**Application use:** ✅ line, cause, active matching stop and its scheduled arrival.  
+**Application use:** ✅ line, cause, active matching stop and its scheduled arrival. Besides the Service updates entry, a board row whose line matches and whose planned arrival is within 90 s of the cancelled stop's `arrival` is shown as cancelled, with no countdown and no get-off alert.  
 **Unused:** cancellation-level departure, priority override and icon.
 
 ## 3.3 `/alerts/messages`
@@ -1074,11 +1074,11 @@ Provider-documented trade-off:
 | `/gtfs/` | resolve one coherent current dataset | Supporting correctness |
 | pinned `/stops` | stop WGS84 coordinates | Feature-critical for nearby/recovery |
 | pinned `/routes` | route ID/name/type/color metadata | Important enrichment |
-| `/alerts` | global/emergency messages, stop/route messages, cancellations | Core pre-trip context |
+| `/alerts` | global/emergency messages, stop/route messages, cancellations (also marked on board rows) | Core pre-trip context |
 | `/siri/vm` | unused | Not justified yet |
 | `trips` | trip-specific accessibility/headsign enrichment + route membership lookups | High-value progressive enrichment |
-| `stop_times` | boardable stop→trip membership + lazy next-stop sequence | High-value correctness and journey context |
-| `shapes` | unused | Future maps only |
+| `stop_times` | boardable stop→trip membership, timetable fallback, lazy next-stop sequence, Ride Mode trip plan | High-value correctness and journey context |
+| `shapes` | Ride Mode GPS map matching for the boarded trip, when metre-scaled | Get-off accuracy |
 | `calendar*` | unused | Future planned-service logic |
 | `trip_notes` | unused | Optional timetable semantics |
 | `translations` | unused | Future app-wide localization |
@@ -1125,7 +1125,6 @@ Not using every available field is a feature, not a deficiency. For every provid
 
 ## Remaining candidates
 
-- `vehicleref`: useful mainly for diagnostics or a future vehicle-detail surface
 - `incongestion`: consider only with clear provider-attributed wording and proven live coverage
 - `platform_code`: progressive enhancement for the small subset of stops where it is populated
 - GEOJSON service/ticket POIs: potentially valuable support flow, but not core departure information
