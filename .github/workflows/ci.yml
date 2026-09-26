@@ -49,6 +49,15 @@ jobs:
       - name: Verify production bundle budget
         run: npm run verify:bundle
 
+      # Production is served from a GitHub Pages subpath (deploy-pages.yml),
+      # and a path that only resolves at "/" passes every check above.
+      - name: Verify PWA under the production base path
+        env:
+          VITE_BASE_PATH: /foli-live-departures/
+        run: |
+          npm run build
+          npm run verify:pwa
+
   browser-qa:
     needs: unit-build
     runs-on: ubuntu-latest

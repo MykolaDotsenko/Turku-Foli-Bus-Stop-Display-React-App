@@ -15,6 +15,7 @@ function setOnline(value) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   globalThis.localStorage.clear();
 
   if (originalOnLine) {
@@ -166,4 +167,52 @@ test("keeps the app in degraded mode when the service worker served the shell of
   await waitFor(() => expect(result.current).toBe(false));
   expect(match).toHaveBeenCalledWith("/__foli_offline_shell__");
   expect(globalThis.fetch).not.toHaveBeenCalled();
+});
+
+// The service worker files the marker under the deployment's base path. Read
+// at the origin root it never matched on GitHub Pages, where the app lives
+// under /foli-live-departures/, so an offline reopen went unnoticed.
+test("looks for the offline-shell marker under the deployment base path", async () => {
+  vi.stubEnv("BASE_URL", "/foli-live-departures/");
+  setOnline(true);
+
+  const match = vi.fn().mockResolvedValue(new globalThis.Response("offline"));
+  const keys = vi.fn().mockResolvedValue([]);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: { match, keys },
+  });
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result } = renderHook(() => useOnlineStatus());
+
+  await waitFor(() => expect(result.current).toBe(false));
+  expect(match).toHaveBeenCalledWith(
+    "/foli-live-departures/__foli_offline_shell__"
+  );
+  expect(globalThis.fetch).not.toHaveBeenCalled();
+});
+
+test("clears the marker under the deployment base path once the origin answers", async () => {
+  vi.stubEnv("BASE_URL", "/foli-live-departures/");
+  setOnline(true);
+
+  const deleteEntry = vi.fn().mockResolvedValue(true);
+  Object.defineProperty(globalThis, "caches", {
+    configurable: true,
+    value: {
+      match: vi.fn().mockResolvedValue(undefined),
+      keys: vi.fn().mockResolvedValue(["foli-shell-abc"]),
+      open: vi.fn().mockResolvedValue({ delete: deleteEntry }),
+    },
+  });
+  globalThis.fetch = vi.fn().mockResolvedValue({ ok: true });
+
+  const { result } = renderHook(() => useOnlineStatus());
+
+  await waitFor(() => expect(deleteEntry).toHaveBeenCalled());
+  expect(result.current).toBe(true);
+  expect(deleteEntry).toHaveBeenCalledWith(
+    "/foli-live-departures/__foli_offline_shell__"
+  );
 });
