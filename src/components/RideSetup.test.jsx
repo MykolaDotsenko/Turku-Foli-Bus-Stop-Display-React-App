@@ -1,5 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
+import { resetLanguageForTests } from "../i18n";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 const mocks = vi.hoisted(() => ({
   fetchTripDetails: vi.fn(),
@@ -387,4 +392,64 @@ test("promises only what a web page can keep", async () => {
   expect(screen.queryByText(/put your phone away/i)).not.toBeInTheDocument();
   expect(screen.queryByText(/unless we are sure/i)).not.toBeInTheDocument();
   expect(screen.getByText(/keep this page open/i)).toBeInTheDocument();
+});
+
+test("sets up the ride in Finnish, with stop names as Föli publishes them", async () => {
+  resetLanguageForTests("fi");
+  const onStart = renderThreeStopSetup();
+
+  expect(
+    await screen.findByRole("heading", { name: "Missä haluat jäädä pois?" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("region", { name: "Aseta poistumishälytys" })
+  ).toBeInTheDocument();
+  fireEvent.click(await screen.findByDisplayValue("3"));
+
+  expect(screen.getByText(/pysäkin päässä/)).toHaveTextContent(
+    "2 pysäkin päässä · noin 17:55 · pysäkin Puistokatu jälkeen"
+  );
+  expect(screen.getByText(/^Seuraava pysäkki · /)).toBeInTheDocument();
+  expect(
+    screen.getByText(/^Jää pois: Turun linna · Linja 1 lähtee \d\d:\d\d$/)
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Käynnistä matkatila" }));
+  expect(onStart).toHaveBeenCalledTimes(1);
+});
+
+// Names are worked out where they are shown, and a start error is kept as a
+// phrase, so a switch mid-choice reaches both.
+test("follows a language switch while the stop is being chosen", async () => {
+  mocks.fetchTripDetails.mockResolvedValue(null);
+  mocks.fetchTripStopTimes.mockResolvedValue([
+    { stopId: "164", departureTime: "17:41:00", stopSequence: 1, dropOffType: 0 },
+    { stopId: "77", departureTime: "17:44:00", stopSequence: 2, dropOffType: 0 },
+    { stopId: "32", departureTime: "17:46:00", stopSequence: 3, dropOffType: 0 },
+  ]);
+  renderSetup({
+    arrival: {
+      expecteddeparturetime: null,
+      aimeddeparturetime: null,
+      expectedarrivaltime: null,
+      aimedarrivaltime: null,
+    },
+  });
+
+  // Stop 77 is not in the catalogue, so it goes by its number.
+  expect(await screen.findByText("Stop 77")).toBeInTheDocument();
+  fireEvent.click(screen.getByDisplayValue("3"));
+  fireEvent.click(screen.getByRole("button", { name: "Start Ride Mode" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /do not have a departure time/i
+  );
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(screen.getByText("Pysäkki 77")).toBeInTheDocument();
+  expect(screen.getByText(/pysäkin Pysäkki 77 jälkeen/)).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Tälle bussille ei ole vielä lähtöaikaa. Odota, että lähtötaulu päivittyy, ja yritä uudelleen."
+  );
+  expect(screen.getByText(/^Jää pois: Puistokatu · Linja 1$/)).toBeInTheDocument();
 });

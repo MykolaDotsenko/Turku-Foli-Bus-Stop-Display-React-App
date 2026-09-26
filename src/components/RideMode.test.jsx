@@ -1,6 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import RideMode from "./RideMode";
+import { resetLanguageForTests } from "../i18n";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 function session(stage = "next") {
   return {
@@ -540,4 +545,117 @@ test("brings itself back into view when the stop is next", () => {
     globalThis.HTMLElement.prototype.scrollIntoView = originalScroll;
     globalThis.HTMLElement.prototype.getBoundingClientRect = originalRect;
   }
+});
+
+// The words that get a passenger off the bus are the ones that must be in
+// their language. The stop's own name stays as the pole and the bus say it.
+test("tells a Finnish reader to get off now, in Finnish", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("now")}
+      runtime={{ trackingHealth: "live", etaSec: 0, remainingStops: 0 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByRole("heading", { name: "Jää pois nyt" })).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Siirry ovelle ja jää pois tässä."
+  );
+  expect(screen.getByRole("button", { name: "Jään pois" })).toBeInTheDocument();
+  expect(screen.getByText("olet perillä")).toBeInTheDocument();
+  expect(screen.getByText("Puistokatu")).toBeInTheDocument();
+});
+
+test("asks a Finnish bus passenger to press STOP without inflecting a stop name", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{
+        trackingHealth: "live",
+        targetLive: true,
+        etaSec: 200,
+        remainingStops: 2,
+      }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi on seuraavana" })
+  ).toBeInTheDocument();
+  expect(screen.getByText("Paina STOP-nappia nyt.")).toBeInTheDocument();
+  // "pysäkin Kauppatori jälkeen", never "Kauppatorin jälkeen".
+  expect(
+    screen.getByText("Pysäkki 32 · pysäkin Kauppatori jälkeen")
+  ).toBeInTheDocument();
+  expect(screen.getByText("2 pysäkkiä")).toBeInTheDocument();
+  expect(screen.getByText("~4 min")).toBeInTheDocument();
+  expect(screen.getByText("Bussisi on vahvistettu")).toBeInTheDocument();
+  expect(screen.getByLabelText("Matkan eteneminen")).toBeInTheDocument();
+});
+
+test("counts one stop left in the Finnish singular", () => {
+  resetLanguageForTests("fi");
+  render(panelAt("soon"));
+
+  expect(screen.getByText("1 pysäkki")).toBeInTheDocument();
+});
+
+test("follows a language switch in the middle of a ride", () => {
+  render(panelAt("soon"));
+  expect(
+    screen.getByRole("heading", { name: "Your stop is coming up" })
+  ).toBeInTheDocument();
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi lähestyy" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("group", { name: "Hälytysäänen tarkistus" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Lopeta matka" })).toBeInTheDocument();
+});
+
+test("gives a location problem in Finnish, and the destination as its sign says it", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 240, remainingStops: 2 }}
+      gps={{
+        status: "error",
+        offRouteSuspected: true,
+        error: "Location backup was not allowed.",
+      }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText(
+      "Sijainnin käyttöä ei sallittu. Matkan seuranta jatkuu ilman laitteen sijaintia."
+    )
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Et ole kahteen minuuttiin liikkunut linjan 1 reittiä suuntaan Satama. Oletko yhä tässä bussissa?"
+  );
+  expect(
+    screen.getByRole("button", { name: "Kyllä, jatka seurantaa" })
+  ).toBeInTheDocument();
 });

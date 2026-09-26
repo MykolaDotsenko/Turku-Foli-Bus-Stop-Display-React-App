@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetLanguageForTests } from "../i18n";
 import {
   RIDE_STAGE,
   arrivalEtaSeconds,
@@ -62,6 +63,36 @@ describe("ride progress", () => {
     expect(plan.nextStop.name).toBe("After");
     expect(plan.boardingStop.shapeDistTraveled).toBe(0);
     expect(plan.targetStop.shapeDistTraveled).toBe(1800);
+  });
+
+  // The plan's names are what the panel shows and the alerts say, so a stop
+  // the catalogue does not name goes by its number in the passenger's
+  // language, never by an empty name.
+  describe("a stop the catalogue does not name", () => {
+    afterEach(() => resetLanguageForTests("en"));
+
+    const plan = () =>
+      buildRidePlan({
+        stopTimes: [
+          { stopId: "10", departureTime: "12:00:00", stopSequence: 1 },
+          { stopId: "30", departureTime: "12:08:00", stopSequence: 2 },
+        ],
+        currentStopId: "10",
+        targetStopId: "30",
+        targetStopSequence: 2,
+        stopsById: new Map([["10", { id: "10", name: "Board" }]]),
+        departureEpochSec: 1_000,
+      });
+
+    it("is named by its number", () => {
+      expect(plan().targetStop.name).toBe("Stop 30");
+    });
+
+    it("is named by its number in Finnish", () => {
+      resetLanguageForTests("fi");
+      expect(plan().targetStop.name).toBe("Pysäkki 30");
+      expect(plan().boardingStop.name).toBe("Board");
+    });
   });
 
   it("disambiguates a loop boarding stop from the SIRI aimed time", () => {

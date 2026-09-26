@@ -1,3 +1,5 @@
+import { t } from "../i18n";
+
 export const RIDE_STAGE = Object.freeze({
   BOARDED: "boarded",
   SOON: "soon",
@@ -82,7 +84,9 @@ function stopDetails(stopId, stopsById) {
 
   return {
     id: String(stopId),
-    name: String(stop?.name || `Stop ${stopId}`),
+    // A stop the catalogue does not name is shown, spoken and notified by
+    // number, in the language the ride was started in: the plan keeps it.
+    name: String(stop?.name || t("Stop {id}", { id: stopId })),
     ...(lat !== null && lon !== null ? { lat, lon } : {}),
   };
 }

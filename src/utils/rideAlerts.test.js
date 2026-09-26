@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { resetLanguageForTests } from "../i18n";
 import {
   announceRideStage,
   playRideTone,
@@ -11,6 +12,10 @@ import {
   unlockRideAudio,
   vibrateRideStage,
 } from "./rideAlerts";
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
 
 describe("ride alerts", () => {
   const originalVibrate = navigator.vibrate;
@@ -121,6 +126,24 @@ describe("ride get-off notifications", () => {
     expect(focus).toHaveBeenCalledTimes(1);
     expect(created[0].close).toHaveBeenCalledTimes(1);
   });
+
+  // It arrives over a locked screen, where the page cannot explain itself.
+  it("sends the get-off alert in the language on screen", async () => {
+    resetLanguageForTests("fi");
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+
+    await showRideNotification("now", "Puistokatu");
+    await showRideNotification("next", "Puistokatu", 3);
+
+    expect(showNotification.mock.calls.map(([title, options]) => [
+      title,
+      options.body,
+    ])).toEqual([
+      ["Tämä on pysäkkisi: Puistokatu", "Jää pois nyt."],
+      ["Seuraava pysäkki: Puistokatu", "Paina STOP-nappia nyt."],
+    ]);
+  });
 });
 
 describe("spoken get-off alerts", () => {
@@ -203,6 +226,48 @@ describe("spoken get-off alerts", () => {
   it("falls back to a neutral name when the stop has none", () => {
     speakRideStage("now", "");
     expect(spoken.map((u) => u.text)).toContain("your stop");
+  });
+
+  // Instructions in the language the passenger reads, each by a voice for
+  // it; the stop name in Finnish either way, so it stays recognisable.
+  it("keeps English instructions with an English voice and the name in Finnish", () => {
+    speakRideStage("next", "Puistokatu", 3);
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["The next stop is yours.", "en-US"],
+      ["Puistokatu", "fi-FI"],
+      ["Press the stop button now.", "en-US"],
+    ]);
+  });
+
+  it("speaks to a Finnish reader in Finnish, all with the Finnish voice", () => {
+    resetLanguageForTests("fi");
+    speakRideStage("now", "Puistokatu", 3);
+
+    expect(spoken.map((u) => u.text)).toEqual([
+      "Tämä on pysäkkisi.",
+      "Puistokatu",
+      "Jää pois nyt.",
+    ]);
+    expect(spoken.map((u) => [u.lang, u.voice?.lang])).toEqual([
+      ["fi-FI", "fi-FI"],
+      ["fi-FI", "fi-FI"],
+      ["fi-FI", "fi-FI"],
+    ]);
+
+    spoken = [];
+    speakRideStage("next", "Puistokatu", 3);
+    expect(spoken.map((u) => u.text)).toContain("Paina stop-nappia nyt.");
+  });
+
+  it("reads the stand-in for a missing name as a phrase in the reader's language", () => {
+    speakRideStage("soon", "");
+    expect(spoken.find((u) => u.text === "your stop")?.lang).toBe("en-US");
+
+    resetLanguageForTests("fi");
+    spoken = [];
+    speakRideStage("soon", "");
+    expect(spoken.find((u) => u.text === "pysäkkisi")?.lang).toBe("fi-FI");
   });
 
   it("reports failure instead of throwing when speech is unavailable", () => {

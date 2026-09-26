@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { msg } from "../i18n";
 import { distanceInMeters, hasCoordinates } from "../utils/geo";
 import { analyzeRideGps } from "../utils/rideGeometry";
 import {
@@ -509,13 +510,15 @@ export default function useRideMode() {
       return undefined;
     }
 
+    // Errors are kept as phrases and translated where the panel shows them,
+    // so a language switch mid-ride reaches them too.
     if (
       typeof globalThis.navigator?.geolocation?.watchPosition !== "function"
     ) {
       commitGps((value) => ({
         ...value,
         status: "unavailable",
-        error: "Location backup is unavailable on this device.",
+        error: msg("Location backup is unavailable on this device."),
       }));
       return undefined;
     }
@@ -642,8 +645,8 @@ export default function useRideMode() {
           status: "error",
           error:
             error?.code === 1
-              ? "Location backup was not allowed."
-              : "Location backup is temporarily unavailable.",
+              ? msg("Location backup was not allowed.")
+              : msg("Location backup is temporarily unavailable."),
         }));
       },
       {
