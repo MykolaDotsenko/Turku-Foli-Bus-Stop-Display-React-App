@@ -172,15 +172,19 @@ export function formatServiceStatus(
   monitored,
   delaySeconds,
   recordedAt,
-  serverTime
+  serverTime,
+  { offline = false } = {}
 ) {
   if (!monitored) return t("Scheduled");
 
   const delay = formatDelay(delaySeconds);
   const ageSeconds = dataAgeSeconds(recordedAt, serverTime);
 
-  let freshness = t("Live");
-  if (ageSeconds !== null && ageSeconds > 120) {
+  // Offline, a saved row is the last word from the bus, not a live one.
+  let freshness = offline ? t("Last live estimate") : t("Live");
+  if (offline) {
+    // Its age is said once, above the board.
+  } else if (ageSeconds !== null && ageSeconds > 120) {
     freshness = t("Live data · {minutes} min old", {
       minutes: Math.max(2, Math.round(ageSeconds / 60)),
     });

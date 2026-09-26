@@ -1427,7 +1427,8 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await page.reload({ waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Offline", { exact: true })).toBeVisible();
-  await expect(page.getByText("Offline mode", { exact: true })).toBeVisible();
+  // Announced, once, and shown once, by the banner.
+  await expect(page.getByText("Offline mode", { exact: true })).toHaveCount(1);
   await expect(
     page.getByText(/saved places and driver help still work/i)
   ).toBeVisible();

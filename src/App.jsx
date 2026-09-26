@@ -303,24 +303,11 @@ function App() {
             </p>
           </div>
         </div>
-        {/* It only knows whether the phone can reach the internet, so it
-            only speaks up when it cannot. "Live Föli data" stood above
-            boards that had just said their live update failed. It stays
-            in the page while online, out of sight, so going offline is
-            still announced. */}
-        <span
-          className="live-pill"
-          data-online={online ? "true" : "false"}
-          aria-live="polite"
-        >
-          {online ? (
-            t("Online")
-          ) : (
-            <>
-              <span className="live-dot" aria-hidden="true" />
-              {t("Offline mode")}
-            </>
-          )}
+        {/* Out of sight, and always in the page, so a change of connection
+            is announced: a live region added at that moment often is not.
+            The Offline banner below is what the eye gets. */}
+        <span className="live-pill" aria-live="polite">
+          {online ? t("Online") : t("Offline mode")}
         </span>
       </header>
 
@@ -422,6 +409,7 @@ function App() {
             activeRideTripRef={ride.session?.tripRef || ""}
             cancellations={stopCancellations}
             unknownStop={unknownStop}
+            online={online}
           />
         </>
       )}

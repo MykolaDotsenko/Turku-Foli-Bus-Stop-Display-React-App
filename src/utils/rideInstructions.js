@@ -22,6 +22,7 @@ export function rideExitInstruction(routeType) {
   if (busLike(routeType)) {
     return {
       kind: "request-stop",
+      soonText: msg("Get your things together. We will tell you when to press STOP."),
       nextText: msg("Press the STOP button now."),
       nextVoice: msg("Press the stop button now."),
       nextNotification: msg("Press the STOP button now."),
@@ -30,6 +31,7 @@ export function rideExitInstruction(routeType) {
 
   return {
     kind: "prepare-exit",
+    soonText: msg("Get your things together. We will tell you when your stop is next."),
     nextText: msg("Get ready to exit at the next stop."),
     nextVoice: msg("Get ready to exit at the next stop."),
     nextNotification: msg("Get ready to exit at the next stop."),

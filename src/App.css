@@ -177,31 +177,9 @@ input:focus-visible,
   outline-offset: 2px;
 }
 
+/* Heard, not seen: the Offline banner shows the same news, and the pill
+   beside it made three notices of one and pushed the header about. */
 .live-pill {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid #c7dddd;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.78);
-  color: #2b5057;
-  font-size: 0.72rem;
-  font-weight: 850;
-  box-shadow: 0 6px 18px rgba(31, 67, 74, 0.04);
-}
-
-.live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #0b8b96;
-  box-shadow: 0 0 0 4px rgba(11, 139, 150, 0.12);
-}
-
-.live-pill[data-online="true"] {
   position: absolute;
   width: 1px;
   min-height: 0;
@@ -212,17 +190,6 @@ input:focus-visible,
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.live-pill[data-online="false"] {
-  border-color: #d9c889;
-  background: #fff9e8;
-  color: #5b4c20;
-}
-
-.live-pill[data-online="false"] .live-dot {
-  background: #9a7b24;
-  box-shadow: 0 0 0 4px rgba(154, 123, 36, 0.12);
 }
 
 .search-panel {
@@ -383,17 +350,6 @@ input:focus-visible,
     letter-spacing: -0.035em;
   }
 
-  .live-pill {
-    min-width: 0;
-    max-width: 100%;
-    min-height: 32px;
-    flex: 0 1 auto;
-    margin: 0;
-    padding-inline: 10px;
-    font-size: 0.8125rem;
-    white-space: normal;
-  }
-
   .search-panel {
     padding: 11px;
     border-radius: 15px;
@@ -414,11 +370,6 @@ input:focus-visible,
   }
 }
 
-@media (forced-colors: active) {
-  .live-dot {
-    forced-color-adjust: auto;
-  }
-}
 
 /* Dark theme, following the phone's own setting. At night a white page
    on a dark bus glared, while only Ride Mode was dark. Everything here is
@@ -485,12 +436,6 @@ input:focus-visible,
     color: var(--dm-muted);
   }
 
-  .live-pill {
-    border-color: var(--dm-line);
-    background: var(--dm-surface);
-    color: var(--dm-soft);
-  }
-
   .language-switch {
     border-color: var(--dm-line-strong);
     background: var(--dm-surface);
@@ -504,21 +449,6 @@ input:focus-visible,
 
   .language-switch:focus-visible {
     outline-color: var(--dm-focus);
-  }
-
-  .live-dot {
-    background: var(--dm-accent);
-  }
-
-  .live-pill[data-online="false"] {
-    border-color: var(--dm-warn-line);
-    background: var(--dm-warn-surface);
-    color: var(--dm-warn-text);
-  }
-
-  .live-pill[data-online="false"] .live-dot {
-    background: var(--dm-warn-text);
-    box-shadow: 0 0 0 4px rgba(242, 212, 143, 0.14);
   }
 
   .search-panel {

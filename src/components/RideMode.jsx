@@ -14,7 +14,9 @@ const STAGE_COPY = {
   [RIDE_STAGE.SOON]: {
     eyebrow: msg("Get ready"),
     title: msg("Your stop is coming up"),
-    instruction: msg("Gather your things and get ready to move toward the doors."),
+    // Worded by mode below. "Move toward the doors" sat beside "~18 min"
+    // on a ride with long gaps between its last stops.
+    instruction: "",
   },
   [RIDE_STAGE.NEXT]: {
     eyebrow: msg("Next stop"),
@@ -266,9 +268,13 @@ export default function RideMode({
   if (!session) return null;
 
   const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
-  const copy = session.stage === RIDE_STAGE.NEXT
-    ? { ...baseStage, instruction: rideExitInstruction(session.routeType).nextText }
-    : baseStage;
+  const exit = rideExitInstruction(session.routeType);
+  const copy =
+    session.stage === RIDE_STAGE.NEXT
+      ? { ...baseStage, instruction: exit.nextText }
+      : session.stage === RIDE_STAGE.SOON
+        ? { ...baseStage, instruction: exit.soonText }
+        : baseStage;
   const urgent =
     session.stage === RIDE_STAGE.NEXT ||
     session.stage === RIDE_STAGE.NOW ||
@@ -341,6 +347,9 @@ export default function RideMode({
           className={styles.soundCheck}
           role="group"
           aria-label={t("Alert sound check")}
+          data-compact={
+            session.stage === RIDE_STAGE.SOON && alertHeard !== "no" ? "true" : undefined
+          }
         >
           {alertHeard !== "no" ? (
             <>
@@ -384,6 +393,7 @@ export default function RideMode({
         {t(copy.instruction)}
       </p>
 
+      {!gettingOffNow && (
       <div className={styles.metrics} aria-label={t("Ride progress")}>
         <div>
           <span>{t("Line")}</span>
@@ -394,10 +404,23 @@ export default function RideMode({
           <strong>{remaining || t("tracking")}</strong>
         </div>
         <div>
-          <span>{t("Estimate")}</span>
+          {/* A time read off the timetable looks like any other. */}
+          <span>
+            {runtime.etaSource === "schedule" ? t("By timetable") : t("Estimate")}
+          </span>
           <strong>{eta || "—"}</strong>
         </div>
       </div>
+
+      )}
+
+      {!gettingOffNow && runtime.etaSource === "schedule" && !scheduleOnly && eta && (
+        <p className={styles.timetableNote}>
+          {t(
+            "The time to your stop is from the timetable until Föli’s live data lists your bus there."
+          )}
+        </p>
+      )}
 
       {session.stage === RIDE_STAGE.MISSED && session.nextStop && (
         <div className={styles.recovery}>

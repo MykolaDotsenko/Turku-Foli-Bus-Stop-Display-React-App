@@ -210,3 +210,21 @@ test("a stop the list does not know yet still shows the departures it has", () =
   expect(screen.getByText("Satama")).toBeInTheDocument();
   expect(screen.queryByText(/has no stop/)).not.toBeInTheDocument();
 });
+
+// Reopened offline, a saved board still said "Live" and "Bus at stop ·
+// board now" about buses that may have left minutes ago.
+test("an offline board says its times are from the last update, not live", () => {
+  render(
+    board({
+      arrivals: [{ ...departure, vehicleatstop: true, delay: 60 }],
+      serverTime: NOW,
+      receivedAtMs: Date.now(),
+      online: false,
+    })
+  );
+
+  expect(screen.getByText(/^Offline · last updated \d\d:\d\d$/)).toBeInTheDocument();
+  expect(screen.getByText(/^Last live estimate · 1 min late · /)).toBeInTheDocument();
+  expect(screen.queryByText(/^Live · /)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Bus at stop/)).not.toBeInTheDocument();
+});

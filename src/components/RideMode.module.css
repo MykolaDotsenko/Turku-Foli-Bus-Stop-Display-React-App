@@ -48,6 +48,31 @@
   color: #1b1300;
 }
 
+/* "Get ready" has its own step between sitting back and pressing STOP: it
+   looked the same as the ride's start, told apart only by its words.
+   #06262a on #47c3cf is 7.6:1. */
+.panel[data-stage="soon"] {
+  border-color: #47c3cf;
+  border-width: 3px;
+}
+
+.panel[data-stage="soon"] .instruction {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #47c3cf;
+  color: #06262a;
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.timetableNote {
+  margin: 8px 0 0;
+  color: #a8c4c9;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
 .panel[data-stage="now"] .instruction {
   background: #ff8c5a;
   color: #2a0d00;
@@ -403,6 +428,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* On the approach the question shrinks to one line beside its answers. */
+.soundCheck[data-compact="true"] {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 8px 12px;
 }
 
 .soundCheckActions button {

@@ -212,8 +212,8 @@ test("stops counting down once it is telling the passenger to get off", () => {
     />
   );
 
-  expect(screen.getByText("you are here")).toBeInTheDocument();
-  expect(screen.getByText("now")).toBeInTheDocument();
+  // The orange block says it; tiles beside it only repeated it, or worse.
+  expect(screen.queryByLabelText("Ride progress")).not.toBeInTheDocument();
   expect(screen.queryByText("1 stop")).not.toBeInTheDocument();
   expect(screen.queryByText("~2 min")).not.toBeInTheDocument();
 });
@@ -616,7 +616,6 @@ test("tells a Finnish reader to get off now, in Finnish", () => {
     "Siirry ovelle ja jää pois tässä."
   );
   expect(screen.getByRole("button", { name: "Jään pois" })).toBeInTheDocument();
-  expect(screen.getByText("olet perillä")).toBeInTheDocument();
   expect(screen.getByText("Puistokatu")).toBeInTheDocument();
 });
 
@@ -706,4 +705,49 @@ test("gives a location problem in Finnish, and the destination as its sign says 
   expect(
     screen.getByRole("button", { name: "Kyllä, jatka seurantaa" })
   ).toBeInTheDocument();
+});
+
+// Going by the timetable, "~18 min" looked like any live estimate.
+test("marks a time that comes from the timetable", () => {
+  render(
+    <RideMode
+      session={session("boarded")}
+      runtime={{
+        trackingHealth: "live",
+        previousSeen: true,
+        etaSec: 1080,
+        etaSource: "schedule",
+        remainingStops: 4,
+      }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByText("By timetable")).toBeInTheDocument();
+  expect(screen.getByText("~18 min")).toBeInTheDocument();
+  expect(screen.getByText(/from the timetable until Föli’s live data lists your bus/)).toBeInTheDocument();
+});
+
+test("gets a bus passenger ready without sending them to the doors early", () => {
+  render(
+    <RideMode
+      session={session("soon")}
+      runtime={{ trackingHealth: "live", etaSec: 600, etaSource: "live", remainingStops: 3 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByText("Get your things together. We will tell you when to press STOP.")
+  ).toBeInTheDocument();
+  expect(screen.getByText("Estimate")).toBeInTheDocument();
+  expect(screen.queryByText(/toward the doors/)).not.toBeInTheDocument();
 });

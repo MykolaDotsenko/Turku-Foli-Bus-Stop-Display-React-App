@@ -8,8 +8,10 @@ export default {
     "Varoitamme, kun pysäkkisi lähestyy.",
   "Get ready": "Valmistaudu",
   "Your stop is coming up": "Pysäkkisi lähestyy",
-  "Gather your things and get ready to move toward the doors.":
-    "Kerää tavarasi ja valmistaudu siirtymään ovelle.",
+  "Get your things together. We will tell you when to press STOP.":
+    "Kerää tavarasi. Kerromme, milloin painaa STOP-nappia.",
+  "Get your things together. We will tell you when your stop is next.":
+    "Kerää tavarasi. Kerromme, kun pysäkkisi on seuraavana.",
   "Next stop": "Seuraava pysäkki",
   "Your stop is next": "Pysäkkisi on seuraavana",
   "Press the STOP button now.": "Paina STOP-nappia nyt.",
@@ -35,6 +37,9 @@ export default {
   "{count} stops": "{count} pysäkkiä",
   Remaining: "Jäljellä",
   Estimate: "Arvio",
+  "By timetable": "Aikataulun mukaan",
+  "The time to your stop is from the timetable until Föli’s live data lists your bus there.":
+    "Aika pysäkillesi on aikataulusta, kunnes bussisi näkyy siellä Fölin reaaliaikatiedoissa.",
   tracking: "seurataan",
   "Ride progress": "Matkan eteneminen",
 

@@ -139,8 +139,7 @@ export default {
     "Avaa reitin tälle tallennetulle kotipysäkille Google Mapsissa. Tarkista ehdotettu reitti ennen matkaa.",
   "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work.":
     "Reittiohjeet eivät ole saatavilla, ennen kuin pysäkkien sijainnit latautuvat. Tallennettu pysäkkisi ja kuljettajalle näytettävä kortti toimivat silti.",
-  "You’re offline. Your saved Home stop and driver card still work; connect to the internet for transit directions.":
-    "Ei yhteyttä. Tallennettu kotipysäkkisi ja kuljettajalle näytettävä kortti toimivat silti. Yhdistä internetiin, niin saat reittiohjeet.",
+  "Directions need an internet connection.": "Reittiohjeet tarvitsevat verkkoyhteyden.",
   "Other saved Home stop": "Muu tallennettu kotipysäkki",
   "Other saved Home stops": "Muut tallennetut kotipysäkit",
   "If the usual stop is unavailable, choose another stop you approved for Home.":

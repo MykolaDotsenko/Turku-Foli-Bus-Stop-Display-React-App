@@ -72,6 +72,8 @@ export default {
   "{count} scheduled": ({ count }) =>
     count === 1 ? "1 aikataulun mukainen" : `${count} aikataulun mukaista`,
   "Live update failed": "Reaaliaikapäivitys epäonnistui",
+  "Offline · last updated {time}": "Ei yhteyttä · päivitetty viimeksi klo {time}",
+  "Last live estimate": "Viimeisin reaaliaika-arvio",
   "Live data is getting old": "Reaaliaikatiedot eivät ole tuoreita",
   "last successful update {age}": "viimeisin onnistunut päivitys {age}",
   "Live updates are unavailable · showing scheduled Föli times.":

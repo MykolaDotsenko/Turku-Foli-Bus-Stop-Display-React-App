@@ -134,7 +134,7 @@ test("does not send a stressed user into external routing while offline", () => 
     screen.getByRole("button", { name: "Get me Home" })
   ).toBeDisabled();
   expect(
-    screen.getByText(/You’re offline.*driver card still work/i)
+    screen.getByText("Directions need an internet connection.")
   ).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));

@@ -144,9 +144,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
             ? t(
                 "Transit directions are temporarily unavailable until public stop coordinates load. Your saved stop and driver card still work."
               )
-            : t(
-                "You’re offline. Your saved Home stop and driver card still work; connect to the internet for transit directions."
-              )}
+            : t("Directions need an internet connection.")}
         </p>
       )}
 

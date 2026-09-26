@@ -241,6 +241,7 @@ function BusStopDisplay({
   activeRideTripRef = "",
   cancellations = [],
   unknownStop = false,
+  online = true,
 }) {
   const language = useLanguage();
   // Keeps due times, freshness and the departed-row filter counting between
@@ -519,7 +520,13 @@ function BusStopDisplay({
         </div>
       )}
 
-      {(error || dataIsStale) && hasData && (
+      {!online && hasData && serverTime ? (
+        // Offline, every time below is from the last answer, and says so at
+        // once instead of after two minutes.
+        <p className={styles.staleNotice} role="status">
+          {t("Offline · last updated {time}", { time: formatClock(serverTime) })}
+        </p>
+      ) : (error || dataIsStale) && hasData && (
         <p className={styles.staleNotice} role="status">
           {error ? t("Live update failed") : t("Live data is getting old")}
           {receiptAgeSeconds !== null
@@ -695,14 +702,14 @@ function BusStopDisplay({
                   arrival.monitored,
                   arrival.delay,
                   arrival.recordedattime,
-                  effectiveServerTime
+                  effectiveServerTime,
+                  { offline: !online }
                 );
-                const proximity = vehicleProximity(
-                  arrival,
-                  stop,
-                  route,
-                  effectiveServerTime
-                );
+                // "Bus at stop · board now", read off a saved answer, may
+                // be long gone.
+                const proximity = online
+                  ? vehicleProximity(arrival, stop, route, effectiveServerTime)
+                  : "";
                 const destinationName = destinationNames(
                   arrival,
                   preferredLanguages
