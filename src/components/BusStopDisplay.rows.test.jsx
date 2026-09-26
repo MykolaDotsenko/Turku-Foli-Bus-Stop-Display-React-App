@@ -119,7 +119,7 @@ test("an open get-off setup survives an earlier bus leaving the board", async ()
 test("an expanded next-stops list stays open across a refresh", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
-  await screen.findByText("Planned stop sequence");
+  await screen.findByText("Next stops · timetable times");
 
   rerender(board([departure({ expecteddeparturetime: NOW + 320 })]));
 
@@ -187,14 +187,14 @@ test("switching stops closes an open setup, and coming back does not reopen it",
 test("an expanded next-stops list does not carry over to another stop", async () => {
   const { rerender } = render(board([departure()]));
   fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
-  await screen.findByText("Planned stop sequence");
+  await screen.findByText("Next stops · timetable times");
 
   rerender(board([departure()], TURUN_LINNA));
 
   expect(
     screen.getByRole("button", { name: "Next stops" })
   ).toBeInTheDocument();
-  expect(screen.queryByText("Planned stop sequence")).not.toBeInTheDocument();
+  expect(screen.queryByText("Next stops · timetable times")).not.toBeInTheDocument();
 });
 
 // Back and Forward change the stop under the same board. Remounting the whole

@@ -429,6 +429,7 @@ function BusStopDisplay({
                           <TripJourneyDetails
                             tripId={arrival.tripref}
                             currentStopId={stopId}
+                            aimedDepartureTime={arrival.aimeddeparturetime}
                             stopsById={stopsById}
                           />
                           <button

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchTripStopTimes } from "../api/foliApi";
+import { resolveRideBoardingIndex } from "../utils/rideProgress";
 import styles from "./TripJourneyDetails.module.css";
 
 const MAX_VISIBLE_NEXT_STOPS = 7;
@@ -28,6 +29,7 @@ function stopLabel(stopTime, stopsById) {
 export default function TripJourneyDetails({
   tripId,
   currentStopId,
+  aimedDepartureTime = null,
   stopsById,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -54,9 +56,19 @@ export default function TripJourneyDetails({
   }, [expanded, tripId]);
 
   const journey = useMemo(() => {
-    const currentIndex = stopTimes.findIndex(
-      (item) => item.stopId === String(currentStopId)
+    // A loop serves some stops twice, so the departure's own planned time
+    // picks the pass being boarded; the first match used to list stops the
+    // bus had already served. Only a pass that cannot be told apart falls
+    // back to the first.
+    const resolvedIndex = resolveRideBoardingIndex(
+      stopTimes,
+      currentStopId,
+      aimedDepartureTime
     );
+    const currentIndex =
+      resolvedIndex >= 0
+        ? resolvedIndex
+        : stopTimes.findIndex((item) => item.stopId === String(currentStopId));
     const remaining =
       currentIndex >= 0 ? stopTimes.slice(currentIndex + 1) : stopTimes;
 
@@ -68,7 +80,7 @@ export default function TripJourneyDetails({
       ),
       finalStop: remaining.at(-1) || null,
     };
-  }, [currentStopId, stopTimes]);
+  }, [aimedDepartureTime, currentStopId, stopTimes]);
 
   return (
     <div className={styles.wrapper}>
@@ -83,7 +95,7 @@ export default function TripJourneyDetails({
 
       {expanded && (
         <div className={styles.panel}>
-          <p className={styles.kicker}>Planned stop sequence</p>
+          <p className={styles.kicker}>Next stops · timetable times</p>
 
           {status === "loading" && (
             <p className={styles.status} role="status">
@@ -93,7 +105,7 @@ export default function TripJourneyDetails({
 
           {status === "error" && (
             <p className={styles.status} role="status">
-              Planned stop sequence is temporarily unavailable.
+              Next stops are temporarily unavailable.
             </p>
           )}
 

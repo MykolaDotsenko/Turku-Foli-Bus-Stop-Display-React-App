@@ -58,12 +58,48 @@ test("loads the planned sequence only after the user opens Next stops", async ()
   fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
 
   expect(
-    await screen.findByText("Planned stop sequence")
+    await screen.findByText("Next stops · timetable times")
   ).toBeInTheDocument();
   expect(mocks.fetchTripStopTimes).toHaveBeenCalledTimes(1);
   expect(screen.getByText("Puistokatu")).toBeInTheDocument();
   expect(screen.getByText("around 17:46")).toBeInTheDocument();
   expect(screen.getByText("Turun linna")).toBeInTheDocument();
   expect(screen.getByText("01:05")).toBeInTheDocument();
+  expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
+});
+
+// A loop serves Kauppatori twice. Opening "Next stops" on the second pass
+// started from the first, listing stops the bus had already served and
+// Kauppatori itself as still to come.
+test("lists the stops after the pass the passenger is actually boarding", async () => {
+  mocks.fetchTripStopTimes.mockResolvedValue([
+    { stopId: "164", departureTime: "12:00:00", stopSequence: 1 },
+    { stopId: "10", departureTime: "12:05:00", stopSequence: 2 },
+    { stopId: "20", departureTime: "12:10:00", stopSequence: 3 },
+    { stopId: "164", departureTime: "12:15:00", stopSequence: 4 },
+    { stopId: "30", departureTime: "12:20:00", stopSequence: 5 },
+  ]);
+
+  render(
+    <TripJourneyDetails
+      tripId="trip-loop"
+      currentStopId="164"
+      aimedDepartureTime={Date.UTC(2026, 8, 21, 9, 15) / 1000}
+      stopsById={
+        new Map([
+          ["164", { id: "164", name: "Kauppatori" }],
+          ["10", { id: "10", name: "Alpha" }],
+          ["20", { id: "20", name: "Beta" }],
+          ["30", { id: "30", name: "Gamma" }],
+        ])
+      }
+    />
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
+
+  expect(await screen.findByText("Gamma")).toBeInTheDocument();
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  expect(screen.queryByText("Beta")).not.toBeInTheDocument();
   expect(screen.queryByText("Kauppatori")).not.toBeInTheDocument();
 });

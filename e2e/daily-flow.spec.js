@@ -1004,7 +1004,7 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
   await expect(page.getByAltText("Temporary detour map")).toBeVisible();
 
   await page.getByRole("button", { name: "Next stops" }).first().click();
-  await expect(page.getByText("Planned stop sequence")).toBeVisible();
+  await expect(page.getByText("Next stops · timetable times")).toBeVisible();
   await expect(page.getByText("around 17:46")).toBeVisible();
   await expect(page.getByText("Puistokatu")).toBeVisible();
 
@@ -1461,7 +1461,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   const nextStops = page.getByRole("button", { name: "Next stops" }).first();
   if (await nextStops.isVisible()) {
     await nextStops.click();
-    await expect(page.getByText("Planned stop sequence")).toBeVisible();
+    await expect(page.getByText("Next stops · timetable times")).toBeVisible();
   }
 
   const recovery = page.locator(
