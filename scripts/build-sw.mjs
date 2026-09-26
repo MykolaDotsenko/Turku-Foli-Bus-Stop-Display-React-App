@@ -30,9 +30,14 @@ async function listFiles(directory) {
   return files;
 }
 
+// Fetched by link previews, never by the app: precaching it would add its
+// weight to every install for nothing.
+const NOT_PRECACHED = new Set(["social-card.jpg"]);
+
 const allFiles = (await listFiles(DIST_DIR))
   .filter((file) => file !== SW_PATH)
   .filter((file) => !file.endsWith(".map"))
+  .filter((file) => !NOT_PRECACHED.has(path.relative(DIST_DIR, file)))
   .sort();
 
 const hash = createHash("sha256");

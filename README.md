@@ -301,6 +301,21 @@ VITE_FOLI_STOPS_URL=https://example.test/gtfs/stops npm run dev
 VITE_FOLI_ROUTES_URL=https://example.test/gtfs/routes npm run dev
 ~~~
 
+Link previews (`og:url`, `og:image`, canonical) use absolute URLs from `VITE_SITE_URL`, which defaults to the production address in `vite.config.js`. A deployment elsewhere sets it:
+
+~~~bash
+VITE_SITE_URL=https://example.test/ VITE_BASE_PATH=/ npm run build
+~~~
+
+The PNG home-screen icons, the notification badge and the link-preview card are rendered, not drawn by hand. After changing `public/foli-icon.svg` or the card's copy:
+
+~~~bash
+node scripts/build-icons.mjs
+FONT_DIR=/path/to/inter/files node scripts/build-social-card.mjs
+~~~
+
+Both take `CHROMIUM_PATH` to use a specific browser. `FONT_DIR` points at Inter's `inter-latin-*-normal.woff2` files, such as the `files` folder of the `@fontsource/inter` npm package; without it the card uses the system sans-serif.
+
 ## Repository map
 
 ~~~text

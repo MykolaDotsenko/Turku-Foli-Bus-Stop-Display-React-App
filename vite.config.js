@@ -1,6 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+// Link previews need absolute URLs. This is where production lives; a
+// deployment elsewhere sets VITE_SITE_URL, and index.html reads it as
+// %VITE_SITE_URL%.
+process.env.VITE_SITE_URL ||=
+  "https://mykoladotsenko.github.io/foli-live-departures/";
+
 function normalizedBasePath() {
   const value = String(process.env.VITE_BASE_PATH || "/").trim();
   const withLeadingSlash = value.startsWith("/") ? value : `/${value}`;

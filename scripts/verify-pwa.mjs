@@ -116,6 +116,24 @@ for (const url of iconUrls) {
   }
 }
 
+// A shared link is the app's first impression. Scrapers need absolute URLs,
+// and an image that is actually there.
+const ogImage = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+if (!/^https:\/\/[^%]+\/social-card\.jpg$/.test(ogImage || "")) {
+  throw new Error(`The link preview image is not an absolute URL: ${ogImage}`);
+}
+if (!/<meta name="twitter:card" content="summary_large_image"/.test(html)) {
+  throw new Error("The page has no large link-preview card for X/Twitter.");
+}
+try {
+  await readFile(path.join(distDir, "social-card.jpg"));
+} catch {
+  throw new Error("The link preview image is missing from the build.");
+}
+if (sw.includes("social-card.jpg")) {
+  throw new Error("The link preview image is precached, adding its weight to every install.");
+}
+
 if (!sw.includes('caches.match(request, { ignoreVary: true })')) {
   throw new Error(
     "Generated service worker does not ignore Vary for same-origin precached assets."
