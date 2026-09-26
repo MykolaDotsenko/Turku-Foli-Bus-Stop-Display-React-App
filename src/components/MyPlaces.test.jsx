@@ -562,3 +562,40 @@ test("does not create a location-based Safe Place outside the Föli boundary", a
   ).not.toBeInTheDocument();
   expect(onSavePlace).not.toHaveBeenCalled();
 });
+// Ticking the confirmation for Home and then starting School kept the tick:
+// "Save School" was enabled for a stop nobody had confirmed for School.
+test("starts each place's setup with its own, unticked confirmation", () => {
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="unavailable"
+      activeStopId="32"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up Home using Puistokatu" })
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+    })
+  );
+  expect(screen.getByRole("button", { name: "Save Home" })).toBeEnabled();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up School using Puistokatu" })
+  );
+
+  expect(
+    screen.getByRole("checkbox", {
+      name: /I confirm the selected stop is suitable and intended for arriving at School/i,
+    })
+  ).not.toBeChecked();
+  expect(screen.getByRole("button", { name: "Save School" })).toBeDisabled();
+});

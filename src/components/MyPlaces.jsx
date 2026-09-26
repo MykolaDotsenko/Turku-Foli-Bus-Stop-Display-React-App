@@ -696,8 +696,11 @@ function MyPlaces({
         </p>
       )}
 
+      {/* Keyed by place, so a confirmation ticked for Home can never be
+          carried into School's setup as if it had been given for School. */}
       {setupId && setupCandidates.length > 0 && (
         <SetupPlace
+          key={setupId}
           preset={PLACE_PRESETS.find((preset) => preset.id === setupId)}
           candidates={setupCandidates}
           accuracy={setupAccuracy}
