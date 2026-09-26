@@ -7,7 +7,7 @@ function ConnectivityStatus({ online }) {
     <aside className={styles.banner} role="status" aria-live="polite">
       <strong>Offline</strong>
       <span>
-        Saved Safe Places and driver help still work. Live departures and
+        Your saved places and driver help still work. Live departures and
         external route planning need an internet connection.
       </span>
     </aside>

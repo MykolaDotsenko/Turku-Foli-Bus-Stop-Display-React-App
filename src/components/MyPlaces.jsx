@@ -71,9 +71,11 @@ function SetupPlace({
   };
 
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
-  const confirmationLabel = `I confirm the selected ${
-    selectedStops.length === 1 ? "stop is" : "stops are"
-  } suitable and intended for arriving at ${preset.label}.`;
+  // Plain words, and no "safe": a parent reads that as a promise about the
+  // stop itself, which no app can make.
+  const confirmationLabel = `Yes, ${
+    selectedStops.length === 1 ? "this is the right stop" : "these are the right stops"
+  } for ${preset.label}.`;
 
   return (
     <section
@@ -82,9 +84,9 @@ function SetupPlace({
     >
       <div className={styles.setupHeader}>
         <div>
-          <p className={styles.kicker}>Safe arrival zone</p>
+          <p className={styles.kicker}>My Places</p>
           <h3 id={`setup-${preset.id}-title`}>
-            Choose safe stops for {preset.label}
+            Choose stops for {preset.label}
           </h3>
         </div>
         <button type="button" className={styles.textButton} onClick={onCancel}>
@@ -193,7 +195,7 @@ function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
       className={styles.importCard}
       aria-labelledby="shared-place-title"
     >
-      <p className={styles.kicker}>Shared Safe Place</p>
+      <p className={styles.kicker}>Shared place</p>
       <h3 id="shared-place-title">
         {replacing ? `Replace ${preset.label}?` : `Add ${preset.label}?`}
       </h3>
@@ -258,11 +260,11 @@ function PlaceCard({
     try {
       if (typeof navigator?.share === "function") {
         await navigator.share({
-          title: `${place.label} · Föli Safe Place`,
+          title: `${place.label} · My Places`,
           text: `Add ${place.label} to My Places`,
           url,
         });
-        setShareFeedback("Safe Place shared.");
+        setShareFeedback("Link shared.");
         return;
       }
 
@@ -365,7 +367,7 @@ function PlaceCard({
       {resolvedStops.length > 1 && (
         <details className={styles.backups}>
           <summary>
-            {resolvedStops.length - 1} backup safe stop
+            {resolvedStops.length - 1} backup stop
             {resolvedStops.length > 2 ? "s" : ""}
           </summary>
           <div className={styles.backupList}>
@@ -491,7 +493,7 @@ function EmptyPlaceCard({
         </span>
         <div>
           <h3>{preset.label}</h3>
-          <p>Save nearby safe stops without typing an address.</p>
+          <p>Save the stops you use, without typing an address.</p>
         </div>
         <div className={styles.emptyActions}>
           <button

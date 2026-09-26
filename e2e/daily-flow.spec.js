@@ -1111,7 +1111,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.getByRole("button", { name: "Set up Home from my current location" }).click();
 
   await expect(
-    page.getByRole("heading", { name: "Choose safe stops for Home" })
+    page.getByRole("heading", { name: "Choose stops for Home" })
   ).toBeVisible();
   await expect(page.getByText(/Location accuracy/)).toBeVisible();
 
@@ -1119,7 +1119,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await expect(saveHome).toBeDisabled();
   await page
     .getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
     .check();
   await expect(saveHome).toBeEnabled();
@@ -1364,7 +1364,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await expect(page.getByText("Offline", { exact: true })).toBeVisible();
   await expect(page.getByText("Offline mode", { exact: true })).toBeVisible();
   await expect(
-    page.getByText(/Saved Safe Places and driver help still work/i)
+    page.getByText(/saved places and driver help still work/i)
   ).toBeVisible();
 
   const recovery = page.locator(

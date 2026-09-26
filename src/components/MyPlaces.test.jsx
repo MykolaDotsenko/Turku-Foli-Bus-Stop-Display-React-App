@@ -69,7 +69,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   expect(
     await screen.findByRole("heading", {
-      name: "Choose safe stops for Home",
+      name: "Choose stops for Home",
     })
   ).toBeInTheDocument();
   expect(screen.getByText(/Location accuracy ±20 m/)).toBeInTheDocument();
@@ -87,7 +87,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -208,7 +208,7 @@ test("reviews and confirms the selected public stop when location is unavailable
   );
 
   expect(
-    screen.getByRole("heading", { name: "Choose safe stops for Home" })
+    screen.getByRole("heading", { name: "Choose stops for Home" })
   ).toBeInTheDocument();
   expect(screen.getByText("Using the stop you selected manually")).toBeInTheDocument();
 
@@ -217,7 +217,7 @@ test("reviews and confirms the selected public stop when location is unavailable
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   fireEvent.click(saveHome);
@@ -395,7 +395,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   );
 
   await screen.findByRole("heading", {
-    name: "Choose safe stops for Home",
+    name: "Choose stops for Home",
   });
 
   const choices = screen.getAllByRole("checkbox");
@@ -403,7 +403,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   expect(saveHome).toBeEnabled();
@@ -413,7 +413,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stops are suitable and intended for arriving at Home/i,
+      name: /Yes, these are the right stops for Home/i,
     })
   );
   fireEvent.click(saveHome);
@@ -491,7 +491,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   );
 
   await screen.findByRole("heading", {
-    name: "Choose safe stops for Home",
+    name: "Choose stops for Home",
   });
 
   expect(
@@ -500,7 +500,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
 
   const stopChoices = screen
     .getAllByRole("checkbox")
-    .filter((element) => !/I confirm/.test(element.getAttribute("aria-label") || ""));
+    .filter((element) => !/right stop/.test(element.getAttribute("aria-label") || ""));
 
   expect(stopChoices[0]).not.toBeChecked();
   expect(stopChoices[1]).not.toBeChecked();
@@ -558,7 +558,7 @@ test("does not create a location-based Safe Place outside the Föli boundary", a
     await screen.findByText(/outside Föli’s published service area/i)
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Choose safe stops for Home" })
+    screen.queryByRole("heading", { name: "Choose stops for Home" })
   ).not.toBeInTheDocument();
   expect(onSavePlace).not.toHaveBeenCalled();
 });
@@ -583,7 +583,7 @@ test("starts each place's setup with its own, unticked confirmation", () => {
   );
   fireEvent.click(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at Home/i,
+      name: /Yes, this is the right stop for Home/i,
     })
   );
   expect(screen.getByRole("button", { name: "Save Home" })).toBeEnabled();
@@ -594,7 +594,7 @@ test("starts each place's setup with its own, unticked confirmation", () => {
 
   expect(
     screen.getByRole("checkbox", {
-      name: /I confirm the selected stop is suitable and intended for arriving at School/i,
+      name: /Yes, this is the right stop for School/i,
     })
   ).not.toBeChecked();
   expect(screen.getByRole("button", { name: "Save School" })).toBeDisabled();
