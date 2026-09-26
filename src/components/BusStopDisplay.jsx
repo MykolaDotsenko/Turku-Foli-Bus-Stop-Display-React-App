@@ -379,10 +379,10 @@ function BusStopDisplay({
                 aria-pressed={isFavorite}
                 aria-label={
                   isFavorite
-                    ? t("Remove {name} from favorites", { name: stopName })
-                    : t("Save {name} to favorites", { name: stopName })
+                    ? t("Remove {name} from favourites", { name: stopName })
+                    : t("Save {name} to favourites", { name: stopName })
                 }
-                title={isFavorite ? t("Remove favorite") : t("Save favorite")}
+                title={isFavorite ? t("Remove favourite") : t("Save favourite")}
               >
                 <span aria-hidden="true">{isFavorite ? "★" : "☆"}</span>
               </button>

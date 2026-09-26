@@ -267,7 +267,7 @@ function notificationCopy(stage, stopName, routeType = null) {
   if (stage === "missed") {
     return {
       title: t("Your stop may be behind you"),
-      body: t("Get off at the next stop and use recovery help."),
+      body: t("Get off at the next stop and check the app for how to get back."),
     };
   }
   return {

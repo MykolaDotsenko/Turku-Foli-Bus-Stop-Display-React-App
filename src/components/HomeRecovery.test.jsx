@@ -89,7 +89,7 @@ test("keeps useful fallbacks when route coordinates are unavailable", () => {
   fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));
   expect(onOpenStop).toHaveBeenCalledWith("164");
 
-  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show to driver" }));
   const dialog = screen.getByRole("dialog");
   expect(
     within(dialog).getByRole("heading", { name: /Kauppatori/ })
@@ -140,7 +140,7 @@ test("does not send a stressed user into external routing while offline", () => 
   fireEvent.click(screen.getByRole("button", { name: "Open Home stop" }));
   expect(onOpenStop).toHaveBeenCalledWith("164");
 
-  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show to driver" }));
   expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
 

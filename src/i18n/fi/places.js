@@ -27,10 +27,7 @@ export default {
   "Save the stops you use, without typing an address.":
     "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta.",
   "Use my location": "Käytä sijaintiani",
-  "Use my location to set up {label}":
-    "Käytä sijaintiani paikan {label} asettamiseen",
   "Use {name}": "Käytä pysäkkiä {name}",
-  "Use {name} for {label}": "Käytä pysäkkiä {name} paikalle {label}",
 
   // Choosing a place's stops
   "Choose stops for {label}": "Valitse pysäkit: {label}",
@@ -52,6 +49,22 @@ export default {
     "Lisää varapysäkkejä vain, jos tiedät, että ne sopivat ja ovat sinulle tuttuja, kun tulet kouluun.",
   "Add backup stops only if you know they are suitable and familiar for arriving at Work.":
     "Lisää varapysäkkejä vain, jos tiedät, että ne sopivat ja ovat sinulle tuttuja, kun tulet töihin.",
+  // Named actions, one per place, so Finnish can put the place in its case.
+  "Use my location to set up Home": "Käytä sijaintiani kodin asettamiseen",
+  "Use my location to set up School": "Käytä sijaintiani koulun asettamiseen",
+  "Use my location to set up Work": "Käytä sijaintiani työpaikan asettamiseen",
+  "Use {name} for Home": "Käytä pysäkkiä {name} kodin pysäkkinä",
+  "Use {name} for School": "Käytä pysäkkiä {name} koulun pysäkkinä",
+  "Use {name} for Work": "Käytä pysäkkiä {name} työpaikan pysäkkinä",
+  "Manage Home": "Kodin asetukset",
+  "Manage School": "Koulun asetukset",
+  "Manage Work": "Työpaikan asetukset",
+  "Sharing Home reveals its saved public stop names and IDs, which can indicate the general area.":
+    "Jakaminen paljastaa kodin tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
+  "Sharing School reveals its saved public stop names and IDs, which can indicate the general area.":
+    "Jakaminen paljastaa koulun tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
+  "Sharing Work reveals its saved public stop names and IDs, which can indicate the general area.":
+    "Jakaminen paljastaa työpaikan tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
   "Only public stop IDs and names are saved; your exact location is discarded.":
     "Vain julkisten pysäkkien numerot ja nimet tallennetaan. Tarkkaa sijaintiasi ei tallenneta.",
   "Using the stop you selected manually": "Käytetään itse valitsemaasi pysäkkiä",
@@ -89,18 +102,17 @@ export default {
   "Primary: {name} · stop {id}": "Pääpysäkki: {name} · pysäkki {id}",
   "One or more saved stops no longer appear in the current Föli stop catalogue. Review this place before relying on it.":
     "Yksi tai useampi tallennettu pysäkki puuttuu Fölin nykyisestä pysäkkiluettelosta. Tarkista tämä paikka, ennen kuin luotat siihen.",
-  "Go Home": "Reitti kotiin",
+
   "Go to School": "Reitti kouluun",
   "Go to Work": "Reitti töihin",
   "{action} by public transit": "{action} joukkoliikenteellä",
-  "Live departures": "Lähtötaulu",
-  "Show driver": "Näytä kuljettajalle",
+  "Show to driver": "Näytä kuljettajalle",
+  "Open School stop": "Avaa koulun pysäkki",
+  "Open Work stop": "Avaa työpaikan pysäkki",
   "1 backup stop": "1 varapysäkki",
   "{count} backup stops": "{count} varapysäkkiä",
   "Make primary": "Tee pääpysäkiksi",
-  "Manage {label}": "Muokkaa paikkaa {label}",
-  "Sharing {label} reveals its saved public stop names and IDs, which can indicate the general area.":
-    "Jakaminen paljastaa paikan {label} tallennettujen julkisten pysäkkien nimet ja numerot, joista voi päätellä likimääräisen alueen.",
+
   "Replace using where I am now": "Korvaa nykyisen sijaintini perusteella",
   "Share {label}": "Jaa {label}",
   "Remove {label} from My Places?": "Poistetaanko {label} Omista paikoista?",

@@ -138,7 +138,7 @@ test("Go Home creates a transit handoff with no stored or shared origin", () => 
   );
 
   const goHome = screen.getByRole("link", {
-    name: "Go Home by public transit",
+    name: "Get me Home by public transit",
   });
   const url = new globalThis.URL(goHome.href);
 
@@ -173,7 +173,7 @@ test("shows a simple driver card without exposing a private address", () => {
     />
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show to driver" }));
 
   const dialog = screen.getByRole("dialog");
   expect(
@@ -639,13 +639,14 @@ test("names a place saved as \"Home\" in Finnish, by what it is", () => {
     screen.getByText("Pääpysäkki: Kauppatori · pysäkki 164")
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("link", { name: "Reitti kotiin joukkoliikenteellä" })
-  ).toHaveTextContent("Reitti kotiin");
+    screen.getByRole("link", { name: "Vie minut kotiin joukkoliikenteellä" })
+  ).toHaveTextContent("Vie minut kotiin");
+  expect(screen.getByRole("button", { name: "Avaa kotipysäkki" })).toBeInTheDocument();
   expect(screen.getByText("1 varapysäkki")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Koulu" })).toBeInTheDocument();
   expect(
     screen.getByRole("button", {
-      name: "Käytä sijaintiani paikan Työ asettamiseen",
+      name: "Käytä sijaintiani työpaikan asettamiseen",
     })
   ).toHaveTextContent("Käytä sijaintiani");
   expect(document.body).not.toHaveTextContent(/Home|School|Work/);
@@ -670,7 +671,7 @@ test("sets up a place in Finnish, confirming it in the place's own words", () =>
 
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Käytä pysäkkiä Puistokatu paikalle Koulu",
+      name: "Käytä pysäkkiä Puistokatu koulun pysäkkinä",
     })
   );
 
@@ -776,7 +777,7 @@ test("a blocked location is explained in Finnish in the Finnish interface", asyn
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: /Käytä sijaintiani paikan Koti asettamiseen/ })
+    screen.getByRole("button", { name: /Käytä sijaintiani kodin asettamiseen/ })
   );
 
   expect(

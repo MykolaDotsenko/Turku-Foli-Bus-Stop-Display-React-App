@@ -29,7 +29,7 @@ const STAGE_COPY = {
   [RIDE_STAGE.MISSED]: {
     eyebrow: msg("Recovery"),
     title: msg("Your stop may be behind you"),
-    instruction: msg("Get off at the next stop and use the recovery action below."),
+    instruction: msg("Get off at the next stop and open its departures below."),
   },
 };
 
@@ -185,6 +185,29 @@ function offRouteQuestion({ lineRef, destination }) {
   }
   return t(
     "For two minutes you have not been moving along this route. Are you still on this bus?"
+  );
+}
+
+// While the sound is being fixed, what else will reach the passenger. It
+// used to promise vibration and a notification on every phone, iPhones
+// included, which have neither for a web page.
+function backupAlertsNote(session) {
+  const vibrates = typeof globalThis.navigator?.vibrate === "function";
+  const notifies =
+    Boolean(session?.options?.notifications) &&
+    globalThis.Notification?.permission === "granted";
+
+  if (vibrates && notifies) {
+    return msg(
+      "Tracking is already running. Your phone will also vibrate and show a notification."
+    );
+  }
+  if (vibrates) return msg("Tracking is already running. Your phone will also vibrate.");
+  if (notifies) {
+    return msg("Tracking is already running. You will also get a notification.");
+  }
+  return msg(
+    "Tracking is already running. Keep the sound on: this phone will not vibrate for these alerts."
   );
 }
 
@@ -347,11 +370,7 @@ export default function RideMode({
                   {t("I can hear it now")}
                 </button>
               </div>
-              <small>
-                {t(
-                  "Tracking is already running. Your phone will also vibrate and show a notification."
-                )}
-              </small>
+              <small>{t(backupAlertsNote(session))}</small>
             </>
           )}
         </div>

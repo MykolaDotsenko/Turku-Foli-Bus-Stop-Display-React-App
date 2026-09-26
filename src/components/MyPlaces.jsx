@@ -19,17 +19,25 @@ const MAX_SETUP_DISTANCE_METERS = 10_000;
 const AUTO_PRESELECT_MAX_DISTANCE_METERS = 2_000;
 const LOW_ACCURACY_METERS = 250;
 
-// Phrases about getting to a place are the place's own: Finnish says where
-// to by the place's case ("kotiin", "kouluun", "töihin"), which a label set
-// into a shared phrase cannot take. Other phrases name the place by label.
+// Phrases that name a place are the place's own: Finnish puts the place in
+// the case the sentence needs ("kotiin", "kodin", "koulun", "työpaikan"),
+// which a label set into a shared phrase cannot take. Stop names are the
+// ones never inflected (docs/LOCALIZATION.md).
 const PLACE_PHRASES = {
   home: {
-    go: msg("Go Home"),
+    go: msg("Get me Home"),
     choose: msg("Tick the stops you use to get Home, and mark one as Primary."),
     rightStop: msg("Yes, this is the right stop for Home."),
     rightStops: msg("Yes, these are the right stops for Home."),
     backupAdvice: msg(
       "Add backup stops only if you know they are suitable and familiar for arriving at Home."
+    ),
+    open: msg("Open Home stop"),
+    locate: msg("Use my location to set up Home"),
+    useStop: msg("Use {name} for Home"),
+    manage: msg("Manage Home"),
+    sharing: msg(
+      "Sharing Home reveals its saved public stop names and IDs, which can indicate the general area."
     ),
   },
   school: {
@@ -40,6 +48,13 @@ const PLACE_PHRASES = {
     backupAdvice: msg(
       "Add backup stops only if you know they are suitable and familiar for arriving at School."
     ),
+    open: msg("Open School stop"),
+    locate: msg("Use my location to set up School"),
+    useStop: msg("Use {name} for School"),
+    manage: msg("Manage School"),
+    sharing: msg(
+      "Sharing School reveals its saved public stop names and IDs, which can indicate the general area."
+    ),
   },
   work: {
     go: msg("Go to Work"),
@@ -48,6 +63,13 @@ const PLACE_PHRASES = {
     rightStops: msg("Yes, these are the right stops for Work."),
     backupAdvice: msg(
       "Add backup stops only if you know they are suitable and familiar for arriving at Work."
+    ),
+    open: msg("Open Work stop"),
+    locate: msg("Use my location to set up Work"),
+    useStop: msg("Use {name} for Work"),
+    manage: msg("Manage Work"),
+    sharing: msg(
+      "Sharing Work reveals its saved public stop names and IDs, which can indicate the general area."
     ),
   },
 };
@@ -427,14 +449,14 @@ function PlaceCard({
           className={styles.secondaryButton}
           onClick={() => onOpenStop(primaryStop.id)}
         >
-          {t("Live departures")}
+          {t(PLACE_PHRASES[place.id].open)}
         </button>
         <button
           type="button"
           className={styles.secondaryButton}
           onClick={() => setShowDriver(true)}
         >
-          {t("Show driver")}
+          {t("Show to driver")}
         </button>
       </div>
 
@@ -470,12 +492,9 @@ function PlaceCard({
       )}
 
       <details className={styles.manage}>
-        <summary>{t("Manage {label}", { label })}</summary>
+        <summary>{t(PLACE_PHRASES[place.id].manage)}</summary>
         <p className={styles.sharePrivacyHint}>
-          {t(
-            "Sharing {label} reveals its saved public stop names and IDs, which can indicate the general area.",
-            { label }
-          )}
+          {t(PLACE_PHRASES[place.id].sharing)}
         </p>
         <div className={styles.manageActions}>
           <button
@@ -580,7 +599,7 @@ function EmptyPlaceCard({
             onClick={() => onStartSetup(preset.id)}
             disabled={status === "locating"}
             aria-busy={status === "locating"}
-            aria-label={t("Use my location to set up {label}", { label })}
+            aria-label={t(PLACE_PHRASES[preset.id].locate)}
           >
             {t("Use my location")}
           </button>
@@ -589,8 +608,7 @@ function EmptyPlaceCard({
               type="button"
               className={styles.textButton}
               onClick={() => onStartFromSelectedStop(preset.id)}
-              aria-label={t("Use {name} for {label}", {
-                label,
+              aria-label={t(PLACE_PHRASES[preset.id].useStop, {
                 name: stopLabel(activeStop),
               })}
             >

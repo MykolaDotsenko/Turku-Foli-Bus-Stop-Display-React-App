@@ -35,7 +35,7 @@ function QuickStops({ favorites, recents, activeStopId, onSelect }) {
       {favorites.length > 0 && (
         <section className={styles.group} aria-labelledby="favorite-stops">
           <h2 id="favorite-stops" className={styles.heading}>
-            {t("Favorites")}
+            {t("Favourites")}
           </h2>
           <div className={styles.scroller}>
             {favorites.map((stop) => (

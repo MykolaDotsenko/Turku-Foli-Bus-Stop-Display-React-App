@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, test } from "vitest";
-import useSavedStops from "./useSavedStops";
+import useSavedStops, { stopToReopen } from "./useSavedStops";
 
 beforeEach(() => {
   localStorage.clear();
@@ -15,7 +15,7 @@ test("keeps favorites and recent stops local-first", () => {
   });
 
   expect(result.current.recents).toEqual([
-    { id: "164", name: "Kauppatori" },
+    { id: "164", name: "Kauppatori", viewedAt: expect.any(Number) },
   ]);
   expect(result.current.favoriteIds.has("164")).toBe(true);
 });
@@ -43,4 +43,44 @@ test("reads a stored stand-in name as no name at all", () => {
   const { result } = renderHook(() => useSavedStops());
 
   expect(result.current.favorites).toEqual([{ id: "164", name: "" }]);
+});
+
+function store(state) {
+  localStorage.setItem("foli-saved-stops-v1", JSON.stringify(state));
+}
+
+const HOUR = 60 * 60 * 1000;
+
+// A bare address, which is what the home-screen icon opens, starts where a
+// daily passenger left off instead of with an empty search.
+test("reopens the stop looked at in the last 12 hours, or else the first favourite", () => {
+  const now = Date.parse("2026-09-26T07:30:00Z");
+  store({
+    favorites: [{ id: "4", name: "Turun linna" }, { id: "32", name: "Puistokatu" }],
+    recents: [{ id: "164", name: "Kauppatori", viewedAt: now - 2 * HOUR }],
+  });
+  expect(stopToReopen(now)).toBe("164");
+
+  expect(stopToReopen(now + 11 * HOUR)).toBe("4");
+});
+
+test("a first visit, or a recent stop from before timestamps, reopens nothing", () => {
+  expect(stopToReopen()).toBe("");
+
+  store({ favorites: [], recents: [{ id: "164", name: "Kauppatori" }] });
+  expect(stopToReopen()).toBe("");
+
+  localStorage.setItem("foli-saved-stops-v1", "{not json");
+  expect(stopToReopen()).toBe("");
+});
+
+test("a stop looked at now is the one to reopen", () => {
+  const { result } = renderHook(() => useSavedStops());
+
+  act(() => {
+    result.current.rememberRecent({ id: "4", name: "Turun linna" });
+    result.current.rememberRecent({ id: "164", name: "Kauppatori" });
+  });
+
+  expect(stopToReopen()).toBe("164");
 });

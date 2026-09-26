@@ -284,6 +284,54 @@ test("asks whether the test alert was actually heard, and helps when it was not"
   expect(screen.queryByText(/Turn the media volume up/)).not.toBeInTheDocument();
 });
 
+// An iPhone has no vibration for a web page, and a notification needs both
+// the passenger's choice and the browser's permission. The fallback promised
+// both to everyone.
+test("promises only the backup alerts this phone can give", () => {
+  const renderSoundHelp = (options) => {
+    const view = render(
+      <RideMode
+        session={{ ...session("boarded"), options }}
+        runtime={{ trackingHealth: "live", etaSec: 600, remainingStops: 5 }}
+        gps={{ status: "off", distanceM: null, error: "" }}
+        wakeLockState="active"
+        onTestAlert={() => {}}
+        onEndRide={() => {}}
+        onOpenStop={() => {}}
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    return view;
+  };
+
+  const withoutVibration = renderSoundHelp({ notifications: false });
+  expect(
+    screen.getByText(
+      "Tracking is already running. Keep the sound on: this phone will not vibrate for these alerts."
+    )
+  ).toBeInTheDocument();
+  withoutVibration.unmount();
+
+  vi.stubGlobal("navigator", { ...globalThis.navigator, vibrate: () => true });
+  vi.stubGlobal("Notification", { permission: "granted" });
+  try {
+    const withBoth = renderSoundHelp({ notifications: true });
+    expect(
+      screen.getByText(
+        "Tracking is already running. Your phone will also vibrate and show a notification."
+      )
+    ).toBeInTheDocument();
+    withBoth.unmount();
+
+    renderSoundHelp({ notifications: false });
+    expect(
+      screen.getByText("Tracking is already running. Your phone will also vibrate.")
+    ).toBeInTheDocument();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 // A short hop reaches SOON within a stop or two, and that is exactly the
 // ride where there is least time to discover a muted phone.
 test("still offers the sound check on a short ride", () => {

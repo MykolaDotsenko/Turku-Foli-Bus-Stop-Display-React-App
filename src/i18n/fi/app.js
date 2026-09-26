@@ -10,22 +10,22 @@ export default {
   "Offline mode": "Ei yhteyttä",
   "Choose a bus stop": "Valitse bussipysäkki",
   "Stop {id}": "Pysäkki {id}",
-  "Independent app · Data: Turku region public transport":
-    "Itsenäinen sovellus · Tiedot: Turun seudun joukkoliikenne",
+  "Unofficial app · Data: Turku region public transport":
+    "Epävirallinen sovellus · Tiedot: Turun seudun joukkoliikenne",
   "About & privacy": "Tietoa ja tietosuoja",
   "Who makes it": "Kuka sovelluksen tekee",
-  "An independent app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services.":
-    "Itsenäinen sovellus. Sen tekijä ei ole Föli (Turun seudun joukkoliikenne) eikä Turun kaupunki, eikä se liity niihin. Lippuja ja virallista reittiopasta varten käytä Fölin omia palveluja.",
+  "An unofficial app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services.":
+    "Epävirallinen sovellus. Sen tekijä ei ole Föli (Turun seudun joukkoliikenne) eikä Turun kaupunki, eikä se liity niihin. Lippuja ja virallista reittiopasta varten käytä Fölin omia palveluja.",
   "Föli’s website": "Fölin verkkosivut",
   "Where the times come from": "Mistä ajat tulevat",
-  "Föli open data at data.foli.fi, under CC BY 4.0. Live times are estimates from the buses and can change.":
-    "Fölin avoimesta datasta osoitteessa data.foli.fi, lisenssillä CC BY 4.0. Reaaliaikaiset ajat ovat busseista saatuja arvioita ja voivat muuttua.",
+  "Föli open data at data.foli.fi, under CC BY 4.0, as processed by this app. Live times are estimates from the buses and can change.":
+    "Fölin avoimesta datasta osoitteessa data.foli.fi, lisenssillä CC BY 4.0, tämän sovelluksen käsittelemänä. Reaaliaikaiset ajat ovat busseista saatuja arvioita ja voivat muuttua.",
   "What stays on this phone": "Mitä tähän puhelimeen jää",
-  "Favourites, recent stops, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it.":
-    "Suosikit, viimeksi käytetyt pysäkit, pysäkeiltä seuraamasi linjat, Omat paikat (julkisten pysäkkien numerot ja nimet, ei koskaan osoitetta), muutama viimeisin lähtötaulu enintään 15 minuutin ajan ja käynnissä oleva matka enintään kuuden tunnin ajan. Kaikki poistuu, kun tyhjennät tämän sivuston tiedot.",
+  "Favourites, recent stops and when you last looked at them, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it.":
+    "Suosikit, viimeksi käytetyt pysäkit ja milloin katsoit niitä, pysäkeiltä seuraamasi linjat, Omat paikat (julkisten pysäkkien numerot ja nimet, ei koskaan osoitetta), muutama viimeisin lähtötaulu enintään 15 minuutin ajan ja käynnissä oleva matka enintään kuuden tunnin ajan. Kaikki poistuu, kun tyhjennät tämän sivuston tiedot.",
   "What leaves it": "Mitä puhelimesta lähtee",
-  "Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link.":
-    "Jokaisen hakemasi pysäkin tiedot haetaan osoitteesta data.foli.fi, joka näkee IP-osoitteesi ja pysäkin. Sijaintiasi käytetään vain pyynnöstäsi, se pysyy puhelimessa eikä sitä tallenneta. Google Maps avautuu vain, kun napautat reittilinkkiä.",
+  "The app is served by GitHub Pages, which sees your IP address. Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link.":
+    "Sovelluksen sivut jakaa GitHub Pages, joka näkee IP-osoitteesi. Jokaisen hakemasi pysäkin tiedot haetaan osoitteesta data.foli.fi, joka näkee IP-osoitteesi ja pysäkin. Sijaintiasi käytetään vain pyynnöstäsi, se pysyy puhelimessa eikä sitä tallenneta. Google Maps avautuu vain, kun napautat reittilinkkiä.",
   "What there is not": "Mitä ei ole",
   "No account, no ads, no analytics.": "Ei käyttäjätiliä, ei mainoksia, ei analytiikkaa.",
   "Feedback and source code:": "Palaute ja lähdekoodi:",

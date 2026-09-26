@@ -305,7 +305,7 @@ test("the departure board, in every state it can be in", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Seuraavat pysäkit/ }));
   await screen.findByText("Turun linna");
   sweep("board with next stops open");
-  fireEvent.click(screen.getByRole("button", { name: "Kerro, milloin jäädä pois" }));
+  fireEvent.click(screen.getByRole("button", { name: "Muistuta, kun pitää jäädä pois" }));
   await screen.findByDisplayValue("3");
   sweep("board with get-off setup open");
 

@@ -89,6 +89,13 @@ function notificationSupport() {
   return ios ? "home-screen-only" : "unsupported";
 }
 
+// iPhones, and most browsers on a computer, have no Vibration API: a page
+// that promised vibration there promised an alert the passenger would never
+// feel.
+function canVibrate() {
+  return typeof globalThis.navigator?.vibrate === "function";
+}
+
 export default function RideSetup({
   arrival,
   currentStopId,
@@ -107,6 +114,7 @@ export default function RideSetup({
   const [targetStopSequence, setTargetStopSequence] = useState("");
   const [locationBackup, setLocationBackup] = useState(true);
   const [notificationsAvailable] = useState(notificationSupport);
+  const [vibrates] = useState(canVibrate);
   const [notifications, setNotifications] = useState(
     () => notificationSupport() === "supported"
   );
@@ -436,9 +444,13 @@ export default function RideSetup({
               )}
               {notificationsAvailable === "home-screen-only" && (
                 <p className={styles.optionNote}>
-                  {t(
-                    "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). Sound and vibration work here as long as this page stays open."
-                  )}
+                  {vibrates
+                    ? t(
+                        "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). Sound and vibration work here as long as this page stays open."
+                      )
+                    : t(
+                        "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). The alert sound works here as long as this page stays open, but this phone will not vibrate for it."
+                      )}
                 </p>
               )}
             </div>
@@ -446,9 +458,13 @@ export default function RideSetup({
             <div className={styles.safetyNote}>
               <strong>{t("Before you rely on it")}</strong>
               <span>
-                {t(
-                  "Starting plays a test alert, so you can check your sound and vibration now rather than when it matters. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it."
-                )}
+                {vibrates
+                  ? t(
+                      "Starting plays a test alert, so you can check your sound and vibration now rather than when it matters. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it."
+                    )
+                  : t(
+                      "Starting plays a test alert, so you can check your sound now rather than when it matters: this phone will not vibrate for these alerts. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it."
+                    )}
               </span>
             </div>
 

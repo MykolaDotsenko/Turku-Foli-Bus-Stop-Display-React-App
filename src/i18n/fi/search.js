@@ -43,7 +43,7 @@ export default {
   // Saved and recent stops
   "Open {name}, stop {id}": "Avaa {name}, pysäkki {id}",
   "Saved and recent stops": "Tallennetut ja viimeisimmät pysäkit",
-  Favorites: "Suosikit",
+  Favourites: "Suosikit",
   Recent: "Viimeksi käytetyt",
 
   // Near you
@@ -68,13 +68,13 @@ export default {
     "Kaksi pysäkkiä on lähes yhtä lähellä. Valitse pysäkki, joka palvelee kulkusuuntaasi.",
   "Near you": "Lähelläsi",
   "Find the closest stop with a one-time location check.":
-    "Etsi lähin pysäkki kertaluonteisella sijainnin tarkistuksella.",
+    "Etsi lähin pysäkki sijaintisi avulla – sijaintia ei tallenneta.",
   "Locating…": "Paikannetaan…",
   "Update location": "Päivitä sijainti",
   "Preparing stop coordinates…": "Valmistellaan pysäkkien koordinaatteja…",
   "Location search is temporarily unavailable; stop search still works normally.":
     "Sijaintihaku ei ole tilapäisesti käytettävissä; pysäkkihaku toimii normaalisti.",
-  "One-time location only": "Vain kertaluonteinen sijainti",
+  "One-time location only": "Sijaintia ei seurata",
   "Accuracy ±{accuracy}": "Tarkkuus ±{accuracy}",
   "Selected stop ≈ {distance} away": "Valittu pysäkki ≈ {distance} päässä",
   "Nearest Föli stops": "Lähimmät Fölin pysäkit",

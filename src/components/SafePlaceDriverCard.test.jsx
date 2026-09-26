@@ -101,7 +101,7 @@ test("does not show a broken read-aloud control when speech is unavailable", () 
 test("moves focus into the driver card, closes with Escape, and restores focus", () => {
   const onClose = vi.fn();
   const opener = document.createElement("button");
-  opener.textContent = "Show driver";
+  opener.textContent = "Show to driver";
   document.body.appendChild(opener);
   opener.focus();
 

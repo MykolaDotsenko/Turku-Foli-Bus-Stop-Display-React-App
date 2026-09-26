@@ -36,10 +36,10 @@ export default {
 
   // Board
   "Loading…": "Ladataan…",
-  "Remove {name} from favorites": "Poista suosikeista: {name}",
-  "Save {name} to favorites": "Lisää suosikkeihin: {name}",
-  "Remove favorite": "Poista suosikki",
-  "Save favorite": "Lisää suosikiksi",
+  "Remove {name} from favourites": "Poista suosikeista: {name}",
+  "Save {name} to favourites": "Lisää suosikkeihin: {name}",
+  "Remove favourite": "Poista suosikki",
+  "Save favourite": "Lisää suosikiksi",
   "Updated {time}": "Päivitetty klo {time}",
   "Refreshing…": "Päivitetään…",
   Refresh: "Päivitä",
@@ -90,7 +90,7 @@ export default {
     "Peruttu tällä pysäkillä · aikataulun mukaan klo {time}",
   "Ride Mode active": "Matkatila käytössä",
   "Close get-off setup": "Sulje hälytyksen asetukset",
-  "Alert me when to get off": "Kerro, milloin jäädä pois",
+  "Alert me when to get off": "Muistuta, kun pitää jäädä pois",
   Cancelled: "Peruttu",
   "About live estimates": "Tietoa reaaliaika-arvioista",
   "Live times are estimates from vehicle data. Vehicle distance is a straight-line estimate from the latest reported position. Scheduled means no current realtime feed is available for that trip.":

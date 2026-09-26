@@ -125,7 +125,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
           className={styles.secondaryAction}
           onClick={() => setShowDriver(true)}
         >
-          {t("Show driver")}
+          {t("Show to driver")}
         </button>
       </div>
 

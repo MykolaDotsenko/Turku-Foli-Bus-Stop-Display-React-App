@@ -18,7 +18,7 @@ export default {
   "Move to the doors and step off here.": "Siirry ovelle ja jää pois tässä.",
   Recovery: "Paluuohjeet",
   "Your stop may be behind you": "Pysäkkisi saattoi jäädä taakse",
-  "Get off at the next stop and use the recovery action below.":
+  "Get off at the next stop and open its departures below.":
     "Jää pois seuraavalla pysäkillä ja avaa sen lähdöt alta.",
   "Get ready to exit at the next stop.":
     "Valmistaudu jäämään pois seuraavalla pysäkillä.",
@@ -93,6 +93,12 @@ export default {
   "I can hear it now": "Nyt kuuluu",
   "Tracking is already running. Your phone will also vibrate and show a notification.":
     "Seuranta on jo käynnissä. Puhelimesi myös värisee ja näyttää ilmoituksen.",
+  "Tracking is already running. Your phone will also vibrate.":
+    "Seuranta on jo käynnissä. Puhelimesi myös värisee.",
+  "Tracking is already running. You will also get a notification.":
+    "Seuranta on jo käynnissä. Saat myös ilmoituksen.",
+  "Tracking is already running. Keep the sound on: this phone will not vibrate for these alerts.":
+    "Seuranta on jo käynnissä. Pidä ääni päällä: tämä puhelin ei värise näiden hälytysten aikana.",
   "Next planned stop: {name}": "Seuraava pysäkki reitillä: {name}",
   "Open next stop": "Avaa seuraava pysäkki",
   "I'm getting off": "Jään pois",
@@ -121,7 +127,7 @@ export default {
     "Matkatila auttaa matkalla, mutta se ei ole taattu hälytys. Selain voi keskeyttää sivun, jolta se luulee sinun poistuneen, joten pidä tämä sivu auki ja ääni päällä.",
 
   // Setup
-  "Set up get-off alerts": "Aseta poistumishälytys",
+  "Set up get-off alerts": "Aseta pysäkkihälytys",
   "Ride Mode": "Matkatila",
   "Where do you want to get off?": "Missä haluat jäädä pois?",
   "Pick your stop, then keep this page open with the sound on. You do not have to watch it: we tell you when to get ready, when to press STOP, and when to step off.":
@@ -144,9 +150,13 @@ export default {
     "Vain niin kauan kuin tämä sivu pysyy auki: selain voi keskeyttää sivun, jolta se luulee sinun poistuneen, ja lukitussa puhelimessa niin käy usein.",
   "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). Sound and vibration work here as long as this page stays open.":
     "iPhonessa ilmoitukset vaativat, että sovellus on lisätty Koti-valikkoon (Jaa ja sitten Lisää Koti-valikkoon). Ääni ja värinä toimivat täällä niin kauan kuin tämä sivu pysyy auki.",
+  "On iPhone, notifications need this app on your Home Screen (Share, then Add to Home Screen). The alert sound works here as long as this page stays open, but this phone will not vibrate for it.":
+    "iPhonessa ilmoitukset vaativat, että sovellus on lisätty Koti-valikkoon (Jaa ja sitten Lisää Koti-valikkoon). Hälytysääni toimii täällä niin kauan kuin tämä sivu pysyy auki, mutta puhelin ei värise.",
   "Before you rely on it": "Ennen kuin luotat siihen",
   "Starting plays a test alert, so you can check your sound and vibration now rather than when it matters. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it.":
     "Käynnistys soittaa testihälytyksen, joten voit tarkistaa äänen ja värinän nyt eikä vasta silloin, kun sillä on väliä. Jos reaaliaikaseuranta katkeaa, saat silti ennakkovaroitukset, ja sanomme ”jää pois nyt” vain, kun bussin reaaliaikatieto tai sijaintisi vahvistaa sen.",
+  "Starting plays a test alert, so you can check your sound now rather than when it matters: this phone will not vibrate for these alerts. If live tracking drops out you still get the early warnings, and we only say “get off now” when live bus data or your location confirms it.":
+    "Käynnistys soittaa testihälytyksen, joten voit tarkistaa äänen nyt eikä vasta silloin, kun sillä on väliä: tämä puhelin ei värise näiden hälytysten aikana. Jos reaaliaikaseuranta katkeaa, saat silti ennakkovaroitukset, ja sanomme ”jää pois nyt” vain, kun bussin reaaliaikatieto tai sijaintisi vahvistaa sen.",
   "Choose the stop you want to get off at before starting Ride Mode.":
     "Valitse pysäkki, jolla jäät pois, ennen kuin käynnistät matkatilan.",
   "We do not have a departure time for this bus yet. Wait for the board to refresh and try again.":
@@ -177,7 +187,7 @@ export default {
   "{name} is coming up soon.": "{name} lähestyy pian.",
   "Next stop: {name}": "Seuraava pysäkki: {name}",
   "This is your stop: {name}": "Tämä on pysäkkisi: {name}",
-  "Get off at the next stop and use recovery help.":
+  "Get off at the next stop and check the app for how to get back.":
     "Jää pois seuraavalla pysäkillä ja katso sovelluksesta, miten pääset takaisin.",
   "Ride alerts are working": "Matkatilan hälytykset toimivat",
 };

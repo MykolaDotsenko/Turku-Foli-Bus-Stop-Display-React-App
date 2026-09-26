@@ -67,6 +67,27 @@ async function seedHome(page) {
   await page.reload();
 }
 
+// GTFS writes a trip's times in its service day, which runs past midnight
+// ("24:05:00") until early morning.
+function gtfsClockAt(unixSeconds) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(unixSeconds * 1000));
+  const part = (type) => Number(parts.find((item) => item.type === type).value);
+  let seconds = part("hour") * 3600 + part("minute") * 60 + part("second");
+  if (seconds < 4 * 3600) seconds += 86_400;
+  return (offset) => {
+    const at = seconds + offset;
+    return [Math.floor(at / 3600), Math.floor((at % 3600) / 60), at % 60]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  };
+}
+
 function monitorPayload(stopId) {
   const now = Math.floor(Date.now() / 1000);
   const isMarket = stopId === "164";
@@ -297,13 +318,16 @@ async function mockFoli(page) {
   await page.route(
     "https://data.foli.fi/gtfs/v0/20260920-120000/stop_times/trip/trip-164-1",
     async (route) => {
+      // Timed from the market-stop departure the board shows, so next stops
+      // and screenshots read "around 20:17" beside a 20:12 bus, not 17:46.
+      const at = gtfsClockAt(Math.floor(Date.now() / 1000) + 205);
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify([
           {
             stop_id: "164",
-            arrival_time: "17:40:00",
-            departure_time: "17:41:00",
+            arrival_time: at(-60),
+            departure_time: at(0),
             stop_sequence: 1,
             pickup_type: 0,
             drop_off_type: 0,
@@ -312,8 +336,8 @@ async function mockFoli(page) {
           },
           {
             stop_id: "32",
-            arrival_time: "17:46:00",
-            departure_time: "17:46:00",
+            arrival_time: at(300),
+            departure_time: at(300),
             stop_sequence: 2,
             pickup_type: 0,
             drop_off_type: 0,
@@ -322,8 +346,8 @@ async function mockFoli(page) {
           },
           {
             stop_id: "4",
-            arrival_time: "17:55:00",
-            departure_time: "17:55:00",
+            arrival_time: at(840),
+            departure_time: at(840),
             stop_sequence: 3,
             pickup_type: 0,
             drop_off_type: 0,
@@ -930,7 +954,7 @@ test("Back keeps keyboard focus on the departure board", async ({ page }) => {
   await expect(page).toHaveURL(/stop=4/);
 
   await page
-    .getByRole("button", { name: "Save Turun linna to favorites" })
+    .getByRole("button", { name: "Save Turun linna to favourites" })
     .focus();
   await page.evaluate(() => globalThis.history.back());
 
@@ -939,7 +963,7 @@ test("Back keeps keyboard focus on the departure board", async ({ page }) => {
     page.getByRole("heading", { name: "Kauppatori", exact: true })
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Save Kauppatori to favorites" })
+    page.getByRole("button", { name: "Save Kauppatori to favourites" })
   ).toBeFocused();
 });
 
@@ -1013,16 +1037,16 @@ test("daily flow: search, save, navigate and restore with Back", async ({ page }
 
   await page.getByRole("button", { name: "Next stops" }).first().click();
   await expect(page.getByText("Next stops · timetable times")).toBeVisible();
-  await expect(page.getByText("around 17:46")).toBeVisible();
+  await expect(page.getByText(/^around \d\d:\d\d$/)).toBeVisible();
   await expect(page.getByText("Puistokatu")).toBeVisible();
 
   const lineOneBadge = page.getByTitle("Satama-Kauppatori-Lentoasema");
   await expect(lineOneBadge).toHaveCSS("background-color", "rgb(255, 255, 0)");
   await expect(lineOneBadge).toHaveCSS("color", "rgb(0, 0, 0)");
 
-  await page.getByRole("button", { name: "Save Kauppatori to favorites" }).click();
+  await page.getByRole("button", { name: "Save Kauppatori to favourites" }).click();
   await expect(
-    page.getByRole("button", { name: "Remove Kauppatori from favorites" })
+    page.getByRole("button", { name: "Remove Kauppatori from favourites" })
   ).toHaveAttribute("aria-pressed", "true");
 
   const search = page.getByRole("combobox", { name: "Find your stop" });
@@ -1163,9 +1187,10 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await expect(saveHome).toBeEnabled();
   await saveHome.click();
 
-  const goHome = page.getByRole("link", {
-    name: "Go Home by public transit",
-  });
+  // The place card names its actions as the Get me Home card above does.
+  const goHome = page
+    .locator('[aria-labelledby="my-places-title"]')
+    .getByRole("link", { name: "Get me Home by public transit" });
   await expect(goHome).toBeVisible();
 
   const href = await goHome.getAttribute("href");
@@ -1215,7 +1240,9 @@ test("imports a parent-shared Safe Place only after explicit confirmation", asyn
   await page.getByRole("button", { name: "Add Home" }).click();
 
   await expect(
-    page.getByRole("link", { name: "Get me Home by public transit" })
+    page
+      .locator('[aria-labelledby="home-recovery-title"]')
+      .getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
   await expect(page).toHaveURL(/\?stop=164$/);
 
@@ -1291,7 +1318,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   if (await moreHomeOptions.isVisible()) {
     await moreHomeOptions.click();
   }
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
     driver.getByRole("heading", { name: /Kauppatori/ })
@@ -1417,7 +1444,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
     recovery.getByRole("button", { name: "Get me Home" })
   ).toBeDisabled();
 
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
     driver.getByRole("heading", { name: /Kauppatori/ })
@@ -1559,7 +1586,7 @@ test("has no serious WCAG accessibility violations", async ({ page }) => {
   if (await recoveryMore.isVisible()) {
     await recoveryMore.click();
   }
-  await recovery.getByRole("button", { name: "Show driver" }).click();
+  await recovery.getByRole("button", { name: "Show to driver" }).click();
   await expect(recovery.getByRole("dialog")).toBeVisible();
 
   const results = await new AxeBuilder({ page })
@@ -1903,8 +1930,26 @@ test("each stop gets its own tab title, and the app says who makes it", async ({
     about.getByRole("link", { name: "GitHub" })
   ).toHaveAttribute("href", /github\.com\/MykolaDotsenko\/foli-live-departures/);
 
-  await page.goto("/");
+  // With no stop on screen the page goes back to its own title. (A bare
+  // address would now reopen Kauppatori, the stop last looked at.)
+  await page.goto("/?stop=not-a-stop");
   await expect(page).toHaveTitle(defaultTitle);
+});
+
+// The home-screen icon opens the bare address, which started a daily
+// passenger on an empty search every time.
+test("a returning passenger opens on the stop they last looked at", async ({ page }) => {
+  await page.goto("/?stop=4");
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Find your stop" })).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(/stop=4/);
+  await expect(page.getByRole("heading", { name: "Turun linna" })).toBeVisible();
 });
 
 test("deep links survive reload and invalid stop links recover canonically", async ({ page }) => {
@@ -2240,7 +2285,9 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
   await seedHome(page);
   await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "Get me Home by public transit" })
+    page
+      .locator('[aria-labelledby="home-recovery-title"]')
+      .getByRole("link", { name: "Get me Home by public transit" })
   ).toBeVisible();
 
   fs.mkdirSync("artifacts/screenshots", { recursive: true });

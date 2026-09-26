@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import BusStopDisplay from "./components/BusStopDisplay";
 import BusStopForm from "./components/BusStopForm";
@@ -14,7 +14,7 @@ import useOnlineStatus from "./hooks/useOnlineStatus";
 import useRouteCatalog from "./hooks/useRouteCatalog";
 import useRideMode from "./hooks/useRideMode";
 import useSavedPlaces from "./hooks/useSavedPlaces";
-import useSavedStops from "./hooks/useSavedStops";
+import useSavedStops, { stopToReopen } from "./hooks/useSavedStops";
 import useServiceBoundary from "./hooks/useServiceBoundary";
 import useStopAlerts from "./hooks/useStopAlerts";
 import useStopCatalog from "./hooks/useStopCatalog";
@@ -28,6 +28,18 @@ import { realStopName } from "./utils/stopNames";
 function stopFromLocation() {
   const stopFromUrl = new URLSearchParams(window.location.search).get("stop");
   return /^\d+$/.test(stopFromUrl || "") ? stopFromUrl : "";
+}
+
+// The home-screen icon opens the bare address, and a daily passenger opens
+// it for their own stop: the one they last looked at, or their first
+// favourite. A link that names a stop, even one that does not exist, and a
+// shared place's link still decide for themselves.
+function openingStop() {
+  if (new URLSearchParams(window.location.search).has("stop")) {
+    return stopFromLocation();
+  }
+  if (parseSharedPlaceHash(window.location.hash)) return "";
+  return stopToReopen();
 }
 
 // A shared-place token belongs to the page it arrived on. Carried into
@@ -75,7 +87,8 @@ function canonicalizeCurrentStop(stopId, options) {
 function App() {
   // Everything below reads its words from the current language.
   const language = useLanguage();
-  const [stopId, setStopId] = useState(stopFromLocation);
+  const [stopId, setStopId] = useState(openingStop);
+  const openedStopRef = useRef(stopId);
   const [sharedPlace, setSharedPlace] = useState(() =>
     parseSharedPlaceHash(window.location.hash)
   );
@@ -154,8 +167,9 @@ function App() {
   );
 
   useEffect(() => {
-    const currentStopId = stopFromLocation();
-    canonicalizeCurrentStop(currentStopId, { keepSharedPlace: true });
+    // A reopened stop goes into the address too, so reload, Back and a
+    // copied link all agree with the screen.
+    canonicalizeCurrentStop(openedStopRef.current, { keepSharedPlace: true });
 
     const handlePopState = () => {
       // The shareable URL is the single source of truth for browser history.
@@ -438,7 +452,7 @@ function App() {
 
       <footer className="source-note">
         <p className="source-line">
-          {t("Independent app · Data: Turku region public transport")} ·{" "}
+          {t("Unofficial app · Data: Turku region public transport")} ·{" "}
           <a href="https://data.foli.fi/" target="_blank" rel="noreferrer">
             data.foli.fi
           </a>{" "}
@@ -454,7 +468,7 @@ function App() {
 
         {/* Trust needs one place that says who makes this, what stays on
             the phone and what leaves it. The facts were spread over a
-            dozen fine-print lines, and "Independent app" was all a
+            dozen fine-print lines, and a one-line disclaimer was all a
             passenger saw without scrolling to the bottom. */}
         <details className="about">
           <summary>{t("About & privacy")}</summary>
@@ -462,7 +476,7 @@ function App() {
             <dt>{t("Who makes it")}</dt>
             <dd>
               {t(
-                "An independent app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services."
+                "An unofficial app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services."
               )}{" "}
               {/* It is a companion to the official services, not a stand-in
                   for them, so it points the way. */}
@@ -473,19 +487,19 @@ function App() {
             <dt>{t("Where the times come from")}</dt>
             <dd>
               {t(
-                "Föli open data at data.foli.fi, under CC BY 4.0. Live times are estimates from the buses and can change."
+                "Föli open data at data.foli.fi, under CC BY 4.0, as processed by this app. Live times are estimates from the buses and can change."
               )}
             </dd>
             <dt>{t("What stays on this phone")}</dt>
             <dd>
               {t(
-                "Favourites, recent stops, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
+                "Favourites, recent stops and when you last looked at them, the lines you follow at a stop, My Places (public stop numbers and names, never an address), the last few departure boards for up to 15 minutes, and a ride in progress for up to six hours. Clearing this site’s data removes all of it."
               )}
             </dd>
             <dt>{t("What leaves it")}</dt>
             <dd>
               {t(
-                "Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link."
+                "The app is served by GitHub Pages, which sees your IP address. Each stop you look up is requested from data.foli.fi, which sees your IP address and that stop. Your location is used only when you ask, stays on the phone and is never saved. Google Maps opens only when you tap a route link."
               )}
             </dd>
             <dt>{t("What there is not")}</dt>

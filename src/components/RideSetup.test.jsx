@@ -385,6 +385,15 @@ test("does not offer notifications a browser cannot send", async () => {
   }
 });
 
+test("mentions vibration only where the phone can vibrate", async () => {
+  renderThreeStopSetup();
+  await screen.findByDisplayValue("3");
+  expect(
+    screen.getByText(/check your sound now rather than when it matters: this phone will not vibrate/)
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/sound and vibration/i)).not.toBeInTheDocument();
+});
+
 test("promises only what a web page can keep", async () => {
   renderThreeStopSetup();
   await screen.findByDisplayValue("3");
@@ -402,7 +411,7 @@ test("sets up the ride in Finnish, with stop names as Föli publishes them", asy
     await screen.findByRole("heading", { name: "Missä haluat jäädä pois?" })
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("region", { name: "Aseta poistumishälytys" })
+    screen.getByRole("region", { name: "Aseta pysäkkihälytys" })
   ).toBeInTheDocument();
   fireEvent.click(await screen.findByDisplayValue("3"));
 
