@@ -145,6 +145,22 @@
   opacity: 0.58;
 }
 
+/* Not pressable yet, and legible: faded, "Save School" read as broken. */
+.goButton:disabled,
+.primaryButton:disabled {
+  border-color: #b9cdd0;
+  background: #e3eced;
+  color: #3f5a61;
+  opacity: 1;
+}
+
+.saveHint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #4d626b;
+  font-size: 0.8125rem;
+}
+
 .backups,
 .manage {
   border-top: 1px solid #e2ebed;
@@ -232,7 +248,9 @@
 }
 
 .importCard,
+/* In the grid, across its whole width, where its place's card was. */
 .setup {
+  grid-column: 1 / -1;
   display: grid;
   gap: 10px;
   padding: 14px;
@@ -296,7 +314,8 @@
 
 .setupHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
+  align-items: last baseline;
   justify-content: space-between;
   gap: 12px;
 }
@@ -304,6 +323,11 @@
 .candidateList {
   display: grid;
   gap: 8px;
+}
+
+/* The main-stop choice sits by the stop it is about, not a screen away. */
+.candidateList {
+  max-width: 40rem;
 }
 
 .candidate {
@@ -599,6 +623,17 @@
 
 /* Dark theme: tokens in App.css. */
 @media screen and (prefers-color-scheme: dark) {
+  .goButton:disabled,
+  .primaryButton:disabled {
+    border-color: var(--dm-line-strong);
+    background: var(--dm-raised);
+    color: var(--dm-soft);
+  }
+
+  .saveHint {
+    color: var(--dm-muted);
+  }
+
   .wrapper {
     border-color: var(--dm-line);
     background: var(--dm-surface);

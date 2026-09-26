@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { msg, t, useLanguage } from "../i18n";
 import {
   findNearestStops,
@@ -27,7 +27,7 @@ const LOW_ACCURACY_METERS = 250;
 const PLACE_PHRASES = {
   home: {
     go: msg("Get me Home"),
-    choose: msg("Tick the stops you use to get Home, and mark one as Primary."),
+    choose: msg("Tick the stops you use to get Home, and mark one as the main stop."),
     rightStop: msg("Yes, this is the right stop for Home."),
     rightStops: msg("Yes, these are the right stops for Home."),
     backupAdvice: msg(
@@ -44,7 +44,7 @@ const PLACE_PHRASES = {
   },
   school: {
     go: msg("Go to School"),
-    choose: msg("Tick the stops you use to get to School, and mark one as Primary."),
+    choose: msg("Tick the stops you use to get to School, and mark one as the main stop."),
     rightStop: msg("Yes, this is the right stop for School."),
     rightStops: msg("Yes, these are the right stops for School."),
     backupAdvice: msg(
@@ -61,7 +61,7 @@ const PLACE_PHRASES = {
   },
   work: {
     go: msg("Go to Work"),
-    choose: msg("Tick the stops you use to get to Work, and mark one as Primary."),
+    choose: msg("Tick the stops you use to get to Work, and mark one as the main stop."),
     rightStop: msg("Yes, this is the right stop for Work."),
     rightStops: msg("Yes, these are the right stops for Work."),
     backupAdvice: msg(
@@ -244,9 +244,21 @@ function SetupPlace({
       </label>
 
       <div className={styles.setupActions}>
+        {(selectedStops.length === 0 || !primaryStopId || !confirmedSafe) && (
+          <p id={`setup-${preset.id}-needs`} className={styles.saveHint}>
+            {selectedStops.length === 0
+              ? t("Tick at least one stop to save.")
+              : t("Confirm the stop above to save.")}
+          </p>
+        )}
         <button
           type="button"
           className={styles.primaryButton}
+          aria-describedby={
+            selectedStops.length === 0 || !primaryStopId || !confirmedSafe
+              ? `setup-${preset.id}-needs`
+              : undefined
+          }
           disabled={
             selectedStops.length === 0 || !primaryStopId || !confirmedSafe
           }
@@ -650,6 +662,13 @@ function MyPlaces({
   // shows rewords it.
   const [error, setError] = useState(null);
   const showError = (text) => setError({ text });
+  const closeSetup = () => {
+    setSetupId("");
+    setSetupCandidates([]);
+    setSetupAccuracy(null);
+    setSetupPreselectFirst(false);
+    setStatus("idle");
+  };
 
   const hasStopCoordinates = useMemo(
     () => stops.some(hasCoordinates),
@@ -775,31 +794,54 @@ function MyPlaces({
       <div className={styles.grid}>
         {PLACE_PRESETS.map((preset) => {
           const place = placesById.get(preset.id);
+          // The form opens where its place is, instead of after Work with
+          // the place's empty card repeating its heading and buttons.
+          // Keyed by place, so a confirmation ticked for Home can never be
+          // carried into School's setup as if it had been given for School.
+          const setupForm =
+            setupId === preset.id && setupCandidates.length > 0 ? (
+              <SetupPlace
+                key={`setup-${preset.id}`}
+                preset={preset}
+                candidates={setupCandidates}
+                accuracy={setupAccuracy}
+                preselectFirst={setupPreselectFirst}
+                onCancel={closeSetup}
+                onSave={(saved) => {
+                  onSavePlace(saved);
+                  closeSetup();
+                }}
+              />
+            ) : null;
 
           if (place) {
             return (
-              <PlaceCard
-                key={preset.id}
-                place={place}
-                stops={stops}
-                online={online}
-                onOpenStop={onOpenStop}
-                onSetPrimaryStop={onSetPrimaryStop}
-                onReplace={startSetup}
-                onRemove={onRemovePlace}
-              />
+              <Fragment key={preset.id}>
+                <PlaceCard
+                  place={place}
+                  stops={stops}
+                  online={online}
+                  onOpenStop={onOpenStop}
+                  onSetPrimaryStop={onSetPrimaryStop}
+                  onReplace={startSetup}
+                  onRemove={onRemovePlace}
+                />
+                {setupForm}
+              </Fragment>
             );
           }
 
           return (
-            <EmptyPlaceCard
-              key={preset.id}
-              preset={preset}
-              activeStop={activeStop}
-              status={status}
-              onStartSetup={startSetup}
-              onStartFromSelectedStop={startFromSelectedStop}
-            />
+            setupForm || (
+              <EmptyPlaceCard
+                key={preset.id}
+                preset={preset}
+                activeStop={activeStop}
+                status={status}
+                onStartSetup={startSetup}
+                onStartFromSelectedStop={startFromSelectedStop}
+              />
+            )
           );
         })}
       </div>
@@ -808,33 +850,6 @@ function MyPlaces({
         <p className={styles.meta} role="status">
           {t("Finding the closest Föli stops…")}
         </p>
-      )}
-
-      {/* Keyed by place, so a confirmation ticked for Home can never be
-          carried into School's setup as if it had been given for School. */}
-      {setupId && setupCandidates.length > 0 && (
-        <SetupPlace
-          key={setupId}
-          preset={PLACE_PRESETS.find((preset) => preset.id === setupId)}
-          candidates={setupCandidates}
-          accuracy={setupAccuracy}
-          preselectFirst={setupPreselectFirst}
-          onCancel={() => {
-            setSetupId("");
-            setSetupCandidates([]);
-            setSetupAccuracy(null);
-            setSetupPreselectFirst(false);
-            setStatus("idle");
-          }}
-          onSave={(place) => {
-            onSavePlace(place);
-            setSetupId("");
-            setSetupCandidates([]);
-            setSetupAccuracy(null);
-            setSetupPreselectFirst(false);
-            setStatus("idle");
-          }}
-        />
       )}
 
       <p className={styles.privacy}>

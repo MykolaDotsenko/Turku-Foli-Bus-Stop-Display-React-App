@@ -23,6 +23,8 @@ export default {
     "Lähin Fölin pysäkki on {distance} päässä. Mene lähemmäs paikkaa ennen kuin tallennat sen.",
 
   // A place not set up yet
+  "Tick at least one stop to save.": "Valitse vähintään yksi pysäkki, niin voit tallentaa.",
+  "Confirm the stop above to save.": "Vahvista pysäkki yllä, niin voit tallentaa.",
   "Not set": "Ei vielä tallennettu",
   "Save the stops you use, without typing an address.":
     "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta.",
@@ -33,11 +35,11 @@ export default {
   "Choose stops for Home": "Valitse kodin pysäkit",
   "Choose stops for School": "Valitse koulun pysäkit",
   "Choose stops for Work": "Valitse työpaikan pysäkit",
-  "Tick the stops you use to get Home, and mark one as Primary.":
+  "Tick the stops you use to get Home, and mark one as the main stop.":
     "Valitse pysäkit, joita käytät kotimatkalla, ja merkitse yksi pääpysäkiksi.",
-  "Tick the stops you use to get to School, and mark one as Primary.":
+  "Tick the stops you use to get to School, and mark one as the main stop.":
     "Valitse pysäkit, joita käytät koulumatkalla, ja merkitse yksi pääpysäkiksi.",
-  "Tick the stops you use to get to Work, and mark one as Primary.":
+  "Tick the stops you use to get to Work, and mark one as the main stop.":
     "Valitse pysäkit, joita käytät työmatkalla, ja merkitse yksi pääpysäkiksi.",
   "How this works": "Miten tämä toimii",
   Cancel: "Peruuta",
