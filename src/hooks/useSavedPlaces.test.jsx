@@ -1,9 +1,51 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, expect, test } from "vitest";
-import useSavedPlaces from "./useSavedPlaces";
+import { afterEach, beforeEach, expect, test } from "vitest";
+import useSavedPlaces, { placeLabel } from "./useSavedPlaces";
+import { resetLanguageForTests } from "../i18n";
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  resetLanguageForTests("en");
+});
+
+// A place saved in one language must read correctly in the other, and code
+// that tells Home by its stored label must keep working.
+test("stores a place saved in Finnish exactly as in English, and names it in either", () => {
+  resetLanguageForTests("fi");
+  const { result } = renderHook(() => useSavedPlaces());
+
+  act(() => {
+    result.current.savePlace({
+      id: "home",
+      primaryStopId: "164",
+      stops: [{ id: "164", name: "Kauppatori" }, { id: "999", name: "" }],
+    });
+  });
+
+  const [stored] = JSON.parse(localStorage.getItem("foli-my-places-v1"));
+  expect(stored.label).toBe("Home");
+  expect(stored.stops).toEqual([
+    { id: "164", name: "Kauppatori" },
+    { id: "999", name: "Stop 999" },
+  ]);
+  expect(placeLabel(result.current.byId.get("home"))).toBe("Koti");
+
+  resetLanguageForTests("en");
+  const reopened = renderHook(() => useSavedPlaces()).result.current;
+  expect(reopened.byId.get("home").label).toBe("Home");
+  expect(placeLabel(reopened.byId.get("home"))).toBe("Home");
+});
+
+test("names each place by its id, whatever label it carries", () => {
+  resetLanguageForTests("fi");
+
+  expect(placeLabel({ id: "school", label: "School" })).toBe("Koulu");
+  expect(placeLabel({ id: "work", label: "anything" })).toBe("Työ");
+  expect(placeLabel({ id: "unknown", label: "Cabin" })).toBe("Cabin");
+  expect(placeLabel(null)).toBe("");
 });
 
 test("stores only public safe-stop identity and never private setup coordinates", () => {

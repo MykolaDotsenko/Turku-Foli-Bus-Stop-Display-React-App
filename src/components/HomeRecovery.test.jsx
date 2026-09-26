@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import HomeRecovery from "./HomeRecovery";
+import { resetLanguageForTests } from "../i18n";
 
 const home = {
   id: "home",
@@ -22,6 +23,7 @@ const originalPrint = Object.getOwnPropertyDescriptor(globalThis, "print");
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetLanguageForTests("en");
 
   if (originalPrint) {
     Object.defineProperty(globalThis, "print", originalPrint);
@@ -167,4 +169,65 @@ test("can print a public-stop-only Home backup card before the phone dies", () =
   expect(screen.getAllByText(/Stop 164/).length).toBeGreaterThan(0);
   expect(screen.queryByText("60.4518")).not.toBeInTheDocument();
   expect(screen.queryByText("22.2666")).not.toBeInTheDocument();
+});
+
+test("offers Get me Home in Finnish for a Home saved with its English label", () => {
+  resetLanguageForTests("fi");
+
+  render(<HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />);
+
+  expect(
+    screen.getByRole("heading", { name: "Tarvitsetko apua kotimatkalla?" })
+  ).toBeInTheDocument();
+  const getHome = screen.getByRole("link", {
+    name: "Vie minut kotiin joukkoliikenteellä",
+  });
+  expect(getHome).toHaveTextContent("Vie minut kotiin");
+  expect(new globalThis.URL(getHome.href).searchParams.get("destination")).toBe(
+    "60.4518,22.2666"
+  );
+  expect(screen.getAllByText("Koti").length).toBeGreaterThan(0);
+  expect(screen.getByText("Kauppatori · pysäkki 164")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Avaa kotipysäkki" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", {
+      name: "Reitti kodin varapysäkille Puistokatu, pysäkki 32, joukkoliikenteellä",
+    })
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Näytä kuljettajalle" }));
+  expect(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Sulje" })
+  ).toBeInTheDocument();
+});
+
+// The card's request is for the driver, so the Finnish interface prints it
+// exactly as the English one does; the rest follows the passenger's language.
+test("prints the Home card in Finnish with the driver's request unchanged", () => {
+  const { container, unmount } = render(
+    <HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />
+  );
+  const englishRequest = container.querySelector('[lang="fi"]').outerHTML;
+  unmount();
+
+  resetLanguageForTests("fi");
+  const finnish = render(
+    <HomeRecovery home={home} stops={stops} onOpenStop={vi.fn()} />
+  );
+
+  expect(finnish.container.querySelector('[lang="fi"]').outerHTML).toBe(
+    englishRequest
+  );
+  expect(
+    screen.getByText("Voitteko auttaa minua jäämään pois oikealla pysäkillä?")
+  ).toHaveAttribute("lang", "fi");
+  expect(
+    screen.getByText("Could you help me get off at the right stop?")
+  ).toHaveAttribute("lang", "en");
+  expect(screen.getByText("Kotimatkakortti")).toBeInTheDocument();
+  expect(screen.getByText("Varapysäkit")).toBeInTheDocument();
+  expect(screen.getByText("Pysäkki 164")).toBeInTheDocument();
+  expect(screen.getByText("Puistokatu · Pysäkki 32")).toBeInTheDocument();
 });

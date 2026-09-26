@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { msg, t, useLanguage } from "../i18n";
 import {
   findNearestStops,
   formatAccuracy,
@@ -9,13 +10,43 @@ import {
 import { locationErrorMessage, requestOneTimePosition } from "../utils/location";
 import { buildTransitDirectionsUrl } from "../utils/maps";
 import { buildSharedPlaceUrl } from "../utils/sharedPlaces";
-import { PLACE_PRESETS } from "../hooks/useSavedPlaces";
+import { PLACE_PRESETS, placeLabel } from "../hooks/useSavedPlaces";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
 import styles from "./MyPlaces.module.css";
 
 const MAX_SETUP_DISTANCE_METERS = 10_000;
 const AUTO_PRESELECT_MAX_DISTANCE_METERS = 2_000;
 const LOW_ACCURACY_METERS = 250;
+
+// Phrases about getting to a place are the place's own: Finnish says where
+// to by the place's case ("kotiin", "kouluun", "töihin"), which a label set
+// into a shared phrase cannot take. Other phrases name the place by label.
+const PLACE_PHRASES = {
+  home: {
+    go: msg("Go Home"),
+    rightStop: msg("Yes, this is the right stop for Home."),
+    rightStops: msg("Yes, these are the right stops for Home."),
+    backupAdvice: msg(
+      "Add backup stops only if you know they are suitable and familiar for arriving at Home."
+    ),
+  },
+  school: {
+    go: msg("Go to School"),
+    rightStop: msg("Yes, this is the right stop for School."),
+    rightStops: msg("Yes, these are the right stops for School."),
+    backupAdvice: msg(
+      "Add backup stops only if you know they are suitable and familiar for arriving at School."
+    ),
+  },
+  work: {
+    go: msg("Go to Work"),
+    rightStop: msg("Yes, this is the right stop for Work."),
+    rightStops: msg("Yes, these are the right stops for Work."),
+    backupAdvice: msg(
+      "Add backup stops only if you know they are suitable and familiar for arriving at Work."
+    ),
+  },
+};
 
 function resolvePlaceStops(place, stops) {
   const byId = new Map(stops.map((stop) => [stop.id, stop]));
@@ -71,11 +102,13 @@ function SetupPlace({
   };
 
   const selectedStops = candidates.filter((stop) => selectedIds.has(stop.id));
+  const phrases = PLACE_PHRASES[preset.id];
+  const label = placeLabel(preset);
   // Plain words, and no "safe": a parent reads that as a promise about the
   // stop itself, which no app can make.
-  const confirmationLabel = `Yes, ${
-    selectedStops.length === 1 ? "this is the right stop" : "these are the right stops"
-  } for ${preset.label}.`;
+  const confirmationLabel = t(
+    selectedStops.length === 1 ? phrases.rightStop : phrases.rightStops
+  );
 
   return (
     <section
@@ -84,33 +117,42 @@ function SetupPlace({
     >
       <div className={styles.setupHeader}>
         <div>
-          <p className={styles.kicker}>My Places</p>
+          <p className={styles.kicker}>{t("My Places")}</p>
           <h3 id={`setup-${preset.id}-title`}>
-            Choose stops for {preset.label}
+            {t("Choose stops for {label}", { label })}
           </h3>
         </div>
         <button type="button" className={styles.textButton} onClick={onCancel}>
-          Cancel
+          {t("Cancel")}
         </button>
       </div>
 
       <p className={styles.helper}>
         {preselectFirst
-          ? "Review the public stop you selected and confirm that it is suitable for this destination."
-          : "When location quality is good and a stop is reasonably close, the nearest stop is selected first. Otherwise you must choose manually."}
-        {" "}Add backup stops only if you know they are suitable and familiar for
-        arriving at {preset.label}. Only public stop IDs and names are saved;
-        your exact location is discarded.
+          ? t(
+              "Review the public stop you selected and confirm that it is suitable for this destination."
+            )
+          : t(
+              "When location quality is good and a stop is reasonably close, the nearest stop is selected first. Otherwise you must choose manually."
+            )}{" "}
+        {t(phrases.backupAdvice)}{" "}
+        {t(
+          "Only public stop IDs and names are saved; your exact location is discarded."
+        )}
       </p>
 
       <p className={styles.meta}>
         {preselectFirst
-          ? "Using the stop you selected manually"
+          ? t("Using the stop you selected manually")
           : Number.isFinite(accuracy)
-            ? `Location accuracy ±${formatAccuracy(accuracy)}`
-            : "Location accuracy unavailable"}
+            ? t("Location accuracy ±{accuracy}", {
+                accuracy: formatAccuracy(accuracy),
+              })
+            : t("Location accuracy unavailable")}
         {!preselectFirst && !reliableLocation
-          ? " · no stop was preselected — choose and confirm an arrival stop yourself"
+          ? ` · ${t(
+              "no stop was preselected — choose and confirm an arrival stop yourself"
+            )}`
           : ""}
       </p>
 
@@ -128,7 +170,8 @@ function SetupPlace({
                 <span>
                   <strong>{stop.name}</strong>
                   <small>
-                    Stop {stop.id} · {formatDistance(stop.distanceMeters)}
+                    {t("Stop {id}", { id: stop.id })} ·{" "}
+                    {formatDistance(stop.distanceMeters)}
                   </small>
                 </span>
               </label>
@@ -141,7 +184,7 @@ function SetupPlace({
                   disabled={!checked}
                   onChange={() => setPrimaryStopId(stop.id)}
                 />
-                Primary
+                {t("Primary")}
               </label>
             </div>
           );
@@ -175,7 +218,7 @@ function SetupPlace({
             })
           }
         >
-          Save {preset.label}
+          {t("Save {label}", { label })}
         </button>
       </div>
     </section>
@@ -183,45 +226,50 @@ function SetupPlace({
 }
 
 function journeyAction(place) {
-  return place.id === "home" ? "Go Home" : `Go to ${place.label}`;
+  return t(PLACE_PHRASES[place.id].go);
 }
 
 function SharedPlaceImport({ place, replacing, onImport, onDismiss }) {
   const preset = PLACE_PRESETS.find((candidate) => candidate.id === place.id);
   if (!preset) return null;
 
+  const label = placeLabel(preset);
+
   return (
     <section
       className={styles.importCard}
       aria-labelledby="shared-place-title"
     >
-      <p className={styles.kicker}>Shared place</p>
+      <p className={styles.kicker}>{t("Shared place")}</p>
       <h3 id="shared-place-title">
-        {replacing ? `Replace ${preset.label}?` : `Add ${preset.label}?`}
+        {replacing
+          ? t("Replace {label}?", { label })
+          : t("Add {label}?", { label })}
       </h3>
       <p className={styles.helper}>
-        This link contains public Föli stop IDs and names, not an exact private
-        address. Those stops can still reveal the general area of this place.
-        The app cannot verify who created the link, so accept shared places only
-        from someone you trust.
+        {t(
+          "This link contains public Föli stop IDs and names, not an exact private address. Those stops can still reveal the general area of this place. The app cannot verify who created the link, so accept shared places only from someone you trust."
+        )}
       </p>
       <div className={styles.importStops}>
         {place.stops.map((stop) => (
           <span key={stop.id}>
             <strong>{stop.name}</strong>
             <small>
-              Stop {stop.id}
-              {stop.id === place.primaryStopId ? " · primary" : ""}
+              {t("Stop {id}", { id: stop.id })}
+              {stop.id === place.primaryStopId ? ` · ${t("primary")}` : ""}
             </small>
           </span>
         ))}
       </div>
       <div className={styles.setupActions}>
         <button type="button" className={styles.primaryButton} onClick={onImport}>
-          {replacing ? `Replace ${preset.label}` : `Add ${preset.label}`}
+          {replacing
+            ? t("Replace {label}", { label })
+            : t("Add {label}", { label })}
         </button>
         <button type="button" className={styles.textButton} onClick={onDismiss}>
-          Not now
+          {t("Not now")}
         </button>
       </div>
     </section>
@@ -239,12 +287,15 @@ function PlaceCard({
 }) {
   const [showDriver, setShowDriver] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  // The phrase, worded when shown, so it follows a language switch.
   const [shareFeedback, setShareFeedback] = useState("");
   const [shareUrl, setShareUrl] = useState("");
+  const label = placeLabel(place);
   const resolvedStops = resolvePlaceStops(place, stops);
   const primaryStop =
     resolvedStops.find((stop) => stop.id === place.primaryStopId) ||
     resolvedStops[0];
+  const backupCount = resolvedStops.length - 1;
   const transitUrl =
     online && hasCoordinates(primaryStop)
       ? buildTransitDirectionsUrl(primaryStop)
@@ -260,17 +311,17 @@ function PlaceCard({
     try {
       if (typeof navigator?.share === "function") {
         await navigator.share({
-          title: `${place.label} · My Places`,
-          text: `Add ${place.label} to My Places`,
+          title: t("{label} · My Places", { label }),
+          text: t("Add {label} to My Places", { label }),
           url,
         });
-        setShareFeedback("Link shared.");
+        setShareFeedback(msg("Link shared."));
         return;
       }
 
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        setShareFeedback("Share link copied.");
+        setShareFeedback(msg("Share link copied."));
         return;
       }
     } catch (error) {
@@ -278,7 +329,7 @@ function PlaceCard({
     }
 
     setShareUrl(url);
-    setShareFeedback("Copy the share link below.");
+    setShareFeedback(msg("Copy the share link below."));
   };
 
   return (
@@ -301,10 +352,10 @@ function PlaceCard({
           {place.icon}
         </span>
         <span className={styles.mobileSummaryText}>
-          <strong>{place.label}</strong>
+          <strong>{label}</strong>
           <small>
-            {place.needsReview ? "Needs review · " : ""}
-            {primaryStop.name} · stop {primaryStop.id}
+            {place.needsReview ? `${t("Needs review")} · ` : ""}
+            {primaryStop.name} · {t("stop {id}", { id: primaryStop.id })}
           </small>
         </span>
         <span className={styles.mobileSummaryAction} aria-hidden="true">
@@ -317,17 +368,21 @@ function PlaceCard({
           {place.icon}
         </span>
         <div>
-          <h3>{place.label}</h3>
+          <h3>{label}</h3>
           <p>
-            Primary: {primaryStop.name} · stop {primaryStop.id}
+            {t("Primary: {name} · stop {id}", {
+              name: primaryStop.name,
+              id: primaryStop.id,
+            })}
           </p>
         </div>
       </div>
 
       {place.needsReview && (
         <p className={styles.reviewNotice} role="status">
-          One or more saved stops no longer appear in the current Föli stop
-          catalogue. Review this place before relying on it.
+          {t(
+            "One or more saved stops no longer appear in the current Föli stop catalogue. Review this place before relying on it."
+          )}
         </p>
       )}
 
@@ -338,7 +393,9 @@ function PlaceCard({
             href={transitUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label={`${journeyAction(place)} by public transit`}
+            aria-label={t("{action} by public transit", {
+              action: journeyAction(place),
+            })}
           >
             {journeyAction(place)}
           </a>
@@ -353,39 +410,40 @@ function PlaceCard({
           className={styles.secondaryButton}
           onClick={() => onOpenStop(primaryStop.id)}
         >
-          Live departures
+          {t("Live departures")}
         </button>
         <button
           type="button"
           className={styles.secondaryButton}
           onClick={() => setShowDriver(true)}
         >
-          Show driver
+          {t("Show driver")}
         </button>
       </div>
 
-      {resolvedStops.length > 1 && (
+      {backupCount > 0 && (
         <details className={styles.backups}>
           <summary>
-            {resolvedStops.length - 1} backup stop
-            {resolvedStops.length > 2 ? "s" : ""}
+            {backupCount === 1
+              ? t("1 backup stop")
+              : t("{count} backup stops", { count: backupCount })}
           </summary>
           <div className={styles.backupList}>
             {resolvedStops.map((stop) => (
               <div key={stop.id} className={styles.backupRow}>
                 <span>
                   <strong>{stop.name}</strong>
-                  <small>Stop {stop.id}</small>
+                  <small>{t("Stop {id}", { id: stop.id })}</small>
                 </span>
                 {stop.id === primaryStop.id ? (
-                  <span className={styles.primaryBadge}>Primary</span>
+                  <span className={styles.primaryBadge}>{t("Primary")}</span>
                 ) : (
                   <button
                     type="button"
                     className={styles.textButton}
                     onClick={() => onSetPrimaryStop(place.id, stop.id)}
                   >
-                    Make primary
+                    {t("Make primary")}
                   </button>
                 )}
               </div>
@@ -395,10 +453,12 @@ function PlaceCard({
       )}
 
       <details className={styles.manage}>
-        <summary>Manage {place.label}</summary>
+        <summary>{t("Manage {label}", { label })}</summary>
         <p className={styles.sharePrivacyHint}>
-          Sharing {place.label} reveals its saved public stop names and IDs,
-          which can indicate the general area.
+          {t(
+            "Sharing {label} reveals its saved public stop names and IDs, which can indicate the general area.",
+            { label }
+          )}
         </p>
         <div className={styles.manageActions}>
           <button
@@ -406,36 +466,36 @@ function PlaceCard({
             className={styles.textButton}
             onClick={() => onReplace(place.id)}
           >
-            Replace using where I am now
+            {t("Replace using where I am now")}
           </button>
           <button
             type="button"
             className={styles.textButton}
             onClick={sharePlace}
           >
-            Share {place.label}
+            {t("Share {label}", { label })}
           </button>
           <button
             type="button"
             className={styles.dangerButton}
             onClick={() => {
-              if (window.confirm(`Remove ${place.label} from My Places?`)) {
+              if (window.confirm(t("Remove {label} from My Places?", { label }))) {
                 onRemove(place.id);
               }
             }}
           >
-            Remove {place.label}
+            {t("Remove {label}", { label })}
           </button>
         </div>
         {shareFeedback && (
           <p className={styles.shareFeedback} role="status">
-            {shareFeedback}
+            {t(shareFeedback)}
           </p>
         )}
         {shareUrl && (
           <input
             className={styles.shareInput}
-            aria-label={`Share link for ${place.label}`}
+            aria-label={t("Share link for {label}", { label })}
             readOnly
             value={shareUrl}
             onFocus={(event) => event.currentTarget.select()}
@@ -463,6 +523,7 @@ function EmptyPlaceCard({
   onStartFromSelectedStop,
 }) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const label = placeLabel(preset);
 
   return (
     <article
@@ -479,8 +540,8 @@ function EmptyPlaceCard({
           {preset.icon}
         </span>
         <span className={styles.mobileSummaryText}>
-          <strong>{preset.label}</strong>
-          <small>Not set</small>
+          <strong>{label}</strong>
+          <small>{t("Not set")}</small>
         </span>
         <span className={styles.mobileSummaryAction} aria-hidden="true">
           {mobileExpanded ? "−" : "+"}
@@ -492,8 +553,8 @@ function EmptyPlaceCard({
           {preset.icon}
         </span>
         <div>
-          <h3>{preset.label}</h3>
-          <p>Save the stops you use, without typing an address.</p>
+          <h3>{label}</h3>
+          <p>{t("Save the stops you use, without typing an address.")}</p>
         </div>
         <div className={styles.emptyActions}>
           <button
@@ -502,18 +563,21 @@ function EmptyPlaceCard({
             onClick={() => onStartSetup(preset.id)}
             disabled={status === "locating"}
             aria-busy={status === "locating"}
-            aria-label={`Set up ${preset.label} from my current location`}
+            aria-label={t("Set up {label} from my current location", { label })}
           >
-            Use my location
+            {t("Use my location")}
           </button>
           {activeStop && (
             <button
               type="button"
               className={styles.textButton}
               onClick={() => onStartFromSelectedStop(preset.id)}
-              aria-label={`Set up ${preset.label} using ${activeStop.name}`}
+              aria-label={t("Set up {label} using {name}", {
+                label,
+                name: activeStop.name,
+              })}
             >
-              Use {activeStop.name}
+              {t("Use {name}", { name: activeStop.name })}
             </button>
           )}
         </div>
@@ -537,12 +601,16 @@ function MyPlaces({
   onSetPrimaryStop,
   onOpenStop,
 }) {
+  useLanguage();
   const [setupId, setSetupId] = useState("");
   const [setupCandidates, setSetupCandidates] = useState([]);
   const [setupAccuracy, setSetupAccuracy] = useState(null);
   const [setupPreselectFirst, setSetupPreselectFirst] = useState(false);
   const [status, setStatus] = useState("idle");
-  const [error, setError] = useState("");
+  // How to word the problem, not the words, so a language switch while it
+  // shows rewords it.
+  const [error, setError] = useState(null);
+  const showError = (text) => setError({ text });
 
   const hasStopCoordinates = useMemo(
     () => stops.some(hasCoordinates),
@@ -558,21 +626,21 @@ function MyPlaces({
     if (!preset) return;
 
     if (!hasStopCoordinates) {
-      setError(
+      showError(() =>
         coordinatesStatus === "loading"
-          ? "Stop locations are still loading. Try again in a moment."
-          : "Stop locations are temporarily unavailable."
+          ? t("Stop locations are still loading. Try again in a moment.")
+          : t("Stop locations are temporarily unavailable.")
       );
       return;
     }
 
     if (!navigator.geolocation) {
-      setError("This browser does not support location access.");
+      showError(() => t("This browser does not support location access."));
       return;
     }
 
     setStatus("locating");
-    setError("");
+    setError(null);
 
     try {
       const position = await requestOneTimePosition(navigator.geolocation);
@@ -587,8 +655,10 @@ function MyPlaces({
 
       if (insideServiceArea === false && boundaryDecisionReliable) {
         setStatus("idle");
-        setError(
-          "This location appears outside Föli’s published service area. Choose a public stop manually instead."
+        showError(() =>
+          t(
+            "This location appears outside Föli’s published service area. Choose a public stop manually instead."
+          )
         );
         return;
       }
@@ -599,12 +669,14 @@ function MyPlaces({
         throw new Error("No nearby stops found.");
       }
 
-      if (nearest[0].distanceMeters > MAX_SETUP_DISTANCE_METERS) {
+      const nearestMeters = nearest[0].distanceMeters;
+      if (nearestMeters > MAX_SETUP_DISTANCE_METERS) {
         setStatus("idle");
-        setError(
-          `The nearest Föli stop is ${formatDistance(
-            nearest[0].distanceMeters
-          )} away. Move closer to the place before saving it.`
+        showError(() =>
+          t(
+            "The nearest Föli stop is {distance} away. Move closer to the place before saving it.",
+            { distance: formatDistance(nearestMeters) }
+          )
         );
         return;
       }
@@ -616,7 +688,7 @@ function MyPlaces({
       setStatus("ready");
     } catch (locationError) {
       setStatus("idle");
-      setError(locationErrorMessage(locationError));
+      showError(() => locationErrorMessage(locationError));
     }
   };
 
@@ -624,7 +696,7 @@ function MyPlaces({
     const preset = PLACE_PRESETS.find((candidate) => candidate.id === placeId);
     if (!preset || !activeStop) return;
 
-    setError("");
+    setError(null);
     setSetupId(preset.id);
     setSetupCandidates([{ id: activeStop.id, name: activeStop.name }]);
     setSetupAccuracy(null);
@@ -636,11 +708,12 @@ function MyPlaces({
     <section className={styles.wrapper} aria-labelledby="my-places-title">
       <div className={styles.header}>
         <div>
-          <p className={styles.kicker}>No address to remember</p>
-          <h2 id="my-places-title">My Places</h2>
+          <p className={styles.kicker}>{t("No address to remember")}</p>
+          <h2 id="my-places-title">{t("My Places")}</h2>
           <p className={styles.description}>
-            Save Home, School or Work as public stops — no address to type or
-            remember.
+            {t(
+              "Save Home, School or Work as public stops — no address to type or remember."
+            )}
           </p>
         </div>
       </div>
@@ -656,7 +729,7 @@ function MyPlaces({
 
       {error && (
         <p className={styles.error} role="alert">
-          {error}
+          {error.text()}
         </p>
       )}
 
@@ -694,7 +767,7 @@ function MyPlaces({
 
       {status === "locating" && (
         <p className={styles.meta} role="status">
-          Finding the closest Föli stops…
+          {t("Finding the closest Föli stops…")}
         </p>
       )}
 
@@ -726,8 +799,9 @@ function MyPlaces({
       )}
 
       <p className={styles.privacy}>
-        Transit links open externally with only the public destination stop.
-        Your starting location is not embedded in the link.
+        {t(
+          "Transit links open externally with only the public destination stop. Your starting location is not embedded in the link."
+        )}
       </p>
     </section>
   );

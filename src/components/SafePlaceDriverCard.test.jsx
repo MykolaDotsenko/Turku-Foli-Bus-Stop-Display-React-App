@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import SafePlaceDriverCard from "./SafePlaceDriverCard";
+import { resetLanguageForTests } from "../i18n";
 
 const originalSpeechSynthesis = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -13,6 +14,7 @@ const originalUtterance = Object.getOwnPropertyDescriptor(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetLanguageForTests("en");
 
   if (originalSpeechSynthesis) {
     Object.defineProperty(
@@ -168,4 +170,69 @@ test("keeps keyboard focus inside the full-screen card", () => {
 
   fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
   expect(close).toHaveFocus();
+});
+
+// The driver reads, and hears, the same card whichever language the
+// passenger uses the app in. Only the passenger's own controls follow it.
+test("shows the driver the same card in both languages, with the passenger's controls in theirs", () => {
+  const speak = vi.fn();
+  Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
+    configurable: true,
+    value: class {
+      constructor(text) {
+        this.text = text;
+      }
+    },
+  });
+  Object.defineProperty(globalThis, "speechSynthesis", {
+    configurable: true,
+    value: { speak, cancel: vi.fn() },
+  });
+
+  const driverView = () => {
+    const dialog = screen.getByRole("dialog");
+    return {
+      heading: within(dialog).getByRole("heading").textContent,
+      lines: [...dialog.querySelectorAll("[lang]")].map(
+        (node) => `${node.getAttribute("lang")}: ${node.textContent}`
+      ),
+    };
+  };
+  const renderCard = () =>
+    render(
+      <SafePlaceDriverCard
+        place={{ id: "home", label: "Home" }}
+        primaryStop={{ id: "164", name: "Kauppatori" }}
+        onClose={vi.fn()}
+      />
+    );
+
+  const english = renderCard();
+  const englishView = driverView();
+  fireEvent.click(screen.getByRole("button", { name: "Read aloud in Finnish" }));
+  english.unmount();
+
+  resetLanguageForTests("fi");
+  renderCard();
+
+  expect(driverView()).toEqual(englishView);
+  expect(englishView.lines).toEqual([
+    "fi: Olen menossa pysäkille",
+    "fi: Pysäkki",
+    "en: Stop 164",
+    "fi: Voitteko auttaa minua jäämään pois oikealla pysäkillä?",
+    "en: Please help me get off at this stop.",
+  ]);
+
+  expect(screen.getByText("Näytä tämä kuljettajalle")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Lue ääneen suomeksi" }));
+  expect(screen.getByRole("button", { name: "Sulje" })).toBeInTheDocument();
+
+  const [englishSpeech, finnishSpeech] = speak.mock.calls.map(
+    ([utterance]) => utterance.text
+  );
+  expect(finnishSpeech).toBe(englishSpeech);
+  expect(finnishSpeech).toBe(
+    "Tarvitsen apua. Olen menossa pysäkille Kauppatori, pysäkki 164. Voitteko auttaa minua jäämään pois oikealla pysäkillä?"
+  );
 });

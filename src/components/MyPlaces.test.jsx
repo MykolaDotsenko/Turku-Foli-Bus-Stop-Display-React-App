@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import MyPlaces from "./MyPlaces";
+import { resetLanguageForTests } from "../i18n";
 
 const stops = [
   { id: "164", name: "Kauppatori", lat: 60.4518, lon: 22.2666 },
@@ -23,6 +24,7 @@ function setGeolocation(getCurrentPosition) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  resetLanguageForTests("en");
 
   if (originalGeolocation) {
     Object.defineProperty(navigator, "geolocation", originalGeolocation);
@@ -597,4 +599,160 @@ test("starts each place's setup with its own, unticked confirmation", () => {
     })
   ).not.toBeChecked();
   expect(screen.getByRole("button", { name: "Save School" })).toBeDisabled();
+});
+
+// Saved places keep the English label they were stored with ("Home"); the
+// screen names each by its id, so a place saved in one language reads
+// correctly in the other.
+const savedHome = {
+  id: "home",
+  label: "Home",
+  icon: "⌂",
+  primaryStopId: "164",
+  stops: [
+    { id: "164", name: "Kauppatori" },
+    { id: "32", name: "Puistokatu" },
+  ],
+};
+
+function renderSavedHome() {
+  return render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map([["home", savedHome]])}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+}
+
+test("names a place saved as \"Home\" in Finnish, by what it is", () => {
+  resetLanguageForTests("fi");
+  renderSavedHome();
+
+  expect(screen.getByRole("heading", { name: "Omat paikat" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Koti" })).toBeInTheDocument();
+  expect(
+    screen.getByText("Pääpysäkki: Kauppatori · pysäkki 164")
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Reitti kotiin joukkoliikenteellä" })
+  ).toHaveTextContent("Reitti kotiin");
+  expect(screen.getByText("1 varapysäkki")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Koulu" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", {
+      name: "Aseta Työ nykyisen sijaintini perusteella",
+    })
+  ).toHaveTextContent("Käytä sijaintiani");
+  expect(document.body).not.toHaveTextContent(/Home|School|Work/);
+});
+
+test("sets up a place in Finnish, confirming it in the place's own words", () => {
+  resetLanguageForTests("fi");
+  const onSavePlace = vi.fn();
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="unavailable"
+      activeStopId="32"
+      placesById={new Map()}
+      onSavePlace={onSavePlace}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Aseta Koulu käyttäen pysäkkiä Puistokatu",
+    })
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Valitse pysäkit: Koulu" })
+  ).toBeInTheDocument();
+  const save = screen.getByRole("button", { name: "Tallenna Koulu" });
+  expect(save).toBeDisabled();
+
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "Kyllä, tämä on oikea pysäkki kouluun.",
+    })
+  );
+  fireEvent.click(save);
+
+  // What is saved is the place's id and its public stops, never words.
+  expect(onSavePlace).toHaveBeenCalledWith({
+    id: "school",
+    stops: [{ id: "32", name: "Puistokatu" }],
+    primaryStopId: "32",
+  });
+});
+
+test("shares and removes in Finnish, with the same link as in English", async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "share", {
+    configurable: true,
+    value: share,
+  });
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+  const english = renderSavedHome();
+  fireEvent.click(screen.getByRole("button", { name: "Share Home" }));
+  await screen.findByText("Link shared.");
+  english.unmount();
+
+  resetLanguageForTests("fi");
+  renderSavedHome();
+  fireEvent.click(screen.getByRole("button", { name: "Jaa Koti" }));
+  expect(await screen.findByText("Linkki jaettu.")).toBeInTheDocument();
+
+  const [englishShare, finnishShare] = share.mock.calls.map(([data]) => data);
+  expect(finnishShare.title).toBe("Koti · Omat paikat");
+  expect(finnishShare.text).toBe("Lisää Koti Omiin paikkoihin");
+  expect(finnishShare.url).toBe(englishShare.url);
+
+  fireEvent.click(screen.getByRole("button", { name: "Poista Koti" }));
+  expect(confirm).toHaveBeenCalledWith("Poistetaanko Koti Omista paikoista?");
+});
+
+test("rewords a message already on screen when the language changes", () => {
+  Object.defineProperty(navigator, "geolocation", {
+    configurable: true,
+    value: undefined,
+  });
+
+  render(
+    <MyPlaces
+      stops={stops}
+      coordinatesStatus="ready"
+      placesById={new Map()}
+      onSavePlace={vi.fn()}
+      onRemovePlace={vi.fn()}
+      onSetPrimaryStop={vi.fn()}
+      onOpenStop={vi.fn()}
+    />
+  );
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Set up Home from my current location" })
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "This browser does not support location access."
+  );
+
+  act(() => resetLanguageForTests("fi"));
+
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Tämä selain ei tue sijainnin käyttöä."
+  );
+  expect(
+    screen.getByRole("heading", { name: "Omat paikat" })
+  ).toBeInTheDocument();
 });

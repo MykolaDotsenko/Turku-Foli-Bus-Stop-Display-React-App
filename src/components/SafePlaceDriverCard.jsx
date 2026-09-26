@@ -1,8 +1,16 @@
 import { useEffect, useRef } from "react";
+import { t, useLanguage } from "../i18n";
 import styles from "./SafePlaceDriverCard.module.css";
 
+// What the driver reads and hears is the same whichever language the app is
+// in: Finnish, with English beside it for a driver or passenger who reads
+// English better. Only the passenger's kicker and buttons follow the app.
+const FINNISH_LEAD = "Olen menossa pysäkille";
+const FINNISH_STOP = "Pysäkki";
 const FINNISH_HELP =
   "Voitteko auttaa minua jäämään pois oikealla pysäkillä?";
+const ENGLISH_STOP = "Stop";
+const ENGLISH_HELP = "Please help me get off at this stop.";
 
 function speechSupported() {
   return (
@@ -17,6 +25,7 @@ function SafePlaceDriverCard({
   onClose,
   idPrefix = "safe-place",
 }) {
+  useLanguage();
   const usedSpeech = useRef(false);
   const cardRef = useRef(null);
   const previousFocusRef = useRef(null);
@@ -104,20 +113,25 @@ function SafePlaceDriverCard({
       aria-labelledby={titleId}
     >
       <div className={styles.content}>
-        <p className={styles.kicker}>Show this screen to the driver</p>
+        <p className={styles.kicker}>{t("Show this screen to the driver")}</p>
         <p className={styles.lead} lang="fi">
-          Olen menossa pysäkille
+          {FINNISH_LEAD}
         </p>
         <h3 id={titleId} className={styles.stop}>
           {primaryStop.name}
           <span>
-            <span lang="fi">Pysäkki</span> / Stop {primaryStop.id}
+            <span lang="fi">{FINNISH_STOP}</span> /{" "}
+            <span lang="en">
+              {ENGLISH_STOP} {primaryStop.id}
+            </span>
           </span>
         </h3>
         <p className={styles.finnish} lang="fi">
           {FINNISH_HELP}
         </p>
-        <p className={styles.english}>Please help me get off at this stop.</p>
+        <p className={styles.english} lang="en">
+          {ENGLISH_HELP}
+        </p>
       </div>
       <div className={styles.actions}>
         {canReadAloud && (
@@ -126,12 +140,12 @@ function SafePlaceDriverCard({
             className={styles.speakButton}
             onClick={readAloud}
           >
-            <span aria-hidden="true">🔊</span>
-            Read aloud in Finnish
+            <span aria-hidden="true">{"🔊"}</span>
+            {t("Read aloud in Finnish")}
           </button>
         )}
         <button type="button" className={styles.closeButton} onClick={onClose}>
-          Close
+          {t("Close")}
         </button>
       </div>
     </section>

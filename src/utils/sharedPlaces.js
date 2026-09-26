@@ -10,6 +10,8 @@ function cleanStopName(value, id) {
     .trim()
     .slice(0, MAX_STOP_NAME_LENGTH);
 
+  // Carried in the link and saved on import, so it stays the same in every
+  // language.
   return cleaned || `Stop ${id}`;
 }
 
