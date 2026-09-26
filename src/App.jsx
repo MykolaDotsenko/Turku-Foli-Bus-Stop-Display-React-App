@@ -437,7 +437,12 @@ function App() {
             <dd>
               {t(
                 "An independent app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services."
-              )}
+              )}{" "}
+              {/* It is a companion to the official services, not a stand-in
+                  for them, so it points the way. */}
+              <a href="https://www.foli.fi/" target="_blank" rel="noreferrer">
+                {t("Föli’s website")}
+              </a>
             </dd>
             <dt>{t("Where the times come from")}</dt>
             <dd>

@@ -16,6 +16,7 @@ export default {
   "Who makes it": "Kuka sovelluksen tekee",
   "An independent app, not made by or affiliated with Föli (Turku region public transport) or the City of Turku. For tickets and official journey planning, use Föli’s own services.":
     "Itsenäinen sovellus. Sen tekijä ei ole Föli (Turun seudun joukkoliikenne) eikä Turun kaupunki, eikä se liity niihin. Lippuja ja virallista reittiopasta varten käytä Fölin omia palveluja.",
+  "Föli’s website": "Fölin verkkosivut",
   "Where the times come from": "Mistä ajat tulevat",
   "Föli open data at data.foli.fi, under CC BY 4.0. Live times are estimates from the buses and can change.":
     "Fölin avoimesta datasta osoitteessa data.foli.fi, lisenssillä CC BY 4.0. Reaaliaikaiset ajat ovat busseista saatuja arvioita ja voivat muuttua.",
