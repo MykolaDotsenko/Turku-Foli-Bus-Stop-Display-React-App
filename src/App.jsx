@@ -288,12 +288,7 @@ function App() {
             receivedAtMs={serviceAlertsReceivedAtMs}
           />
 
-          {/* Another stop's board starts fresh. Rows keep their identity
-              across refreshes, so the same trip listed at a neighbouring
-              stop under the same planned minute would otherwise inherit an
-              open get-off setup from the stop the passenger just left. */}
           <BusStopDisplay
-            key={stopId}
             stopId={stopId}
             stopName={displayStopName}
             stop={selectedStop}

@@ -870,6 +870,29 @@ test("an open get-off setup does not follow the passenger to another stop", asyn
   await expect(setupHeading).toHaveCount(0);
 });
 
+test("Back keeps keyboard focus on the departure board", async ({ page }) => {
+  // Back and Forward change the stop under the same board. Remounting the
+  // board for that dropped keyboard focus to the page, and replaced the live
+  // region that announces the stop.
+  await page.goto("/?stop=164");
+  await page.getByLabel("Find your stop").fill("4");
+  await page.getByRole("button", { name: "Show departures" }).click();
+  await expect(page).toHaveURL(/stop=4/);
+
+  await page
+    .getByRole("button", { name: "Save Turun linna to favorites" })
+    .focus();
+  await page.evaluate(() => globalThis.history.back());
+
+  await expect(page).toHaveURL(/stop=164/);
+  await expect(
+    page.getByRole("heading", { name: "Kauppatori", exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save Kauppatori to favorites" })
+  ).toBeFocused();
+});
+
 // A phone screen is tight, so the explanatory copy was hidden below 620px —
 // including the line that says what the app is, to the one person who does
 // not know. It is back, but only while it still earns the space.

@@ -34,12 +34,15 @@ function departure(overrides = {}) {
   };
 }
 
-function board(arrivals) {
+const KAUPPATORI = { id: "164", name: "Kauppatori" };
+const TURUN_LINNA = { id: "4", name: "Turun linna" };
+
+function board(arrivals, stop = KAUPPATORI) {
   return (
     <BusStopDisplay
-      stopId="164"
-      stopName="Kauppatori"
-      stop={{ id: "164", name: "Kauppatori" }}
+      stopId={stop.id}
+      stopName={stop.name}
+      stop={stop}
       stops={[
         { id: "164", name: "Kauppatori" },
         { id: "32", name: "Puistokatu" },
@@ -162,4 +165,49 @@ test("a different departure taking the slot does not inherit an open setup", asy
   rerender(board([departure({ tripref: "trip-2" })]));
 
   expect(setupPanels()).toHaveLength(0);
+});
+
+// A neighbouring stop can list the same trip under the same planned minute.
+// The open setup belongs to the stop it was opened at, and coming back to that
+// stop later must not reopen it either.
+test("switching stops closes an open setup, and coming back does not reopen it", () => {
+  const { rerender } = render(board([departure()]));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Alert me when to get off" })
+  );
+  expect(setupPanels()).toHaveLength(1);
+
+  rerender(board([departure()], TURUN_LINNA));
+  expect(setupPanels()).toHaveLength(0);
+
+  rerender(board([departure()]));
+  expect(setupPanels()).toHaveLength(0);
+});
+
+test("an expanded next-stops list does not carry over to another stop", async () => {
+  const { rerender } = render(board([departure()]));
+  fireEvent.click(screen.getByRole("button", { name: "Next stops" }));
+  await screen.findByText("Planned stop sequence");
+
+  rerender(board([departure()], TURUN_LINNA));
+
+  expect(
+    screen.getByRole("button", { name: "Next stops" })
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Planned stop sequence")).not.toBeInTheDocument();
+});
+
+// Back and Forward change the stop under the same board. Remounting the whole
+// board for it dropped keyboard focus to the page and replaced the polite
+// live region that announces the stop, so the new stop was not read out.
+test("the board header keeps focus and its live region across a stop change", () => {
+  const { rerender } = render(board([departure()]));
+  const refresh = screen.getByRole("button", { name: "Refresh" });
+  refresh.focus();
+  const stopLine = screen.getByText(/^Stop 164/);
+
+  rerender(board([departure()], TURUN_LINNA));
+
+  expect(document.activeElement).toBe(refresh);
+  expect(screen.getByText(/^Stop 4/)).toBe(stopLine);
 });

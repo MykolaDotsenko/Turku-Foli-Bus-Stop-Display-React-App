@@ -64,8 +64,10 @@ function vehicleProximity(arrival, stop, route, serverTime) {
 // nearly every poll and the index moves whenever an earlier bus leaves, so a
 // row keyed on either was remounted: an open "Next stops" list or get-off
 // setup closed mid-choice, taking the chosen stop with it. The planned time
-// stays put, and still tells two visits of one looping trip apart.
-function departureKeys(arrivals, referenceTime) {
+// stays put, and still tells two visits of one looping trip apart. The stop
+// is part of it too: a neighbouring stop can list the same trip under the
+// same planned minute, and its row must not inherit this one's open panels.
+function departureKeys(arrivals, referenceTime, stopId) {
   const seen = new Map();
 
   return arrivals.map((arrival) => {
@@ -74,6 +76,7 @@ function departureKeys(arrivals, referenceTime) {
       Number(arrival.aimedarrivaltime) ||
       getDepartureTime(arrival, referenceTime);
     const identity = [
+      stopId,
       arrival.lineref,
       arrival.tripref || arrival.destinationdisplay,
       planned,
@@ -185,7 +188,16 @@ function BusStopDisplay({
   );
   const preferredLanguages = useMemo(browserLanguages, []);
   const [rideCandidateKey, setRideCandidateKey] = useState("");
-  const rowKeys = departureKeys(visibleArrivals, referenceTime);
+  // An open setup belongs to the stop it was opened at, so it is dropped the
+  // moment the stop changes and coming back later does not reopen it. The
+  // board itself stays mounted: remounting it for a stop change dropped
+  // keyboard focus and the live region that announces the stop.
+  const [candidateStopId, setCandidateStopId] = useState(stopId);
+  if (candidateStopId !== stopId) {
+    setCandidateStopId(stopId);
+    setRideCandidateKey("");
+  }
+  const rowKeys = departureKeys(visibleArrivals, referenceTime, stopId);
 
   return (
     <section
