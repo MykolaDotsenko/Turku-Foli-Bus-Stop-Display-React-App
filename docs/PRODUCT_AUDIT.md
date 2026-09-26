@@ -189,9 +189,9 @@ The interface is primarily English with a specific Finnish driver-help sentence.
 
 A production public-facing version should add structured localization at least for Finnish, Swedish and English; Ukrainian would also be valuable for the newcomer use case.
 
-### PWA icon coverage is not exhaustive
+### PWA icon coverage
 
-The manifest currently uses the SVG application icon. Additional raster 192×192 / 512×512 and Apple touch assets would improve platform-specific install presentation.
+The manifest lists the SVG icon and 192×192 / 512×512 PNGs for general use, plus a separate full-bleed 512×512 maskable PNG, so Android's own mask no longer clips the rounded tile a second time. iPhones get a 180×180 apple-touch-icon, and get-off notifications carry a monochrome status-bar badge. `scripts/build-icons.mjs` renders every PNG from `public/foli-icon.svg`, and `npm run verify:pwa` fails a build whose manifest or touch icon is missing or not precached.
 
 ### No product analytics by design
 

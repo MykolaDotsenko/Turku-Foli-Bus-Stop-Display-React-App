@@ -1300,6 +1300,76 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   ).toBeVisible();
 });
 
+test("production PWA gives every home screen a real icon", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-pwa");
+
+  await page.goto("/?stop=164");
+  await expect(page.getByRole("heading", { name: "Kauppatori" })).toBeVisible();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+
+  // The browser's own reading of the manifest, not a JSON.parse of it.
+  const cdp = await page.context().newCDPSession(page);
+  const { errors, data } = await cdp.send("Page.getAppManifest");
+  expect(errors).toEqual([]);
+  const manifest = JSON.parse(data);
+
+  // Safari ignores manifest icons; without this link an iPhone's home screen
+  // gets a screenshot of the page.
+  const touchIconLink = page.locator('link[rel="apple-touch-icon"]');
+  await expect(touchIconLink).toHaveAttribute("href", /apple-touch-icon\.png$/);
+  const touchIcon = await touchIconLink.getAttribute("href");
+  const expected = [
+    ...manifest.icons
+      .filter((icon) => icon.type === "image/png")
+      .map((icon) => ({
+        src: icon.src,
+        size: Number(icon.sizes.split("x")[0]),
+        purpose: icon.purpose,
+      })),
+    { src: touchIcon, size: 180, purpose: "apple-touch-icon" },
+  ];
+  expect(expected.map((icon) => `${icon.size} ${icon.purpose}`)).toEqual([
+    "192 any",
+    "512 any",
+    "512 maskable",
+    "180 apple-touch-icon",
+  ]);
+
+  // Every file decodes as a PNG at the size it claims, so no launcher has to
+  // upscale a smaller one or fall back to a screenshot of the page.
+  for (const icon of expected) {
+    const decoded = await page.evaluate(async (src) => {
+      const response = await globalThis.fetch(
+        new globalThis.URL(src, document.baseURI)
+      );
+      const bitmap = await globalThis.createImageBitmap(await response.blob());
+      return {
+        type: response.headers.get("content-type"),
+        width: bitmap.width,
+        height: bitmap.height,
+      };
+    }, icon.src);
+    expect(decoded, icon.src).toEqual({
+      type: "image/png",
+      width: icon.size,
+      height: icon.size,
+    });
+  }
+
+  // What Chrome checks before it offers "Install app". A test browser
+  // profile is always off the record, which is not the app's to fix.
+  const { installabilityErrors } = await cdp.send(
+    "Page.getInstallabilityErrors"
+  );
+  expect(
+    installabilityErrors
+      .map((error) => error.errorId)
+      .filter((errorId) => errorId !== "in-incognito")
+  ).toEqual([]);
+});
+
 test("has no serious WCAG accessibility violations", async ({ page }) => {
   await page.goto("/?stop=164");
   await seedHome(page);

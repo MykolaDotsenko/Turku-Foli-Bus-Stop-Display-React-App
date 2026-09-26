@@ -187,11 +187,11 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brandLockup">
-          {/* The same file as the favicon, the home-screen icon and the
-              get-off notification, so the mark someone tapped is the mark
-              that greets them. Decorative here: the wordmark beside it
-              already carries the name, so a second "Föli departures" for a
-              screen reader would only repeat it. */}
+          {/* The favicon, and the source scripts/build-icons.mjs renders the
+              home-screen and get-off notification icons from, so the mark
+              someone tapped is the mark that greets them. Decorative here:
+              the wordmark beside it already carries the name, so a second
+              "Föli departures" for a screen reader would only repeat it. */}
           <img
             className="brandMark"
             src={`${import.meta.env.BASE_URL}foli-icon.svg`}
