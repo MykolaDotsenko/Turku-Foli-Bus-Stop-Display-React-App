@@ -365,7 +365,7 @@ test("shares a configured place through the native share sheet when available", 
 });
 
 
-test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
+test("adds backup stops to a place only after explicit opt-in", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -427,7 +427,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
 });
 
 
-test("warns that sharing a Safe Place can reveal its general area", () => {
+test("warns that sharing a place can reveal its general area", () => {
   render(
     <MyPlaces
       stops={stops}
@@ -461,7 +461,7 @@ test("warns that sharing a Safe Place can reveal its general area", () => {
 });
 
 
-test("does not preselect a Safe Place when location accuracy is poor", async () => {
+test("does not preselect a place's stop when location accuracy is poor", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {
@@ -510,7 +510,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   expect(onSavePlace).not.toHaveBeenCalled();
 });
 
-test("does not create a location-based Safe Place outside the Föli boundary", async () => {
+test("does not create a location-based place outside the Föli boundary", async () => {
   const getCurrentPosition = vi.fn((success) =>
     success({
       coords: {

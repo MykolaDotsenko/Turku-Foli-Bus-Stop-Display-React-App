@@ -71,6 +71,11 @@
   overflow-wrap: anywhere;
 }
 
+/* A narrow card broke "stop | 164"; the number moves down whole. */
+.stopNumber {
+  white-space: nowrap;
+}
+
 .homeIcon {
   display: grid;
   width: 34px;

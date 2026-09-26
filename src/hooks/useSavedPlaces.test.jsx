@@ -157,7 +157,7 @@ test("revalidates saved stops against a fresh public catalogue without storing c
   expect(stored).not.toContain("22.2666");
 });
 
-test("clears Safe Place review state once every saved stop exists again", () => {
+test("clears a place's review state once every saved stop exists again", () => {
   const { result } = renderHook(() => useSavedPlaces());
 
   act(() => {

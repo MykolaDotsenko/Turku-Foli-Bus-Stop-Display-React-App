@@ -76,7 +76,10 @@ function HomeRecovery({
         <span>
           <strong>{label}</strong>
           <small>
-            <StopName stop={primaryStop} /> · {t("stop {id}", { id: primaryStop.id })}
+            <StopName stop={primaryStop} />{" "}
+            <span className={styles.stopNumber}>
+              · {t("stop {id}", { id: primaryStop.id })}
+            </span>
           </small>
         </span>
       </div>

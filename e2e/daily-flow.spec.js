@@ -1224,7 +1224,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
 });
 
 
-test("imports a parent-shared Safe Place only after explicit confirmation", async ({
+test("imports a parent-shared place only after explicit confirmation", async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "chromium-desktop");
@@ -1400,7 +1400,7 @@ test("renders a public-stop-only Home backup card in print mode", async ({
   expect(pdf.match(/\/Type\s*\/Page\b(?!s)/g)).toHaveLength(1);
 });
 
-test("production PWA reopens offline with Safe Places and driver help", async ({
+test("production PWA reopens offline with My Places and driver help", async ({
   page,
   context,
 }, testInfo) => {
@@ -1693,7 +1693,7 @@ test.describe("on a Finnish phone", () => {
 
   test("the app is in Finnish, readable, and can be switched to English for good", async ({
     page,
-  }) => {
+  }, testInfo) => {
     await routeTargetStop(page);
     await page.goto("/?stop=164");
     await seedHome(page);
@@ -1703,6 +1703,12 @@ test.describe("on a Finnish phone", () => {
     await expect(page.getByRole("columnheader", { name: "Lähtee" })).toBeVisible();
     await expect(page.getByLabel("Etsi pysäkki")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Liikennetiedotteet" })).toBeVisible();
+
+    // The README's Finnish picture, a phone's first screen.
+    if (testInfo.project.name === "chromium-mobile") {
+      fs.mkdirSync("artifacts/screenshots", { recursive: true });
+      await page.screenshot({ path: "artifacts/screenshots/foli-mobile-fi.png" });
+    }
 
     const nextStops = page.getByRole("button", { name: "Seuraavat pysäkit" }).first();
     await nextStops.click();
@@ -2290,7 +2296,7 @@ test("200 percent text scaling keeps core mobile controls usable", async ({
   }
 });
 
-test("captures recruiter-ready product screenshots", async ({ page }, testInfo) => {
+test("captures the README's product screenshots", async ({ page }, testInfo) => {
   if (
     !["chromium-desktop", "webkit-mobile", "chromium-mobile"].includes(
       testInfo.project.name
@@ -2316,8 +2322,10 @@ test("captures recruiter-ready product screenshots", async ({ page }, testInfo) 
         ? "foli-mobile-android.png"
         : "foli-desktop.png";
 
+  // A phone is shown as a passenger first sees it, one screen; a laptop
+  // page is short enough to show whole.
   await page.screenshot({
     path: `artifacts/screenshots/${fileName}`,
-    fullPage: true,
+    fullPage: testInfo.project.name === "chromium-desktop",
   });
 });
