@@ -157,6 +157,8 @@ function BusStopDisplay({
   receivedAtMs,
   realtimeAvailable,
   scheduleAvailable,
+  scheduleFailed = false,
+  scheduleIncomplete = false,
   loading,
   refreshing,
   error,
@@ -291,6 +293,9 @@ function BusStopDisplay({
             {realtimeAvailable === false
               ? "Live updates are unavailable · showing scheduled Föli times."
               : "No live departure is published right now · showing the next scheduled Föli times."}
+            {scheduleIncomplete
+              ? " Later departures could not be checked, so more buses may run after these."
+              : ""}
           </p>
         )}
 
@@ -303,6 +308,19 @@ function BusStopDisplay({
         <div className={styles.state} role="alert">
           <strong>Couldn’t load departures.</strong>
           <span>Check the stop number or connection and try again.</span>
+          <button type="button" className={styles.retryButton} onClick={onRefresh}>
+            Try again
+          </button>
+        </div>
+      ) : visibleArrivals.length === 0 && scheduleFailed ? (
+        // The live feed only looks an hour or so ahead. With the timetable
+        // unread, an empty board is not "no more buses".
+        <div className={styles.state} role="status">
+          <strong>No live departures right now.</strong>
+          <span>
+            The timetable could not be checked just now, so later buses may
+            still run.
+          </span>
           <button type="button" className={styles.retryButton} onClick={onRefresh}>
             Try again
           </button>

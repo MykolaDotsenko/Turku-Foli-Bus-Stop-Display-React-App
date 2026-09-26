@@ -560,8 +560,8 @@ The live response verified on 2026-09-20 did **not** contain a guaranteed top-le
 | --- | --- | --- |
 | `lineref` | Public line reference used by SIRI | ✅ line badge / route lookup |
 | `destinationdisplay` | Destination/front-display text | ✅ |
-| `destinationdisplay_en` | English destination variant | ✅ preferred for English browser locales, with safe fallback |
-| `destinationdisplay_sv` | Swedish destination variant | ✅ preferred for Swedish browser locales, with safe fallback |
+| `destinationdisplay_en` | English destination variant | ✅ shown beside the sign text for English readers, never instead of it |
+| `destinationdisplay_sv` | Swedish destination variant | ✅ shown beside the sign text for Swedish readers, never instead of it |
 | `monitored` | Realtime monitoring available | ✅ realtime vs scheduled semantics |
 | `delay` | Delay value supplied by current JSON adapter | ✅ |
 | `recordedattime` | Vehicle observation time | ✅ freshness |
@@ -1115,10 +1115,11 @@ Not using every available field is a feature, not a deficiency. For every provid
 - route-only ALERTS use progressive static stop/route membership without downloading `trips/all`
 - `/geojson/bounds/compact` is checked locally before automatic geolocation decisions
 - fresh `vehicleatstop` truth is preferred before distance heuristics
-- `destinationdisplay_en` / `destinationdisplay_sv` are selected by browser language with fallback
+- the board leads with `destinationdisplay`, the name on the bus's sign; `destinationdisplay_en` / `destinationdisplay_sv` are added beside it in the reader's language, and stand in only when the sign text is missing
 - `__tripref` is accepted only as optional enrichment; core departures never depend on it
 - trip-specific `wheelchair_accessible` is shown only for explicit values
 - `stop_times/trip` powers lazy “Next stops”; `timepoint=0` is labelled approximate
+- when SIRI has nothing ahead and the GTFS timetable fallback cannot be read, the board says the timetable went unchecked rather than "No upcoming departures"; a trip whose metadata cannot be fetched ends the timetable list there, with a note, instead of being skipped as if it did not run
 - `pickup_type=1` is excluded from boarding-route membership
 - ALERTS media and validity are surfaced conservatively
 

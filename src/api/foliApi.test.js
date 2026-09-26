@@ -1072,3 +1072,138 @@ test("re-reads rows once after the pin expires, against the confirmed dataset", 
   expect(tripUrls).toHaveLength(2);
   expect(tripUrls[1]).toContain("/20260920-120000/");
 });
+
+// A quiet stop late in the evening: the live feed has nothing ahead and the
+// timetable lookup fails. Answered as a plain empty board, that read as "no
+// more buses tonight" when nobody had been able to check.
+test("says the timetable went unchecked when the live feed has nothing ahead", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: { status: "OK", servertime: 1900000000, result: [] },
+      });
+    }
+    return Promise.reject(new Error("GTFS unavailable"));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toEqual([]);
+  expect(result.realtimeAvailable).toBe(true);
+  expect(result.scheduleAvailable).toBe(false);
+  expect(result.scheduleFailed).toBe(true);
+});
+
+test("does not flag the timetable when the live feed already has what is next", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: {
+          status: "OK",
+          servertime: 1900000000,
+          result: [
+            {
+              lineref: "1",
+              monitored: true,
+              expecteddeparturetime: 1900000300,
+            },
+          ],
+        },
+      });
+    }
+    return Promise.reject(new Error("GTFS should not be asked"));
+  });
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toHaveLength(1);
+  expect(result.scheduleFailed).toBe(false);
+});
+
+function timetableWithTrips(reference, trips) {
+  const everyDay = {
+    monday: 1,
+    tuesday: 1,
+    wednesday: 1,
+    thursday: 1,
+    friday: 1,
+    saturday: 1,
+    sunday: 1,
+    start_date: "20260901",
+    end_date: "20260930",
+  };
+
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/siri/sm/621") {
+      return Promise.resolve({
+        data: { status: "OK", servertime: reference, result: [] },
+      });
+    }
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/stop_times/stop/621`) {
+      return Promise.resolve({
+        data: trips.map(({ id, time }, index) => ({
+          trip_id: id,
+          arrival_time: time,
+          departure_time: time,
+          stop_sequence: 10 + index,
+          pickup_type: 0,
+          drop_off_type: 0,
+        })),
+      });
+    }
+    if (url === `${datasetBase}/calendar`) {
+      return Promise.resolve({ data: { daily: everyDay } });
+    }
+    if (url === `${datasetBase}/calendar_dates`) {
+      return Promise.resolve({ data: {} });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({
+        data: [{ route_id: "route-32", route_short_name: "32", route_type: 3 }],
+      });
+    }
+    const trip = trips.find(({ id }) => url === `${datasetBase}/trips/trip/${id}`);
+    if (trip && !trip.fails) {
+      return Promise.resolve({
+        data: [
+          { route_id: "route-32", service_id: "daily", trip_headsign: "Varissuo" },
+        ],
+      });
+    }
+    return Promise.reject(new Error(`Unavailable: ${url}`));
+  });
+}
+
+// One trip lookup failing used to drop that departure silently, so the next
+// bus looked like the 16:10 when the 15:40 might well be running.
+test("stops the timetable list at a departure it could not check", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000; // 15:15 Helsinki
+  timetableWithTrips(reference, [
+    { id: "trip-gap-a", time: "15:20:00" },
+    { id: "trip-gap-b", time: "15:40:00", fails: true },
+    { id: "trip-gap-c", time: "16:10:00" },
+  ]);
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals.map((row) => row.tripref)).toEqual(["trip-gap-a"]);
+  expect(result.scheduleAvailable).toBe(true);
+  expect(result.scheduleIncomplete).toBe(true);
+  expect(result.scheduleFailed).toBe(false);
+});
+
+test("counts a timetable whose first departure could not be checked as unchecked", async () => {
+  const reference = Date.parse("2026-09-21T12:15:00Z") / 1000;
+  timetableWithTrips(reference, [
+    { id: "trip-first-a", time: "15:20:00", fails: true },
+    { id: "trip-first-b", time: "15:40:00" },
+  ]);
+
+  const result = await fetchStopMonitor("621");
+
+  expect(result.arrivals).toEqual([]);
+  expect(result.scheduleFailed).toBe(true);
+});

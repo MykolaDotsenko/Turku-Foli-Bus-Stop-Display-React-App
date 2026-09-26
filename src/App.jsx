@@ -90,6 +90,8 @@ function App() {
     receivedAtMs,
     realtimeAvailable,
     scheduleAvailable,
+    scheduleFailed,
+    scheduleIncomplete,
     loading,
     refreshing,
     error,
@@ -300,6 +302,8 @@ function App() {
             receivedAtMs={receivedAtMs}
             realtimeAvailable={realtimeAvailable}
             scheduleAvailable={scheduleAvailable}
+            scheduleFailed={scheduleFailed === true}
+            scheduleIncomplete={scheduleIncomplete === true}
             loading={loading}
             refreshing={refreshing}
             error={error}

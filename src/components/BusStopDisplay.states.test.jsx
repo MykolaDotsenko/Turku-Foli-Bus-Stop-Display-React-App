@@ -94,3 +94,41 @@ test("a saved board shown while reloading keeps its departures on screen", () =>
   expect(screen.getByText("Satama")).toBeInTheDocument();
   expect(screen.queryByText("Loading departures…")).not.toBeInTheDocument();
 });
+
+test("an empty live answer with an unchecked timetable does not claim the day is over", () => {
+  render(
+    board({ serverTime: NOW, receivedAtMs: Date.now(), scheduleFailed: true })
+  );
+
+  expect(screen.getByText("No live departures right now.")).toBeInTheDocument();
+  expect(
+    screen.getByText(/timetable could not be checked/i)
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+  expect(screen.queryByText("No upcoming departures.")).not.toBeInTheDocument();
+});
+
+test("says when the timetable list stops early because a trip could not be checked", () => {
+  render(
+    board({
+      arrivals: [
+        {
+          lineref: "32",
+          destinationdisplay: "Varissuo",
+          monitored: false,
+          aimeddeparturetime: NOW + 300,
+        },
+      ],
+      serverTime: NOW,
+      receivedAtMs: Date.now(),
+      realtimeAvailable: true,
+      scheduleAvailable: true,
+      scheduleIncomplete: true,
+    })
+  );
+
+  expect(screen.getByText("Varissuo")).toBeInTheDocument();
+  expect(
+    screen.getByText(/later departures could not be checked/i)
+  ).toBeInTheDocument();
+});
