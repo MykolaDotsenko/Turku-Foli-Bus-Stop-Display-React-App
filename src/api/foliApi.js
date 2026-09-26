@@ -353,7 +353,7 @@ export async function fetchStopCatalog(signal) {
     throw new Error("Invalid Föli stop list.");
   }
 
-  return Object.entries(payload)
+  const stops = Object.entries(payload)
     .map(([id, stop]) => ({
       id: String(id),
       name:
@@ -361,6 +361,14 @@ export async function fetchStopCatalog(signal) {
     }))
     .filter((stop) => /^\d+$/.test(stop.id))
     .sort((a, b) => Number(a.id) - Number(b.id));
+
+  // Turku has hundreds of stops. An answer with none is a failed answer,
+  // and saved as the catalogue it switched name search off for a day.
+  if (stops.length === 0) {
+    throw new Error("Föli stop list is empty.");
+  }
+
+  return stops;
 }
 
 export async function fetchStopCoordinates(signal) {
@@ -427,6 +435,12 @@ export async function fetchRouteCatalog(signal) {
       };
     })
     .filter((route) => route.id && route.shortName);
+
+  // An empty list kept as the routes made every followed line "no
+  // departures in the next 36 hours".
+  if (normalized.length === 0) {
+    throw new Error("Föli GTFS route list is empty.");
+  }
 
   routeCatalogCache.set(cacheKey, normalized);
   return normalized;

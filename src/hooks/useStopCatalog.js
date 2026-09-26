@@ -36,9 +36,12 @@ function readCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (Array.isArray(cached?.stops)) {
+      const stops = cached.stops.filter(isStoredStop);
+      // A catalogue with nothing left in it is not a fresh one: kept as
+      // fresh, it was never fetched again and search stayed off for a day.
       return {
-        stops: cached.stops.filter(isStoredStop),
-        savedAt: Number(cached.savedAt) || 0,
+        stops,
+        savedAt: stops.length > 0 ? Number(cached.savedAt) || 0 : 0,
       };
     }
   } catch {

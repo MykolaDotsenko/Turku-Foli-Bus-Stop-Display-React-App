@@ -20,9 +20,11 @@ function readCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CACHE_KEY));
     if (Array.isArray(cached?.routes)) {
+      const routes = cached.routes.filter(isStoredRoute);
+      // Nothing left is nothing to be fresh about: fetch again.
       return {
-        routes: cached.routes.filter(isStoredRoute),
-        savedAt: Number(cached.savedAt) || 0,
+        routes,
+        savedAt: routes.length > 0 ? Number(cached.savedAt) || 0 : 0,
       };
     }
   } catch {

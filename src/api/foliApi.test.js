@@ -66,6 +66,31 @@ test("keeps the active SIRI stop catalogue independent from GTFS coordinates", a
   expect(mocks.get).toHaveBeenCalledTimes(1);
 });
 
+// Saved as the catalogue, an empty answer switched name search off for a day.
+test("treats a stop list with no stops in it as a failed answer", async () => {
+  mocks.get.mockResolvedValue({ data: { status: "OK" } });
+
+  await expect(fetchStopCatalog()).rejects.toThrow("Föli stop list is empty.");
+});
+
+test("treats an empty route list as a failed answer and asks again next time", async () => {
+  mocks.get.mockImplementation((url) => {
+    if (url === "https://data.foli.fi/gtfs/") {
+      return Promise.resolve({ data: datasetMeta });
+    }
+    if (url === `${datasetBase}/routes`) {
+      return Promise.resolve({ data: [] });
+    }
+    return Promise.reject(new Error(`Unexpected URL: ${url}`));
+  });
+
+  await expect(fetchRouteCatalog()).rejects.toThrow("Föli GTFS route list is empty.");
+  await expect(fetchRouteCatalog()).rejects.toThrow("Föli GTFS route list is empty.");
+  expect(
+    mocks.get.mock.calls.filter(([url]) => url === `${datasetBase}/routes`)
+  ).toHaveLength(2);
+});
+
 test("normalizes valid GTFS WGS84 stop coordinates", async () => {
   mocks.get.mockImplementation((url) => {
     if (url === "https://data.foli.fi/gtfs/") {
