@@ -33,7 +33,7 @@
 
 .heading p {
   margin: 0;
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.88rem;
   line-height: 1.45;
 }
@@ -55,7 +55,7 @@
   padding: 0 0.15rem;
   border: 0;
   background: transparent;
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -63,7 +63,7 @@
 
 .status {
   margin: 0.9rem 0 0;
-  color: #60747d;
+  color: #4d626b;
 }
 
 .stopList {
@@ -113,7 +113,7 @@
 }
 
 .stopCopy small {
-  color: #60747d;
+  color: #4d626b;
   line-height: 1.35;
 }
 
@@ -155,7 +155,7 @@
 }
 
 .options small {
-  color: #60747d;
+  color: #4d626b;
   line-height: 1.4;
 }
 
@@ -206,7 +206,7 @@
 }
 
 .departureContext {
-  color: #60747d;
+  color: #4d626b;
   font-size: 0.8rem;
 }
 
