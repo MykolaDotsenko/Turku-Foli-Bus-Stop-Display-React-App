@@ -31,6 +31,27 @@ function SafePlaceDriverCard({
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current?.();
+        return;
+      }
+
+      // The card covers the screen, so Tab must not wander off into the
+      // page hidden behind it.
+      if (event.key === "Tab") {
+        const buttons = [...(cardRef.current?.querySelectorAll("button") || [])];
+        if (buttons.length === 0) return;
+
+        const first = buttons[0];
+        const last = buttons.at(-1);
+        const active = globalThis.document?.activeElement;
+        const inside = cardRef.current?.contains(active);
+
+        if (event.shiftKey && (active === first || !inside)) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (active === last || !inside)) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -69,22 +90,35 @@ function SafePlaceDriverCard({
     globalThis.speechSynthesis.speak(utterance);
   };
 
+  // Held up to a driver through the cab window, so it fills the screen and
+  // leads in Finnish, with the stop as its largest words. It never names
+  // the place: "I need to get to Home" told the driver nothing and told
+  // everyone nearby where the passenger lives.
   return (
     <section
       ref={cardRef}
       className={styles.card}
       role="dialog"
       tabIndex={-1}
-      aria-modal="false"
+      aria-modal="true"
       aria-labelledby={titleId}
     >
-      <p className={styles.kicker}>Show this screen to the driver</p>
-      <h3 id={titleId}>I need to get to {place.label}</h3>
-      <p className={styles.stop}>
-        {primaryStop.name}
-        <span>Stop {primaryStop.id}</span>
-      </p>
-      <p className={styles.finnish}>{FINNISH_HELP}</p>
+      <div className={styles.content}>
+        <p className={styles.kicker}>Show this screen to the driver</p>
+        <p className={styles.lead} lang="fi">
+          Olen menossa pysäkille
+        </p>
+        <h3 id={titleId} className={styles.stop}>
+          {primaryStop.name}
+          <span>
+            <span lang="fi">Pysäkki</span> / Stop {primaryStop.id}
+          </span>
+        </h3>
+        <p className={styles.finnish} lang="fi">
+          {FINNISH_HELP}
+        </p>
+        <p className={styles.english}>Please help me get off at this stop.</p>
+      </div>
       <div className={styles.actions}>
         {canReadAloud && (
           <button

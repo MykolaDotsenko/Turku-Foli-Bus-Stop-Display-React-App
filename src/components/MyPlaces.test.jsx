@@ -175,10 +175,9 @@ test("shows a simple driver card without exposing a private address", () => {
 
   const dialog = screen.getByRole("dialog");
   expect(
-    within(dialog).getByRole("heading", { name: "I need to get to School" })
+    within(dialog).getByRole("heading", { name: /Puistokatu/ })
   ).toBeInTheDocument();
-  expect(within(dialog).getByText("Puistokatu")).toBeInTheDocument();
-  expect(within(dialog).getByText("Stop 32")).toBeInTheDocument();
+  expect(within(dialog).getByText(/Stop 32/)).toBeInTheDocument();
   expect(
     within(dialog).getByText(
       "Voitteko auttaa minua jäämään pois oikealla pysäkillä?"

@@ -1264,7 +1264,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   await recovery.getByRole("button", { name: "Show driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
-    driver.getByRole("heading", { name: "I need to get to Home" })
+    driver.getByRole("heading", { name: /Kauppatori/ })
   ).toBeVisible();
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 
@@ -1390,7 +1390,7 @@ test("production PWA reopens offline with Safe Places and driver help", async ({
   await recovery.getByRole("button", { name: "Show driver" }).click();
   const driver = recovery.getByRole("dialog");
   await expect(
-    driver.getByRole("heading", { name: "I need to get to Home" })
+    driver.getByRole("heading", { name: /Kauppatori/ })
   ).toBeVisible();
   await expect(driver.getByText("Kauppatori")).toBeVisible();
 

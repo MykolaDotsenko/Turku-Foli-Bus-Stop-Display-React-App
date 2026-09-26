@@ -90,10 +90,9 @@ test("keeps useful fallbacks when route coordinates are unavailable", () => {
   fireEvent.click(screen.getByRole("button", { name: "Show driver" }));
   const dialog = screen.getByRole("dialog");
   expect(
-    within(dialog).getByRole("heading", { name: "I need to get to Home" })
+    within(dialog).getByRole("heading", { name: /Kauppatori/ })
   ).toBeInTheDocument();
-  expect(within(dialog).getByText("Kauppatori")).toBeInTheDocument();
-  expect(within(dialog).getByText("Stop 164")).toBeInTheDocument();
+  expect(within(dialog).getByRole("heading", { name: /Stop 164/ })).toBeInTheDocument();
 });
 
 test("exposes saved backup stops only on demand", () => {

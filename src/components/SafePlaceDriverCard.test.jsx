@@ -121,3 +121,51 @@ test("moves focus into the driver card, closes with Escape, and restores focus",
   expect(opener).toHaveFocus();
   opener.remove();
 });
+// Held up to a driver through the cab window, an inline card with an 18px
+// stop name was unreadable, and "I need to get to Home" told the driver
+// nothing while telling everyone nearby it was the passenger's home.
+test("fills the screen for the driver and leads in Finnish, without naming the place", () => {
+  render(
+    <SafePlaceDriverCard
+      place={{ id: "home", label: "Home" }}
+      primaryStop={{ id: "164", name: "Kauppatori" }}
+      onClose={vi.fn()}
+    />
+  );
+
+  const dialog = screen.getByRole("dialog", { name: /Kauppatori/ });
+  expect(dialog).toHaveAttribute("aria-modal", "true");
+  expect(screen.getByRole("heading", { name: /Kauppatori/ })).toBeInTheDocument();
+  expect(screen.getByText("Olen menossa pysäkille")).toHaveAttribute("lang", "fi");
+  expect(screen.getByText("Please help me get off at this stop.")).toBeInTheDocument();
+  expect(dialog).not.toHaveTextContent(/Home/);
+});
+
+test("keeps keyboard focus inside the full-screen card", () => {
+  Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
+    configurable: true,
+    value: class {},
+  });
+  Object.defineProperty(globalThis, "speechSynthesis", {
+    configurable: true,
+    value: { speak: vi.fn(), cancel: vi.fn() },
+  });
+
+  render(
+    <SafePlaceDriverCard
+      place={{ id: "home", label: "Home" }}
+      primaryStop={{ id: "164", name: "Kauppatori" }}
+      onClose={vi.fn()}
+    />
+  );
+
+  const readAloud = screen.getByRole("button", { name: "Read aloud in Finnish" });
+  const close = screen.getByRole("button", { name: "Close" });
+
+  close.focus();
+  fireEvent.keyDown(document, { key: "Tab" });
+  expect(readAloud).toHaveFocus();
+
+  fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+  expect(close).toHaveFocus();
+});
