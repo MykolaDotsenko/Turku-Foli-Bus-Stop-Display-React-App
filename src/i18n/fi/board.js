@@ -40,7 +40,7 @@ export default {
   "Save {name} to favorites": "Lisää suosikkeihin: {name}",
   "Remove favorite": "Poista suosikki",
   "Save favorite": "Lisää suosikiksi",
-  "Updated {time}": "Päivitetty {time}",
+  "Updated {time}": "Päivitetty klo {time}",
   "Refreshing…": "Päivitetään…",
   Refresh: "Päivitä",
   "Departure data summary": "Lähtötietojen yhteenveto",
@@ -61,10 +61,10 @@ export default {
   "{count} scheduled": ({ count }) =>
     count === 1 ? "1 aikataulun mukainen" : `${count} aikataulun mukaista`,
   "Live update failed": "Reaaliaikapäivitys epäonnistui",
-  "Live data is getting old": "Reaaliaikatiedot vanhenevat",
+  "Live data is getting old": "Reaaliaikatiedot eivät ole tuoreita",
   "last successful update {age}": "viimeisin onnistunut päivitys {age}",
   "Live updates are unavailable · showing scheduled Föli times.":
-    "Reaaliaikatietoja ei saatavilla · näytetään Fölin aikataulun mukaiset ajat.",
+    "Reaaliaikatietoja ei ole saatavilla · näytetään Fölin aikataulun mukaiset ajat.",
   "No live departure is published right now · showing the next scheduled Föli times.":
     "Reaaliaikaisia lähtöjä ei juuri nyt julkaista · näytetään seuraavat aikataulun mukaiset ajat.",
   "Later departures could not be checked, so more buses may run after these.":
@@ -87,7 +87,7 @@ export default {
   Destination: "Määränpää",
   "Unknown destination": "Tuntematon määränpää",
   "Cancelled at this stop · was due {time}":
-    "Peruttu tällä pysäkillä · piti lähteä {time}",
+    "Peruttu tällä pysäkillä · aikataulun mukaan klo {time}",
   "Ride Mode active": "Matkatila käytössä",
   "Close get-off setup": "Sulje hälytyksen asetukset",
   "Alert me when to get off": "Kerro, milloin jäädä pois",
@@ -104,7 +104,7 @@ export default {
   "Next stops are temporarily unavailable.":
     "Seuraavat pysäkit eivät ole tilapäisesti saatavilla.",
   "No later stops are listed.": "Myöhempiä pysäkkejä ei ole listattu.",
-  "around {time}": "noin {time}",
+  "around {time}": "noin klo {time}",
   planned: "suunniteltu",
   // Finnish timetables' own term for a stop where no one may get off.
   "no drop-off": "vain nousu",

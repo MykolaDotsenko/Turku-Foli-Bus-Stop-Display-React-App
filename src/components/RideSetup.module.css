@@ -121,7 +121,8 @@
   padding: 0.25rem 0.45rem;
   border-radius: 999px;
   background: color-mix(in srgb, #007985 11%, white);
-  color: #007985;
+  /* The brand teal on its own tint is 4.4:1, short of AA at this size. */
+  color: #00656f;
   font-size: 0.72rem;
   font-weight: 800;
 }

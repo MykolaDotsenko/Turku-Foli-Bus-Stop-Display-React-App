@@ -302,7 +302,11 @@ export default function RideMode({
 
       <div className={styles.target}>
         <span>{t("Your stop")}</span>
-        <strong>{stopLabel(session.targetStop)}</strong>
+        <strong
+          lang={realStopName(session.targetStop?.name) ? "fi" : undefined}
+        >
+          {stopLabel(session.targetStop)}
+        </strong>
         <small>
           {t("Stop {id}", { id: session.targetStop.id })}
           {afterName ? ` · ${t("after {name}", { name: afterName })}` : ""}

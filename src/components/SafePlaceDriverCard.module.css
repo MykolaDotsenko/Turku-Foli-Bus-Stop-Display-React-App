@@ -51,7 +51,7 @@
   overflow-wrap: anywhere;
 }
 
-.stop > span {
+.stopNumber {
   color: #334750;
   font-size: 1.25rem;
   font-weight: 800;

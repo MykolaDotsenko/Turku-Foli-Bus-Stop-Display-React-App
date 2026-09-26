@@ -27,10 +27,10 @@ export default {
   "Save the stops you use, without typing an address.":
     "Tallenna käyttämäsi pysäkit kirjoittamatta osoitetta.",
   "Use my location": "Käytä sijaintiani",
-  "Set up {label} from my current location":
-    "Aseta {label} nykyisen sijaintini perusteella",
+  "Use my location to set up {label}":
+    "Käytä sijaintiani paikan {label} asettamiseen",
   "Use {name}": "Käytä pysäkkiä {name}",
-  "Set up {label} using {name}": "Aseta {label} käyttäen pysäkkiä {name}",
+  "Use {name} for {label}": "Käytä pysäkkiä {name} paikalle {label}",
 
   // Choosing a place's stops
   "Choose stops for {label}": "Valitse pysäkit: {label}",
@@ -120,7 +120,7 @@ export default {
     "Tarkista Koti: tallennettu pysäkki on muuttunut tai poistunut Fölin nykyisestä pysäkkiluettelosta.",
   "Get me Home": "Vie minut kotiin",
   "Get me Home by public transit": "Vie minut kotiin joukkoliikenteellä",
-  "Home options": "Lisää vaihtoehtoja",
+  "Home options": "Näytä lisää",
   "Fewer options": "Näytä vähemmän",
   "Open Home stop": "Avaa kotipysäkki",
   "Opens Google Maps to this saved Home stop. Check the suggested itinerary before travelling.":
@@ -133,8 +133,8 @@ export default {
   "Other saved Home stops": "Muut tallennetut kotipysäkit",
   "If the usual stop is unavailable, choose another stop you approved for Home.":
     "Jos tavallista pysäkkiä ei voi käyttää, valitse toinen kotipysäkki, jonka olet hyväksynyt.",
-  "Get to backup Home stop {name}, stop {id}, by public transit":
-    "Reitti kodin varapysäkille {name}, pysäkki {id}, joukkoliikenteellä",
+  "Route there: backup Home stop {name}, stop {id}, by public transit":
+    "Reitti sinne: kodin varapysäkki {name}, pysäkki {id}, joukkoliikenteellä",
   "Route there": "Reitti sinne",
   "Open stop": "Avaa pysäkki",
   "Prepare for no battery": "Varaudu akun loppumiseen",

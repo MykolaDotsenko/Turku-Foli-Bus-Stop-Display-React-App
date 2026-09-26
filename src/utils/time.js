@@ -124,10 +124,13 @@ export function formatDueParts(unixSeconds, nowMs = Date.now()) {
   if (days === 0) return { day: t("Today"), time: clock };
   if (days === 1) return { day: t("Tomorrow"), time: clock };
 
+  // Finnish writes weekdays in lower case ("ti"); above a time, beside
+  // "Tänään" and "Huomenna", it is a label and takes a capital like them.
+  const weekday = serviceDateTimeFormat({ weekday: "short" }, intlLocale()).format(
+    new Date(departureMs)
+  );
   return {
-    day: serviceDateTimeFormat({ weekday: "short" }, intlLocale()).format(
-      new Date(departureMs)
-    ),
+    day: weekday.charAt(0).toLocaleUpperCase(intlLocale()) + weekday.slice(1),
     time: clock,
   };
 }

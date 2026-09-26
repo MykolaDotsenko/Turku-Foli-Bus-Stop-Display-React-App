@@ -19,7 +19,7 @@ export default {
   Recovery: "Paluuohjeet",
   "Your stop may be behind you": "Pysäkkisi saattoi jäädä taakse",
   "Get off at the next stop and use the recovery action below.":
-    "Jää pois seuraavalla pysäkillä ja katso paluuohjeet alta.",
+    "Jää pois seuraavalla pysäkillä ja avaa sen lähdöt alta.",
   "Get ready to exit at the next stop.":
     "Valmistaudu jäämään pois seuraavalla pysäkillä.",
 
@@ -40,7 +40,7 @@ export default {
 
   // What the live data shows
   "Following your bus": "Seurataan bussiasi",
-  "Live tracking is catching up": "Reaaliaikatieto päivittyy",
+  "Live tracking is catching up": "Reaaliaikatieto viivästyy",
   "Going by the timetable": "Aikataulun mukaan",
   "Your bus is confirmed": "Bussisi on vahvistettu",
   "in Föli’s live arrival data": "Fölin reaaliaikatiedoista",
@@ -62,7 +62,7 @@ export default {
   "Lost track of your location": "Sijaintisi seuranta katkesi",
   "You may not be on this route": "Et ehkä ole tällä reitillä",
   "Following you along the route": "Seurataan sinua reittiä pitkin",
-  "Following you, roughly": "Seurataan sinua karkeasti",
+  "Following you, roughly": "Seurataan sijaintiasi likimääräisesti",
   "Weak location signal": "Heikko sijaintisignaali",
   "Finding your location": "Haetaan sijaintiasi",
   "Cannot use your location": "Sijaintiasi ei voi käyttää",
@@ -155,9 +155,9 @@ export default {
     "Emme pysty laatimaan luotettavaa suunnitelmaa tälle pysäkille tällä vuorolla. Kokeile toista pysäkkiä tai aloita matka toisesta lähdöstä.",
   "Start Ride Mode": "Käynnistä matkatila",
   "Get off at {name}": "Jää pois: {name}",
-  "Line {line} leaves {time}": "Linja {line} lähtee {time}",
+  "Line {line} leaves {time}": "Linja {line} lähtee klo {time}",
   "Line {line}": "Linja {line}",
-  "This trip leaves {time}": "Tämä vuoro lähtee {time}",
+  "This trip leaves {time}": "Tämä vuoro lähtee klo {time}",
   "This trip": "Tämä vuoro",
 
   // Spoken. The stop name is read on its own, by the Finnish voice. The
@@ -166,7 +166,7 @@ export default {
   "your stop": "pysäkkisi",
   "Ride alerts are working.": "Matkatilan hälytykset toimivat.",
   "Get ready. Your stop is coming up.": "Valmistaudu. Pysäkkisi lähestyy.",
-  "The next stop is yours.": "Seuraava pysäkki on sinun.",
+  "The next stop is yours.": "Pysäkkisi on seuraavana.",
   "Press the stop button now.": "Paina stop-nappia nyt.",
   "This is your stop.": "Tämä on pysäkkisi.",
   "Get off now.": "Jää pois nyt.",
@@ -178,6 +178,6 @@ export default {
   "Next stop: {name}": "Seuraava pysäkki: {name}",
   "This is your stop: {name}": "Tämä on pysäkkisi: {name}",
   "Get off at the next stop and use recovery help.":
-    "Jää pois seuraavalla pysäkillä ja katso paluuohjeet sovelluksesta.",
+    "Jää pois seuraavalla pysäkillä ja katso sovelluksesta, miten pääset takaisin.",
   "Ride alerts are working": "Matkatilan hälytykset toimivat",
 };

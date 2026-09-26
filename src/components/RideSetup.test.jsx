@@ -407,11 +407,11 @@ test("sets up the ride in Finnish, with stop names as Föli publishes them", asy
   fireEvent.click(await screen.findByDisplayValue("3"));
 
   expect(screen.getByText(/pysäkin päässä/)).toHaveTextContent(
-    "2 pysäkin päässä · noin 17:55 · pysäkin Puistokatu jälkeen"
+    "2 pysäkin päässä · noin klo 17:55 · pysäkin Puistokatu jälkeen"
   );
   expect(screen.getByText(/^Seuraava pysäkki · /)).toBeInTheDocument();
   expect(
-    screen.getByText(/^Jää pois: Turun linna · Linja 1 lähtee \d\d:\d\d$/)
+    screen.getByText(/^Jää pois: Turun linna · Linja 1 lähtee klo \d\d:\d\d$/)
   ).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Käynnistä matkatila" }));

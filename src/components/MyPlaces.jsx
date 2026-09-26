@@ -580,7 +580,7 @@ function EmptyPlaceCard({
             onClick={() => onStartSetup(preset.id)}
             disabled={status === "locating"}
             aria-busy={status === "locating"}
-            aria-label={t("Set up {label} from my current location", { label })}
+            aria-label={t("Use my location to set up {label}", { label })}
           >
             {t("Use my location")}
           </button>
@@ -589,7 +589,7 @@ function EmptyPlaceCard({
               type="button"
               className={styles.textButton}
               onClick={() => onStartFromSelectedStop(preset.id)}
-              aria-label={t("Set up {label} using {name}", {
+              aria-label={t("Use {name} for {label}", {
                 label,
                 name: stopLabel(activeStop),
               })}

@@ -67,7 +67,7 @@ test("sets up Home from one-time location and saves only public safe stops", asy
 
   expect(getCurrentPosition).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("button", { name: "Set up Home from my current location" }));
+  fireEvent.click(screen.getByRole("button", { name: "Use my location to set up Home" }));
 
   expect(
     await screen.findByRole("heading", {
@@ -205,7 +205,7 @@ test("reviews and confirms the selected public stop when location is unavailable
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home using Puistokatu" })
+    screen.getByRole("button", { name: "Use Puistokatu for Home" })
   );
 
   expect(
@@ -392,7 +392,7 @@ test("adds backup Safe Arrival stops only after explicit opt-in", async () => {
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   await screen.findByRole("heading", {
@@ -488,7 +488,7 @@ test("does not preselect a Safe Place when location accuracy is poor", async () 
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   await screen.findByRole("heading", {
@@ -552,7 +552,7 @@ test("does not create a location-based Safe Place outside the Föli boundary", a
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
 
   expect(
@@ -580,7 +580,7 @@ test("starts each place's setup with its own, unticked confirmation", () => {
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home using Puistokatu" })
+    screen.getByRole("button", { name: "Use Puistokatu for Home" })
   );
   fireEvent.click(
     screen.getByRole("checkbox", {
@@ -590,7 +590,7 @@ test("starts each place's setup with its own, unticked confirmation", () => {
   expect(screen.getByRole("button", { name: "Save Home" })).toBeEnabled();
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up School using Puistokatu" })
+    screen.getByRole("button", { name: "Use Puistokatu for School" })
   );
 
   expect(
@@ -645,7 +645,7 @@ test("names a place saved as \"Home\" in Finnish, by what it is", () => {
   expect(screen.getByRole("heading", { name: "Koulu" })).toBeInTheDocument();
   expect(
     screen.getByRole("button", {
-      name: "Aseta Työ nykyisen sijaintini perusteella",
+      name: "Käytä sijaintiani paikan Työ asettamiseen",
     })
   ).toHaveTextContent("Käytä sijaintiani");
   expect(document.body).not.toHaveTextContent(/Home|School|Work/);
@@ -670,7 +670,7 @@ test("sets up a place in Finnish, confirming it in the place's own words", () =>
 
   fireEvent.click(
     screen.getByRole("button", {
-      name: "Aseta Koulu käyttäen pysäkkiä Puistokatu",
+      name: "Käytä pysäkkiä Puistokatu paikalle Koulu",
     })
   );
 
@@ -741,7 +741,7 @@ test("rewords a message already on screen when the language changes", () => {
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: "Set up Home from my current location" })
+    screen.getByRole("button", { name: "Use my location to set up Home" })
   );
   expect(screen.getByRole("alert")).toHaveTextContent(
     "This browser does not support location access."
@@ -776,7 +776,7 @@ test("a blocked location is explained in Finnish in the Finnish interface", asyn
   );
 
   fireEvent.click(
-    screen.getByRole("button", { name: /Aseta Koti nykyisen sijaintini perusteella/ })
+    screen.getByRole("button", { name: /Käytä sijaintiani paikan Koti asettamiseen/ })
   );
 
   expect(

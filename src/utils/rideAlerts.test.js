@@ -106,6 +106,7 @@ describe("ride get-off notifications", () => {
     expect(options.requireInteraction).toBe(true);
     expect(options.renotify).toBe(true);
     expect(options.tag).toBe("foli-active-ride");
+    expect(options.lang).toBe("en");
     // A raster icon every notification centre decodes, and a status-bar badge
     // so Android shows the bus rather than the browser's logo.
     expect(options.icon).toMatch(/\/icon-192\.png$/);
@@ -139,9 +140,10 @@ describe("ride get-off notifications", () => {
     expect(showNotification.mock.calls.map(([title, options]) => [
       title,
       options.body,
+      options.lang,
     ])).toEqual([
-      ["Tämä on pysäkkisi: Puistokatu", "Jää pois nyt."],
-      ["Seuraava pysäkki: Puistokatu", "Paina STOP-nappia nyt."],
+      ["Tämä on pysäkkisi: Puistokatu", "Jää pois nyt.", "fi"],
+      ["Seuraava pysäkki: Puistokatu", "Paina STOP-nappia nyt.", "fi"],
     ]);
   });
 });

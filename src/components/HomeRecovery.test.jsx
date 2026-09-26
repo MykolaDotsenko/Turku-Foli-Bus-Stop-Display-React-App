@@ -107,7 +107,7 @@ test("exposes saved backup stops only on demand", () => {
   );
 
   const backupRoute = screen.getByRole("link", {
-    name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+    name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
   });
   const backupUrl = new globalThis.URL(backupRoute.href);
   expect(backupUrl.searchParams.get("destination")).toBe("60.4488,22.255");
@@ -193,7 +193,7 @@ test("offers Get me Home in Finnish for a Home saved with its English label", ()
   ).toBeInTheDocument();
   expect(
     screen.getByRole("link", {
-      name: "Reitti kodin varapysäkille Puistokatu, pysäkki 32, joukkoliikenteellä",
+      name: "Reitti sinne: kodin varapysäkki Puistokatu, pysäkki 32, joukkoliikenteellä",
     })
   ).toBeInTheDocument();
 

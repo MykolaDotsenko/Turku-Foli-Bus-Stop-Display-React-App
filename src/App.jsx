@@ -263,10 +263,15 @@ function App() {
             {/* The language switch rides on this short line's spare end: in a
                 row of its own it cost every phone screen a line of board. */}
             <div className="eyebrow-row">
-              <p className="eyebrow">Turku · Åbo</p>
+              <p className="eyebrow">
+                <span lang="fi">Turku</span> · <span lang="sv">Åbo</span>
+              </p>
               <LanguageSwitch />
             </div>
-            <p className="brand">Föli departures</p>
+            {/* The name stays English in either interface, and is read so. */}
+            <p className="brand" lang="en">
+              Föli departures
+            </p>
             <p
               className="context"
               data-firstrun={placesById.size === 0 ? "true" : "false"}

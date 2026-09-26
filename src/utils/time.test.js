@@ -8,6 +8,7 @@ import {
   formatServiceStatus,
   getDepartureTime,
 } from "./time";
+import { resetLanguageForTests } from "../i18n";
 
 test("advances the provider clock by elapsed client time after receipt", () => {
   expect(advanceServerTime(1_000, 10_000, 190_000)).toBe(1_180);
@@ -59,6 +60,19 @@ test("labels distant scheduled departures as today or tomorrow", () => {
   expect(
     formatDue(Date.parse("2026-09-22T03:30:00Z") / 1000, nowMs)
   ).toBe("Tomorrow 06:30");
+});
+
+test("labels a later day by its weekday, capitalised like Today in Finnish too", () => {
+  const nowMs = Date.parse("2026-09-21T12:45:00Z"); // Monday 15:45 Helsinki
+  const wednesday = Date.parse("2026-09-23T04:30:00Z") / 1000; // 07:30
+
+  expect(formatDue(wednesday, nowMs)).toBe("Wed 07:30");
+  resetLanguageForTests("fi");
+  try {
+    expect(formatDue(wednesday, nowMs)).toBe("Ke 07:30");
+  } finally {
+    resetLanguageForTests("en");
+  }
 });
 
 test("still refuses to invent a clock time for missing departures", () => {

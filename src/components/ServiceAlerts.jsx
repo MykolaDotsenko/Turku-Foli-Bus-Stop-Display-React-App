@@ -22,7 +22,8 @@ function humanizeCode(value) {
 }
 
 // GTFS-Realtime's causes, in words. A code Föli adds later is still shown,
-// spelt out as best it can be.
+// spelt out as best it can be in English; in Finnish, a code spelt out is
+// English, so it is simply another cause.
 function causeLabel(code) {
   switch (code) {
     case "UNKNOWN_CAUSE":
@@ -50,7 +51,7 @@ function causeLabel(code) {
     case "MEDICAL_EMERGENCY":
       return t("Medical emergency");
     default:
-      return humanizeCode(code);
+      return getLanguage() === "fi" ? t("Other cause") : humanizeCode(code);
   }
 }
 
@@ -141,7 +142,8 @@ function AlertItem({ alert }) {
                     target="_blank"
                     rel="noreferrer"
                     aria-label={
-                      image.title || t("Open image for {title}", { title: alert.title })
+                      image.title ||
+                      t("Open full image for {title}", { title: alert.title })
                     }
                   >
                     <img

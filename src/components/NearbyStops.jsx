@@ -55,7 +55,7 @@ function NearbyStopCard({ stop, isActive, isNearest, online, onSelect }) {
           href={directionsUrl}
           target="_blank"
           rel="noreferrer"
-          aria-label={t("Walk to {name}, stop {id}, in Google Maps", {
+          aria-label={t("Walk there: {name}, stop {id}, in Google Maps", {
             name: stopLabel(stop),
             id: stop.id,
           })}

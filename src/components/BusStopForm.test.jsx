@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import BusStopForm from "./BusStopForm";
+import { resetLanguageForTests, setLanguage } from "../i18n";
 
 const stops = [
   { id: "164", name: "Kauppatori" },
@@ -324,6 +325,21 @@ test("does not fill in a stop far from where the passenger is", async () => {
 
   expect(screen.getByRole("combobox", { name: "Find your stop" })).toHaveValue("");
   expect(screen.getByRole("alert")).toHaveTextContent(/away/i);
+});
+
+// The distance is written when the message is shown, so a switch of
+// language does not leave "1.4 km" in a Finnish sentence.
+test("a location message on screen writes its distance in the new language", async () => {
+  await locateWith({ latitude: 60.45182, longitude: 22.26662, accuracy: 1_420 });
+  expect(screen.getByRole("alert")).toHaveTextContent("(1.4 km)");
+
+  try {
+    act(() => setLanguage("fi"));
+    expect(screen.getByRole("alert")).toHaveTextContent("(1,4 km)");
+  } finally {
+    resetLanguageForTests("en");
+    localStorage.clear();
+  }
 });
 
 // A hub where eight stops share one name: the form asks the passenger to

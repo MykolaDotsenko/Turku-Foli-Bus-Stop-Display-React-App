@@ -124,8 +124,8 @@ function SafePlaceDriverCard({
         <h3 id={titleId} className={styles.stop}>
           {/* For the driver, so a nameless stop is named in Finnish in
               either interface. */}
-          {realName || `${FINNISH_STOP} ${primaryStop.id}`}
-          <span>
+          <span lang="fi">{realName || `${FINNISH_STOP} ${primaryStop.id}`}</span>
+          <span className={styles.stopNumber}>
             <span lang="fi">{FINNISH_STOP}</span> /{" "}
             <span lang="en">
               {ENGLISH_STOP} {primaryStop.id}

@@ -162,6 +162,14 @@ function destinationNames(arrival, preferredLanguages) {
     arrival.destinationdisplay_en ||
     arrival.destinationdisplay_sv ||
     "";
+  // Marked, so an English screen reader says "Satama" as a Finn would.
+  const signLang = arrival.destinationdisplay
+    ? "fi"
+    : arrival.destinationdisplay_en
+      ? "en"
+      : arrival.destinationdisplay_sv
+        ? "sv"
+        : "";
 
   for (const language of preferredLanguages) {
     const base = String(language || "").toLowerCase().split("-")[0];
@@ -178,10 +186,15 @@ function destinationNames(arrival, preferredLanguages) {
 
     const repeatsSign =
       translated.trim().toLocaleLowerCase() === sign.trim().toLocaleLowerCase();
-    return { sign, translation: repeatsSign ? "" : translated, lang: base };
+    return {
+      sign,
+      signLang,
+      translation: repeatsSign ? "" : translated,
+      lang: base,
+    };
   }
 
-  return { sign, translation: "", lang: "" };
+  return { sign, signLang, translation: "", lang: "" };
 }
 
 function wheelchairLabel(value) {
@@ -350,7 +363,13 @@ function BusStopDisplay({
         <div className={styles.stopHeading}>
           <div className={styles.stopTitleRow}>
             <h1 id="departures-title" className={styles.stopName}>
-              {stopName || (loading ? t("Loading…") : t("Stop {id}", { id: stopId }))}
+              {stopName ? (
+                <span lang="fi">{stopName}</span>
+              ) : loading ? (
+                t("Loading…")
+              ) : (
+                t("Stop {id}", { id: stopId })
+              )}
             </h1>
             {stopName && (
               <button
@@ -606,6 +625,11 @@ function BusStopDisplay({
                   destinationName.sign ||
                   tripDetails?.headsign ||
                   t("Unknown destination");
+                const destinationLang = destinationName.sign
+                  ? destinationName.signLang
+                  : tripDetails?.headsign
+                    ? "fi"
+                    : "";
                 const accessibility = wheelchairLabel(
                   tripDetails?.wheelchairAccessible
                 );
@@ -632,7 +656,9 @@ function BusStopDisplay({
                       </span>
                     </td>
                     <td className={styles.destination}>
-                      {destination}
+                      <span lang={destinationLang || undefined}>
+                        {destination}
+                      </span>
                       {destinationName.translation && (
                         <span
                           className={styles.destinationTranslation}

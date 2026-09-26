@@ -16,9 +16,9 @@ export default {
   "Your location is too approximate{accuracy} to pick a stop for you. Search by name, or try again outdoors.":
     "Sijaintisi on liian epätarkka{accuracy}, jotta pysäkki voitaisiin valita puolestasi. Hae nimellä tai yritä uudelleen ulkona.",
   "You appear to be outside the Föli area, so no stop was filled in. Search by name instead.":
-    "Olet ilmeisesti Fölin alueen ulkopuolella, joten pysäkkiä ei valittu. Hae mieluummin nimellä.",
+    "Olet ilmeisesti Fölin alueen ulkopuolella, joten pysäkkiä ei valittu. Hae sen sijaan nimellä.",
   "The nearest stop is {distance} away, so it was not filled in. Search by name instead.":
-    "Lähin pysäkki on {distance} päässä, joten sitä ei valittu. Hae mieluummin nimellä.",
+    "Lähin pysäkki on {distance} päässä, joten sitä ei valittu. Hae sen sijaan nimellä.",
   "Two stops are almost equally close. Search for the one that serves your direction.":
     "Kaksi pysäkkiä on lähes yhtä lähellä. Hae se, joka palvelee kulkusuuntaasi.",
   "No nearby Föli stop could be resolved from your location. Search manually instead.":
@@ -44,13 +44,13 @@ export default {
   "Open {name}, stop {id}": "Avaa {name}, pysäkki {id}",
   "Saved and recent stops": "Tallennetut ja viimeisimmät pysäkit",
   Favorites: "Suosikit",
-  Recent: "Viimeisimmät",
+  Recent: "Viimeksi käytetyt",
 
   // Near you
   "{name}, stop {id}, {distance} away": "{name}, pysäkki {id}, {distance} päässä",
   Nearest: "Lähin",
-  "Walk to {name}, stop {id}, in Google Maps":
-    "Kävelyreitti Google Mapsissa: {name}, pysäkki {id}",
+  "Walk there: {name}, stop {id}, in Google Maps":
+    "Kävele sinne: {name}, pysäkki {id}, Google Mapsissa",
   "Walk there": "Kävele sinne",
   "Nearby-stop data is still loading. Try again in a moment.":
     "Lähipysäkkien tietoja ladataan vielä. Yritä hetken kuluttua uudelleen.",
@@ -59,7 +59,7 @@ export default {
   "Your location is approximate, so compare the nearby options before choosing.":
     "Sijaintisi on likimääräinen, joten vertaa lähellä olevia vaihtoehtoja ennen valintaa.",
   "Your location appears outside Föli’s published service area. Nearby stops are shown for reference, but none was selected automatically.":
-    "Sijaintisi näyttää olevan Fölin palvelualueen ulkopuolella. Lähellä olevat pysäkit näytetään suuntaa antavina, mutta mitään ei valittu automaattisesti.",
+    "Sijaintisi näyttää olevan Fölin palvelualueen ulkopuolella. Lähellä olevat pysäkit näytetään suuntaa antavina, mutta yhtään pysäkkiä ei valittu automaattisesti.",
   "The nearest Föli stop is {distance} away. You may be outside the Föli service area.":
     "Lähin Fölin pysäkki on {distance} päässä. Saatat olla Fölin palvelualueen ulkopuolella.",
   "The nearest Föli stop is {distance} away, so it was not selected automatically. Choose the stop that fits your journey.":

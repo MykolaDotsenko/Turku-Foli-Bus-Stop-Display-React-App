@@ -218,6 +218,7 @@ test("shows the driver the same card in both languages, with the passenger's con
   expect(driverView()).toEqual(englishView);
   expect(englishView.lines).toEqual([
     "fi: Olen menossa pysäkille",
+    "fi: Kauppatori",
     "fi: Pysäkki",
     "en: Stop 164",
     "fi: Voitteko auttaa minua jäämään pois oikealla pysäkillä?",

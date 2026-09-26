@@ -168,3 +168,56 @@ test("a stop with no name yet is called by its number in Finnish", () => {
 
   expect(screen.getByRole("heading", { name: "Pysäkki 164" })).toBeInTheDocument();
 });
+
+// An English screen reader says "Kauppatori" and "Satama" as a Finn would
+// only when they are marked Finnish; a translation beside the sign is
+// marked in its own language, and a stand-in number is not a Finnish name.
+test("names are marked with the language they are written in", () => {
+  const { unmount } = render(
+    <BusStopDisplay
+      stopId="164"
+      stopName="Kauppatori"
+      arrivals={[
+        {
+          lineref: "1",
+          destinationdisplay: "Satama",
+          destinationdisplay_en: "Harbour",
+          monitored: true,
+          recordedattime: NOW - 5,
+          expecteddeparturetime: NOW + 240,
+        },
+      ]}
+      routesById={new Map()}
+      routesByShortName={new Map()}
+      serverTime={NOW}
+      receivedAtMs={Date.now()}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+    />
+  );
+
+  expect(screen.getByText("Kauppatori")).toHaveAttribute("lang", "fi");
+  expect(screen.getByText("Satama")).toHaveAttribute("lang", "fi");
+  expect(screen.getByText("Harbour")).toHaveAttribute("lang", "en");
+  unmount();
+
+  render(
+    <BusStopDisplay
+      stopId="164"
+      stopName=""
+      arrivals={[]}
+      routesById={new Map()}
+      routesByShortName={new Map()}
+      serverTime={NOW}
+      receivedAtMs={Date.now()}
+      loading={false}
+      refreshing={false}
+      error={false}
+      onRefresh={() => {}}
+    />
+  );
+  const heading = screen.getByRole("heading", { name: "Stop 164" });
+  expect(heading.querySelector("[lang]")).toBeNull();
+});

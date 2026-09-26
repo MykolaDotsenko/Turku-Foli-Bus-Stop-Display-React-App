@@ -285,6 +285,8 @@ export async function showRideNotification(stage, stopName, routeType = null) {
   const copy = notificationCopy(stage, stopName, routeType);
   const options = {
     body: copy.body,
+    // So a phone reading notifications aloud picks the right voice.
+    lang: getLanguage(),
     tag: "foli-active-ride",
     renotify: stage === "now" || stage === "missed",
     requireInteraction: stage === "now",

@@ -181,7 +181,7 @@ function HomeRecovery({ home, stops, online = true, onOpenStop }) {
                         target="_blank"
                         rel="noreferrer"
                         aria-label={t(
-                          "Get to backup Home stop {name}, stop {id}, by public transit",
+                          "Route there: backup Home stop {name}, stop {id}, by public transit",
                           { name: stopLabel(stop), id: stop.id }
                         )}
                       >

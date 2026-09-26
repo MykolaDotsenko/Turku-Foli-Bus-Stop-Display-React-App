@@ -68,7 +68,7 @@ test("requests location only after user action and selects a clear nearest stop"
   ).toBeInTheDocument();
 
   const walkLink = screen.getByRole("link", {
-    name: "Walk to Kauppatori, stop 164, in Google Maps",
+    name: "Walk there: Kauppatori, stop 164, in Google Maps",
   });
   expect(walkLink).toHaveAttribute("target", "_blank");
   expect(walkLink).toHaveAttribute("rel", "noreferrer");
@@ -236,7 +236,7 @@ test("does not auto-select when two opposite-direction candidates are similarly 
   ).toBeInTheDocument();
   expect(onSelect).not.toHaveBeenCalled();
   expect(screen.getAllByRole("button", { name: /Market/ })).toHaveLength(2);
-  expect(screen.getAllByRole("link", { name: /Walk to Market/ })).toHaveLength(
+  expect(screen.getAllByRole("link", { name: /Walk there: Market/ })).toHaveLength(
     2
   );
 });

@@ -4,11 +4,11 @@
 export default {
   // What Föli's effect codes mean
   "No service": "Ei liikennettä",
-  "Reduced service": "Vähennetty liikenne",
+  "Reduced service": "Supistettu liikenne",
   "Significant delays": "Merkittäviä viivästyksiä",
   Detour: "Poikkeusreitti",
   "Additional service": "Lisävuoroja",
-  "Modified service": "Muutettu liikenne",
+  "Modified service": "Muutoksia liikenteessä",
   "Stop moved": "Pysäkki siirretty",
   "Service update": "Liikennetiedote",
   "Föli service notice": "Fölin tiedote",
@@ -23,10 +23,10 @@ export default {
   Demonstration: "Mielenosoitus",
   Accident: "Onnettomuus",
   Holiday: "Juhlapyhä",
-  Weather: "Sää",
-  Maintenance: "Huolto",
+  Weather: "Sääolosuhteet",
+  Maintenance: "Huoltotyöt",
   "Construction work": "Rakennustyöt",
-  "Police activity": "Poliisin toiminta",
+  "Police activity": "Poliisitehtävä",
   "Medical emergency": "Sairaskohtaus",
 
   // The panel
@@ -34,16 +34,16 @@ export default {
   "Line {line}": "Linja {line}",
   "Lines {lines}": "Linjat {lines}",
   "A departure": "Lähtö",
-  "All Föli services": "Kaikki Fölin palvelut",
-  "Open image for {title}": "Avaa kuva: {title}",
+  "All Föli services": "Koko Fölin liikenne",
+  "Open full image for {title}": "Avaa koko kuva: {title}",
   "{title} illustration": "Kuva: {title}",
   "Open full image": "Avaa koko kuva",
   "Before you go": "Ennen lähtöä",
   "Service update check unavailable":
-    "Liikennetiedotteiden tarkistus ei käytettävissä",
+    "Liikennetiedotteita ei voi tarkistaa",
   "Föli disruption data could not be confirmed":
     "Fölin häiriötietoja ei voitu vahvistaa",
-  "last checked {age}": "tarkistettu {age}",
+  "last checked {age}": "viimeksi tarkistettu {age}",
   "Live departure data may still work separately.":
     "Reaaliaikaiset lähtötiedot voivat silti toimia erikseen.",
   "Important now": "Tärkeää nyt",
@@ -52,7 +52,7 @@ export default {
   "1 service update": "1 liikennetiedote",
   "{count} service updates": ({ count }) => `${count} liikennetiedotetta`,
   "Update check failed": "Tarkistus epäonnistui",
-  "Service update check is getting old": "Liikennetiedotteiden tarkistus vanhenee",
+  "Service update check is getting old": "Liikennetiedotteet voivat olla vanhentuneita",
   "Show fewer updates": "Näytä vähemmän",
   "Show 1 more update": "Näytä 1 tiedote lisää",
   "Show {count} more updates": ({ count }) => `Näytä ${count} tiedotetta lisää`,

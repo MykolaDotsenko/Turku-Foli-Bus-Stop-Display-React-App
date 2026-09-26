@@ -58,8 +58,22 @@ function findMatches(stops, query) {
 }
 
 // A message is kept as its phrase and values, and put into words when shown,
-// so one already on screen follows a change of language.
+// so one already on screen follows a change of language. A value written
+// differently by language (a distance: "1.4 km", "1,4 km") is kept as a
+// function and worked out then too.
 const message = (text, params) => ({ text, params });
+
+function inWords({ text, params = {} }) {
+  return t(
+    text,
+    Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [
+        key,
+        typeof value === "function" ? value() : value,
+      ])
+    )
+  );
+}
 
 // Why a location did not pick a stop, in the words the passenger needs to
 // decide what to do instead.
@@ -71,7 +85,7 @@ function locationDoubt(verdict, stop, position) {
       ),
       {
         accuracy: Number.isFinite(position?.accuracy)
-          ? ` (${formatAccuracy(position.accuracy)})`
+          ? () => ` (${formatAccuracy(position.accuracy)})`
           : "",
       }
     );
@@ -88,7 +102,7 @@ function locationDoubt(verdict, stop, position) {
       msg(
         "The nearest stop is {distance} away, so it was not filled in. Search by name instead."
       ),
-      { distance: formatDistance(stop.distanceMeters) }
+      { distance: () => formatDistance(stop.distanceMeters) }
     );
   }
   if (verdict === "ambiguous") {
@@ -337,7 +351,7 @@ function BusStopForm({
             disabled={locating}
             aria-busy={locating}
             aria-label={t("Use current location")}
-            title={t("Find nearest stop")}
+            title={t("Use current location")}
           >
             <span aria-hidden="true">{locating ? "…" : "⌖"}</span>
           </button>
@@ -386,7 +400,7 @@ function BusStopForm({
 
       {validationError && (
         <p id="stop-error" className={styles.error} role="alert">
-          {t(validationError.text, validationError.params)}
+          {inWords(validationError)}
         </p>
       )}
     </form>

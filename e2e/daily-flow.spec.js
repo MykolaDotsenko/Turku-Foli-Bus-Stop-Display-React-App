@@ -1066,7 +1066,7 @@ test("finds the nearest stop from one-time browser geolocation", async ({
   await expect(page.getByText(/Selected stop ≈/)).toBeVisible();
 
   const walkLink = page.getByRole("link", {
-    name: "Walk to Kauppatori, stop 164, in Google Maps",
+    name: "Walk there: Kauppatori, stop 164, in Google Maps",
   });
   await expect(walkLink).toBeVisible();
   await expect(walkLink).toHaveAttribute("target", "_blank");
@@ -1146,7 +1146,7 @@ test("saves Home as a privacy-first safe arrival zone", async ({
   await page.goto("/?stop=164");
   await expect(page.getByRole("heading", { name: "My Places" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Set up Home from my current location" }).click();
+  await page.getByRole("button", { name: "Use my location to set up Home" }).click();
 
   await expect(
     page.getByRole("heading", { name: "Choose stops for Home" })
@@ -1302,7 +1302,7 @@ test("recovers to Home with one clear action and resilient fallbacks", async ({
   await recovery.getByText("Other saved Home stop").click();
 
   const backupRoute = recovery.getByRole("link", {
-    name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+    name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
   });
   const backupHref = await backupRoute.getAttribute("href");
   const backupUrl = new globalThis.URL(backupHref);
@@ -1748,7 +1748,7 @@ test("mobile layout does not create horizontal page overflow", async ({
   await recovery.getByText("Other saved Home stop").click();
   await expect(
     recovery.getByRole("link", {
-      name: "Get to backup Home stop Puistokatu, stop 32, by public transit",
+      name: "Route there: backup Home stop Puistokatu, stop 32, by public transit",
     })
   ).toBeVisible();
 

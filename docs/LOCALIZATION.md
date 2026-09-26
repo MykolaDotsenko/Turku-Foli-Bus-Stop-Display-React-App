@@ -20,16 +20,21 @@ publishes its data in Finnish, Swedish and English.
   keys (`"1 stop"`, `"{count} stops"`).
 - Components call `useLanguage()` so they re-render when the language
   changes.
-- Dates and numbers use `intlLocale()`. The transit clock does not: it stays
-  24-hour with a colon (`15:16`) in every language, as on Föli's stop
-  displays.
+- Dates use `intlLocale()`. Distances are written by hand ("1.4 km",
+  "1,4 km"), so a phone without Finnish locale data still gets the comma.
+  The transit clock stays 24-hour with a colon (`15:16`) in every language,
+  as on Föli's stop displays.
+- A message kept in state (a search error, a share confirmation) keeps its
+  phrase and values, not the finished sentence, so it follows a switch of
+  language while it is on screen.
 
 `src/i18n/i18n.test.js` fails when the code asks for a phrase the Finnish
 dictionary lacks, when a translation's placeholders differ from its key's,
 when a dictionary keeps a phrase nothing asks for, or when a component names
-a control in literal English. ESLint (`react/jsx-no-literals`) catches
-literal text between tags, and an end-to-end test looks for English left on
-the Finnish screens.
+a control in literal English, whether the attribute is quoted or an
+expression. ESLint (`react/jsx-no-literals`) catches text between tags,
+including `{"text"}` and template literals, and an end-to-end test looks for
+English left on the Finnish screens.
 
 ## Rules
 
@@ -41,6 +46,15 @@ the Finnish screens.
 3. **Keep it short.** These phrases are read on a moving bus.
 4. **Keep instructions imperative and singular** (sinä-muoto), as Föli's
    own passenger guidance does.
+5. **A clock time in a Finnish sentence takes "klo"**: "lähtee klo 17:55",
+   "Päivitetty klo 15:16". A time standing alone, in the Lähtee column or a
+   countdown, does not.
+6. **Mark names with their language.** Stop names and bus signs carry
+   `lang="fi"` and the English brand `lang="en"`, so a screen reader in
+   either language pronounces them as they are written.
+7. **A control's accessible name starts with its visible words** (WCAG
+   2.5.3): "Kävele sinne: Kauppatori, pysäkki 164, Google Mapsissa" for a
+   button reading "Kävele sinne".
 
 ## Glossary
 
@@ -55,6 +69,7 @@ the Finnish screens.
 | scheduled, timetable | aikataulu, aikataulun mukainen |
 | late, early | myöhässä, etuajassa |
 | service updates | liikennetiedotteet |
+| reduced service | supistettu liikenne |
 | disruption notice | häiriötiedote |
 | detour | poikkeusreitti |
 | cancelled | peruttu |
@@ -74,6 +89,8 @@ the Finnish screens.
 | backup stop | varapysäkki |
 | driver | kuljettaja |
 | Get me Home | Vie minut kotiin |
+| recent (stops) | viimeksi käytetyt |
+| About & privacy | Tietoa ja tietosuoja |
 
 ## Review
 

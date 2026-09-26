@@ -26,7 +26,9 @@ export default class AppErrorBoundary extends React.Component {
     return (
       <main className={styles.shell}>
         <section className={styles.card} role="alert" aria-live="assertive">
-          <p className={styles.kicker}>Föli departures</p>
+          <p className={styles.kicker} lang="en">
+            Föli departures
+          </p>
           <h1>{t("Something went wrong.")}</h1>
           <p>
             {t(
