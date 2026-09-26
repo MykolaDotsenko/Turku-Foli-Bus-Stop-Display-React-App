@@ -62,13 +62,13 @@
   font-size: 0.82rem;
 }
 
+/* Wraps rather than trails off: cut to "Kauppatori · stop …", the card lost
+   the one number a driver or a map needs. */
 .destination small {
   margin-top: 2px;
-  overflow: hidden;
   color: #536970;
   font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .homeIcon {

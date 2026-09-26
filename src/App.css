@@ -39,6 +39,41 @@ input:focus-visible,
   padding: 30px 0 22px;
 }
 
+/* Only a grouping: on a phone its parts are laid out as if it were not
+   there. */
+.top-section {
+  display: contents;
+}
+
+/* Stacked, Get me Home, search and service updates put the first departure
+   below the fold of a 1280x800 laptop (at 851px) and left most of its width
+   empty. On a wide screen Get me Home takes the left and the rest stack on
+   the right, and the page widens a little to give both room. Without a
+   saved Home there is nothing to pair, so everything stays full width. */
+@media (min-width: 1100px) {
+  .app-shell {
+    width: min(1080px, calc(100% - 48px));
+  }
+
+  .top-section:has(> [aria-labelledby="home-recovery-title"]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: repeat(3, auto) 1fr;
+    align-items: start;
+    column-gap: 12px;
+  }
+
+  .top-section:has(> [aria-labelledby="home-recovery-title"])
+    > [aria-labelledby="home-recovery-title"] {
+    grid-row: 1 / -1;
+  }
+
+  .top-section:has(> [aria-labelledby="home-recovery-title"])
+    > :not([aria-labelledby="home-recovery-title"]) {
+    grid-column: 2;
+  }
+}
+
 .topbar {
   display: flex;
   align-items: flex-start;

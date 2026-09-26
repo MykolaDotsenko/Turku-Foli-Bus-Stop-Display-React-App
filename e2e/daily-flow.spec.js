@@ -1751,6 +1751,42 @@ test("mobile first screen shows a real departure without scrolling", async ({
   expect(metrics.top).toBeLessThan(metrics.viewportHeight);
 });
 
+// Stacked, Get me Home, search and service updates pushed the first
+// departure to 851px on a 1280x800 laptop, below the fold, with most of the
+// width empty. On a wide screen they now share the top in two columns.
+test("a laptop with Home saved shows a departure without scrolling", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "chromium-desktop");
+
+  for (const viewport of [
+    { width: 1280, height: 800 },
+    { width: 1366, height: 768 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/?stop=164");
+    await seedHome(page);
+    await expect(page.getByRole("heading", { name: "Service updates" })).toBeVisible();
+
+    const firstDeparture = page.locator("tbody tr").first();
+    const { top, bottom } = await firstDeparture.evaluate((row) => {
+      const rect = row.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom };
+    });
+    // Its line, destination and time, not just a sliver of the row.
+    expect(top + 60).toBeLessThanOrEqual(viewport.height);
+    expect(bottom).toBeGreaterThan(top);
+
+    // Get me Home and search share the first row.
+    const recovery = await page
+      .locator('section[aria-labelledby="home-recovery-title"]')
+      .boundingBox();
+    const search = await page.locator(".search-panel").boundingBox();
+    expect(Math.abs(recovery.y - search.y)).toBeLessThan(2);
+    expect(search.x).toBeGreaterThan(recovery.x + recovery.width - 1);
+  }
+});
+
 test("narrow 320 and 360px layouts keep core controls on-screen", async ({
   page,
 }, testInfo) => {

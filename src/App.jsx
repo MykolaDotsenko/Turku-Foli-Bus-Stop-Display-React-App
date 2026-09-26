@@ -309,38 +309,45 @@ function App() {
         />
       )}
 
-      <HomeRecovery
-        home={placesById.get("home") || null}
-        stops={stops}
-        online={online}
-        onOpenStop={selectStop}
-      />
-
-      <section className="search-panel" aria-label={t("Choose a bus stop")}>
-        <BusStopForm
-          activeStopId={stopId}
+      {/* One column on a phone. On a wide screen, Get me Home takes the
+          left and search, saved stops and service updates the right, so
+          the board starts on the first screen (App.css). */}
+      <div className="top-section">
+        <HomeRecovery
+          home={placesById.get("home") || null}
           stops={stops}
-          coordinatesStatus={coordinatesStatus}
-          serviceBoundary={serviceBoundary}
-          onSubmit={selectStop}
+          online={online}
+          onOpenStop={selectStop}
         />
-      </section>
 
-      <QuickStops
-        favorites={favorites}
-        recents={recents}
-        activeStopId={stopId}
-        onSelect={selectStop}
-      />
+        <section className="search-panel" aria-label={t("Choose a bus stop")}>
+          <BusStopForm
+            activeStopId={stopId}
+            stops={stops}
+            coordinatesStatus={coordinatesStatus}
+            serviceBoundary={serviceBoundary}
+            onSubmit={selectStop}
+          />
+        </section>
 
-      {stopId && (
-        <>
+        <QuickStops
+          favorites={favorites}
+          recents={recents}
+          activeStopId={stopId}
+          onSelect={selectStop}
+        />
+
+        {stopId && (
           <ServiceAlerts
             alerts={serviceAlerts}
             error={serviceAlertsError}
             receivedAtMs={serviceAlertsReceivedAtMs}
           />
+        )}
+      </div>
 
+      {stopId && (
+        <>
           <BusStopDisplay
             stopId={stopId}
             stopName={displayStopName}
