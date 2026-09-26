@@ -532,16 +532,25 @@ test("Ride Mode warns before the selected get-off stop", async ({ page }) => {
 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
 
+  // The bus is a minute from Puistokatu but has not been seen leaving
+  // Kauppatori, the stop before it. STOP pressed now would stop it there.
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toBeVisible();
-  await expect(page.getByText("Press the STOP button now.")).toBeVisible();
+  await expect(
+    page.getByText("Press STOP when the bus leaves Kauppatori.")
+  ).toBeVisible();
   await expect(page.getByText("Puistokatu").first()).toBeVisible();
   await expect(page.locator('[data-health="live"]')).toBeVisible();
 
+  // One stray touch in a pocket must not end the ride.
   await page.getByRole("button", { name: "End ride" }).click();
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Tap again to end ride" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toHaveCount(0);
 });
 
@@ -769,7 +778,7 @@ test("Ride Mode offers recovery after the passenger rides past the stop", async 
   await startRide(page, { gps: true });
 
   await expect(
-    page.getByRole("heading", { name: "Your stop is next" })
+    page.getByRole("heading", { name: "Your stop is after Kauppatori" })
   ).toBeVisible();
 
   // Close enough to count as an approach, but not close enough to claim the
@@ -846,9 +855,10 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   await page.getByRole("button", { name: "Start Ride Mode" }).click();
   await exitStopAnswered;
 
-  // Two planned stops out, so the timetable alone gets the passenger ready.
+  // Two planned stops out, but the bus is not due to leave Kauppatori for
+  // a few minutes yet: the timetable raises nothing before it has left.
   await expect(
-    page.getByRole("heading", { name: "Your stop is coming up" })
+    page.getByRole("heading", { name: "No need to watch for your stop" })
   ).toBeVisible();
   await expect(page.locator('[data-health="schedule"]')).toBeVisible();
   await expect(page.getByText("Looking for your bus")).toBeVisible();
@@ -861,6 +871,7 @@ test("Ride Mode does not mistake an untracked timetable row for the bus", async 
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "End ride" }).click();
+  await page.getByRole("button", { name: "Tap again to end ride" }).click();
 });
 
 test("an open get-off setup survives a board refresh", async ({ page }) => {

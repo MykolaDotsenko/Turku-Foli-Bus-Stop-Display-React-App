@@ -26,6 +26,14 @@ export function rideExitInstruction(routeType) {
       nextText: msg("Press the STOP button now."),
       nextVoice: msg("Press the stop button now."),
       nextNotification: msg("Press the STOP button now."),
+      // STOP asks for the next stop. Pressed before the bus has left the
+      // stop before the exit, it stops the bus there, and the request is
+      // spent. Until the bus is seen leaving that stop, this is said instead.
+      afterPreviousTitle: msg("Your stop is after {name}"),
+      afterPreviousText: msg("Press STOP when the bus leaves {name}."),
+      afterPreviousLead: msg("Your stop comes after"),
+      afterPreviousVoice: msg("Press the stop button when the bus leaves it."),
+      unnamedPreviousText: msg("Press STOP once the bus has left the stop before yours."),
     };
   }
 

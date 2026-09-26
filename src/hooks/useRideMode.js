@@ -15,6 +15,7 @@ import {
   rideStageRank,
   evaluateRideStage,
   plannedRideProgress,
+  previousStopPassed,
   rideLongOver,
 } from "../utils/rideProgress";
 import { dataAgeSeconds } from "../utils/time";
@@ -38,6 +39,26 @@ const TARGET_LIVE_FOR_SEC = 120;
 // The same window trackingHealth calls "live", so the panel's "Your bus is
 // confirmed" and its badge always describe the same evidence.
 const TARGET_CONFIRMED_FOR_SEC = 45;
+// A fix this precise is needed before straight-line distance counts towards
+// "you have gone past your stop": two fixes 300 m wide ended a ride that was
+// still a minute from the stop.
+const MISS_FIX_ACCURACY_M = 50;
+
+// Metres along the trip's shape from the stop before the exit to the exit.
+function previousStopGapM(plan) {
+  const target = Number(plan?.targetStop?.shapeDistTraveled);
+  const previous = Number(plan?.previousStop?.shapeDistTraveled);
+  if (
+    plan?.targetStop?.shapeDistTraveled === null ||
+    plan?.previousStop?.shapeDistTraveled === null ||
+    !Number.isFinite(target) ||
+    !Number.isFinite(previous) ||
+    target <= previous
+  ) {
+    return null;
+  }
+  return target - previous;
+}
 
 function emptyRuntime() {
   return {
@@ -346,10 +367,13 @@ export default function useRideMode() {
         targetAtStop: nextRuntime.targetWasAtStop && nextRuntime.targetListed,
         targetPassedConfirmed,
         gpsMovedAwayAfterNear: gpsMovedAway,
-        // A reloaded ride waits for its first poll to answer, or fail.
+        // A reloaded ride waits for its first poll to answer, or fail. And
+        // the timetable says nothing about a bus that is not due to have
+        // left the boarding stop yet.
         scheduleMayRaise:
-          current.id !== restoredRideIdRef.current ||
-          nextRuntime.lastPollAt !== null,
+          !planned.beforeDeparture &&
+          (current.id !== restoredRideIdRef.current ||
+            nextRuntime.lastPollAt !== null),
         lastReason: current.stageReason,
         lastConfidence: current.stageConfidence,
       });
@@ -402,31 +426,60 @@ export default function useRideMode() {
       runtimeRef.current = mergedRuntime;
       setRuntimeState(mergedRuntime);
 
-      if (evaluated.stage === current.stage) return;
+      // Kept once known: "Press STOP now" is only said once the bus has left
+      // the stop before the exit, and a fix lost in a tunnel afterwards does
+      // not put it back there.
+      const previousLeft =
+        current.previousLeft === true ||
+        previousStopPassed({
+          previousPassedConfirmed,
+          gpsShapeUsable: nextGps.shapeUsable,
+          gpsOnRoute: nextGps.onRoute,
+          gpsRouteDistanceM: nextGps.routeDistanceM,
+          gpsAccuracyM: nextGps.accuracyM,
+          gpsAgeSec,
+          previousRouteDistanceM: previousStopGapM(current.plan),
+        });
+      const stageChanged = evaluated.stage !== current.stage;
+      const leftPrevious = previousLeft && current.previousLeft !== true;
 
-      const nextSession = {
-        ...current,
-        stage: evaluated.stage,
-        stageReason: evaluated.reason,
-        stageConfidence: evaluated.confidence,
-        stageChangedAt: Date.now(),
-      };
+      if (!stageChanged && !leftPrevious) return;
+
+      const nextSession = stageChanged
+        ? {
+            ...current,
+            previousLeft,
+            stage: evaluated.stage,
+            stageReason: evaluated.reason,
+            stageConfidence: evaluated.confidence,
+            stageChangedAt: Date.now(),
+          }
+        : { ...current, previousLeft };
 
       sessionRef.current = nextSession;
       setSession(nextSession);
       persistRide(nextSession);
 
+      // "Your stop is after X" is said on reaching NEXT before the bus has
+      // left X; the moment it has, "Press STOP now" is said as an alert of
+      // its own.
+      const announceStage = stageChanged
+        ? evaluated.stage
+        : evaluated.stage === RIDE_STAGE.NEXT
+          ? RIDE_STAGE.NEXT
+          : null;
       if (
-        evaluated.stage === RIDE_STAGE.SOON ||
-        evaluated.stage === RIDE_STAGE.NEXT ||
-        evaluated.stage === RIDE_STAGE.NOW ||
-        evaluated.stage === RIDE_STAGE.MISSED
+        announceStage === RIDE_STAGE.SOON ||
+        announceStage === RIDE_STAGE.NEXT ||
+        announceStage === RIDE_STAGE.NOW ||
+        announceStage === RIDE_STAGE.MISSED
       ) {
         announceRideStage(
-          evaluated.stage,
+          announceStage,
           current.targetStop,
           current.options?.notifications !== false,
-          current.routeType
+          current.routeType,
+          { previousStop: current.previousStop, previousLeft }
         );
       }
     },
@@ -578,8 +631,12 @@ export default function useRideMode() {
         const onApproach =
           rideStageRank(sessionRef.current?.stage) >=
           rideStageRank(RIDE_STAGE.NEXT);
+        // Only a precise fix moves the "near, then away" latch that ends a
+        // ride as missed. The rest still show distance and time as before.
+        const preciseFix =
+          Number.isFinite(accuracy) && accuracy <= MISS_FIX_ACCURACY_M;
         const minimumDistance =
-          onApproach && Number.isFinite(straightDistance)
+          onApproach && preciseFix && Number.isFinite(straightDistance)
             ? previous.minimumDistanceM === null
               ? straightDistance
               : Math.min(previous.minimumDistanceM, straightDistance)
@@ -589,12 +646,13 @@ export default function useRideMode() {
           (onApproach &&
             Number.isFinite(minimumDistance) &&
             minimumDistance <= 80);
-        const movedAwayAfterNear =
-          wasNearTarget &&
-          Number.isFinite(straightDistance) &&
-          straightDistance >= 250 &&
-          Number.isFinite(minimumDistance) &&
-          straightDistance > minimumDistance + 120;
+        const movedAwayAfterNear = preciseFix
+          ? wasNearTarget &&
+            Number.isFinite(straightDistance) &&
+            straightDistance >= 250 &&
+            Number.isFinite(minimumDistance) &&
+            straightDistance > minimumDistance + 120
+          : previous.movedAwayAfterNear === true;
 
         const shapeAnalysis = shapeRef.current
           ? analyzeRideGps({

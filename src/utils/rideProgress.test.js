@@ -8,6 +8,7 @@ import {
   gtfsTimeToSeconds,
   matchRideArrival,
   plannedRideProgress,
+  previousStopPassed,
   resolveRideBoardingIndex,
 } from "./rideProgress";
 
@@ -600,7 +601,49 @@ describe("ride progress", () => {
     expect(plannedRideProgress(plan, 1_050)).toEqual({
       etaSec: 250,
       remainingStops: 2,
+      beforeDeparture: false,
     });
+  });
+
+  // Set up twenty minutes early, a one-stop ride counted its one stop as
+  // "next" and announced "Press STOP" before the bus had even come.
+  it("counts no stops before the bus is due to leave the boarding stop", () => {
+    const plan = {
+      boardingStop: { predictedEpochSec: 2_200 },
+      targetPredictedEpochSec: 2_290,
+      stopsToTarget: [{ predictedEpochSec: 2_290 }],
+    };
+
+    expect(plannedRideProgress(plan, 1_000)).toEqual({
+      etaSec: 1_290,
+      remainingStops: null,
+      beforeDeparture: true,
+    });
+    expect(plannedRideProgress(plan, 2_200).remainingStops).toBe(1);
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, {
+        ...plannedRideProgress(plan, 1_000),
+        scheduleEtaSec: 1_290,
+      }).stage
+    ).toBe(RIDE_STAGE.BOARDED);
+  });
+
+  // "Get your things together" beside "~18 min" where the last stops are
+  // far apart, and the passenger learns to ignore it.
+  it("lets the timetable's stop count raise SOON only once the time is near too", () => {
+    const threeStopsOut = { remainingStops: 3, scheduleEtaSec: 18 * 60 };
+    expect(evaluateRideStage(RIDE_STAGE.BOARDED, threeStopsOut).stage).toBe(
+      RIDE_STAGE.BOARDED
+    );
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, {
+        remainingStops: 3,
+        scheduleEtaSec: 6 * 60,
+      }).stage
+    ).toBe(RIDE_STAGE.SOON);
+    expect(
+      evaluateRideStage(RIDE_STAGE.BOARDED, { remainingStops: 3 }).stage
+    ).toBe(RIDE_STAGE.SOON);
   });
 
   it("announces nothing at all before any evidence has arrived", () => {
@@ -687,6 +730,17 @@ describe("ride progress", () => {
     expect(evaluated.reason).toBe("device-moved-away");
   });
 
+  // With the trip's shape loaded, straight-line distance cannot raise NOW,
+  // and a loop swinging back past the stop looks like having ridden on.
+  it("takes no straight-line miss when the trip's shape says where the phone is", () => {
+    const evaluated = evaluateRideStage(RIDE_STAGE.NEXT, {
+      gpsMovedAwayAfterNear: true,
+      gpsShapeAvailable: true,
+    });
+
+    expect(evaluated.stage).toBe(RIDE_STAGE.NEXT);
+  });
+
   it("never declares a miss before the ride is anywhere near its end", () => {
     const evaluated = evaluateRideStage(RIDE_STAGE.SOON, {
       gpsMovedAwayAfterNear: true,
@@ -694,5 +748,50 @@ describe("ride progress", () => {
     });
 
     expect(evaluated.stage).not.toBe(RIDE_STAGE.MISSED);
+  });
+});
+
+// STOP asks for the next stop: pressed before the bus has left the stop
+// before the exit, it stops the bus there. In the city centre those stops
+// are 300 m apart, closer than what raises "next".
+describe("whether the bus has left the stop before the exit", () => {
+  const onShape = {
+    gpsShapeUsable: true,
+    gpsOnRoute: true,
+    gpsAccuracyM: 20,
+    gpsAgeSec: 5,
+    previousRouteDistanceM: 300,
+  };
+
+  it("takes the bus seen leaving that stop in the live data", () => {
+    expect(previousStopPassed({ previousPassedConfirmed: true })).toBe(true);
+  });
+
+  it("takes a fix on the route past that stop", () => {
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 250 })).toBe(true);
+  });
+
+  it("does not take a fix at that stop or before it", () => {
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 290 })).toBe(false);
+    expect(previousStopPassed({ ...onShape, gpsRouteDistanceM: 520 })).toBe(false);
+  });
+
+  it("does not take a near exit on its own", () => {
+    expect(previousStopPassed({ liveEtaSec: 40 })).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, previousRouteDistanceM: null, gpsRouteDistanceM: 100 })
+    ).toBe(false);
+  });
+
+  it("does not take a fix that is vague, old or off the route", () => {
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsAccuracyM: 300 })
+    ).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsAgeSec: 120 })
+    ).toBe(false);
+    expect(
+      previousStopPassed({ ...onShape, gpsRouteDistanceM: 100, gpsOnRoute: false })
+    ).toBe(false);
   });
 });

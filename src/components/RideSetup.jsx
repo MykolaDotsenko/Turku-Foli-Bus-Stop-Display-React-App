@@ -118,9 +118,10 @@ export default function RideSetup({
   const [locationBackup, setLocationBackup] = useState(true);
   const [notificationsAvailable] = useState(notificationSupport);
   const [vibrates] = useState(canVibrate);
-  const [notifications, setNotifications] = useState(
-    () => notificationSupport() === "supported"
-  );
+  // Off until asked for. On, Start raised a location prompt, a notification
+  // prompt and the test sound together, as the bus pulled in, for alerts
+  // that only work while this page is open anyway.
+  const [notifications, setNotifications] = useState(false);
   const [startError, setStartError] = useState("");
   const panelRef = useRef(null);
 

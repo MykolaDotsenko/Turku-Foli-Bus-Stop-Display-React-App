@@ -150,6 +150,30 @@ describe("ride get-off notifications", () => {
     ]);
   });
 
+  // "Press STOP now" before the bus has left the stop before the exit would
+  // stop it there; until it has, the alert names that stop instead.
+  it("tells a locked phone which stop to wait for before pressing STOP", async () => {
+    const showNotification = vi.fn(() => Promise.resolve());
+    stubServiceWorker({ showNotification });
+    const previousStop = { id: "164", name: "Kauppatori" };
+
+    await showRideNotification("next", "Puistokatu", 3, {
+      previousStop,
+      previousLeft: false,
+    });
+    await showRideNotification("next", "Puistokatu", 3, {
+      previousStop,
+      previousLeft: true,
+    });
+
+    expect(
+      showNotification.mock.calls.map(([title, options]) => [title, options.body])
+    ).toEqual([
+      ["Your stop is after Kauppatori", "Press STOP when the bus leaves Kauppatori."],
+      ["Next stop: Puistokatu", "Press the STOP button now."],
+    ]);
+  });
+
   it("calls a stop Föli has not named by its number, in either language", async () => {
     const showNotification = vi.fn(() => Promise.resolve());
     stubServiceWorker({ showNotification });
@@ -282,6 +306,28 @@ describe("spoken get-off alerts", () => {
       ["The next stop is yours.", "en-US"],
       ["Puistokatu", "fi-FI"],
       ["Press the stop button now.", "en-US"],
+    ]);
+  });
+
+  it("says which stop to wait for, before the bus has left it", () => {
+    speakRideStage("next", "Puistokatu", 3, {
+      previousStop: { id: "164", name: "Kauppatori" },
+      previousLeft: false,
+    });
+
+    expect(spoken.map((u) => [u.text, u.lang])).toEqual([
+      ["Your stop comes after", "en-US"],
+      ["Kauppatori", "fi-FI"],
+      ["Press the stop button when the bus leaves it.", "en-US"],
+    ]);
+
+    spoken = [];
+    speakRideStage("next", "Puistokatu", 3, {
+      previousStop: { id: "164", name: "" },
+      previousLeft: false,
+    });
+    expect(spoken.map((u) => u.text)).toEqual([
+      "Press STOP once the bus has left the stop before yours.",
     ]);
   });
 

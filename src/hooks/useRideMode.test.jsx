@@ -1272,3 +1272,175 @@ test("a ride long past its stop ends quietly while nothing live says the bus is 
   expect(mocks.announceRideStage).not.toHaveBeenCalled();
   unmount();
 });
+
+// STOP asks for the next stop. Said while the bus had yet to leave the stop
+// before the exit, "Press STOP now" stopped it there, and the request was
+// spent. NEXT names that stop first, and "press now" comes as its own alert
+// once the bus is seen leaving it.
+test("says press STOP now only once the bus is seen leaving the stop before", async () => {
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 16, 0, 0);
+  vi.setSystemTime(startMs);
+  const startSec = Math.floor(startMs / 1000);
+  mocks.announceRideStage.mockClear();
+
+  let previousAnswers = 0;
+  mocks.fetchStopMonitor.mockImplementation((stopId) => {
+    const serverTime = Math.floor(Date.now() / 1000);
+    const bus = liveExitRow(serverTime);
+    if (String(stopId) === "32") {
+      return Promise.resolve({
+        serverTime,
+        arrivals: [{ ...bus, expectedarrivaltime: startSec + 85 }],
+      });
+    }
+    previousAnswers += 1;
+    return Promise.resolve({
+      serverTime,
+      arrivals:
+        previousAnswers === 1
+          ? [{ ...bus, expectedarrivaltime: startSec + 20 }]
+          : [],
+    });
+  });
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  startTimedRide(result, startSec, [85]);
+  await advance(0);
+
+  expect(result.current.session?.stage).toBe("next");
+  expect(result.current.session?.previousLeft).toBe(false);
+  expect(mocks.announceRideStage).toHaveBeenLastCalledWith(
+    "next",
+    expect.objectContaining({ id: "32" }),
+    false,
+    3,
+    expect.objectContaining({ previousLeft: false })
+  );
+
+  // Two answers from the stop before without the bus: it has left.
+  await advance(40_000);
+
+  expect(result.current.session?.previousLeft).toBe(true);
+  expect(mocks.announceRideStage).toHaveBeenCalledTimes(2);
+  expect(mocks.announceRideStage).toHaveBeenLastCalledWith(
+    "next",
+    expect.objectContaining({ id: "32" }),
+    false,
+    3,
+    expect.objectContaining({ previousLeft: true })
+  );
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});
+
+// A one-stop ride set up twenty minutes early counted its one stop as next,
+// and announced "Press STOP" before the bus had come.
+test("the timetable raises nothing before the bus is due to leave the boarding stop", async () => {
+  vi.useFakeTimers();
+  const startMs = Date.UTC(2026, 8, 21, 16, 0, 0);
+  vi.setSystemTime(startMs);
+  const startSec = Math.floor(startMs / 1000);
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      options: { locationBackup: false, notifications: false },
+      plan: {
+        boardingStop: { id: "164", name: "Kauppatori", predictedEpochSec: startSec + 1200 },
+        targetPredictedEpochSec: startSec + 1290,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: startSec + 1290 },
+        ],
+      },
+    });
+  });
+  await advance(30_000);
+
+  expect(result.current.session?.stage).toBe("boarded");
+
+  // Once the timetable has it leaving, the count counts.
+  vi.setSystemTime(startMs + 1_210_000);
+  await advance(10_000);
+  expect(result.current.session?.stage).toBe("next");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+});
+
+// Two fixes 300 m wide, one near the stop and one away from it, ended a
+// ride that was still a minute from its stop as "your stop is behind you".
+test("vague fixes cannot end a ride as missed", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const startMs = Date.UTC(2026, 8, 21, 9, 0, 0);
+  vi.setSystemTime(startMs);
+  const nowSec = Math.floor(startMs / 1000);
+
+  let deliverGps = null;
+  watchPosition.mockImplementation((success) => {
+    deliverGps = success;
+    return 92;
+  });
+  mocks.fetchStopMonitor.mockImplementation((stopId) =>
+    Promise.resolve({
+      serverTime: Math.floor(Date.now() / 1000),
+      arrivals:
+        String(stopId) === "32"
+          ? [
+              liveExitRow(Math.floor(Date.now() / 1000), {
+                expectedarrivaltime: Math.floor(Date.now() / 1000) + 80,
+              }),
+            ]
+          : [],
+    })
+  );
+
+  const { result, unmount } = renderHook(() => useRideMode());
+  act(() => {
+    result.current.startRide({
+      ...rideConfig,
+      shapeId: "",
+      plan: {
+        targetPredictedEpochSec: nowSec + 80,
+        stopsToTarget: [
+          { id: "32", name: "Puistokatu", predictedEpochSec: nowSec + 80 },
+        ],
+      },
+    });
+  });
+  await waitFor(() => expect(deliverGps).not.toBeNull());
+  await waitFor(() => expect(result.current.session?.stage).toBe("next"));
+
+  // About 70 m from the stop, then about 300 m away, both ±300 m.
+  act(() => {
+    deliverGps({ coords: { latitude: 60.44945, longitude: 22.255, accuracy: 300 } });
+  });
+  act(() => {
+    deliverGps({ coords: { latitude: 60.4515, longitude: 22.255, accuracy: 300 } });
+  });
+  expect(result.current.session?.stage).toBe("next");
+
+  // The same two readings, precise, do mean the bus carried on.
+  act(() => {
+    deliverGps({ coords: { latitude: 60.44945, longitude: 22.255, accuracy: 20 } });
+  });
+  act(() => {
+    deliverGps({ coords: { latitude: 60.4515, longitude: 22.255, accuracy: 20 } });
+  });
+  expect(result.current.session?.stage).toBe("missed");
+
+  act(() => {
+    result.current.endRide();
+  });
+  unmount();
+  mocks.fetchStopMonitor.mockImplementation(() => new Promise(() => {}));
+});

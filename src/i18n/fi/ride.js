@@ -9,7 +9,7 @@ export default {
   "Get ready": "Valmistaudu",
   "Your stop is coming up": "Pysäkkisi lähestyy",
   "Get your things together. We will tell you when to press STOP.":
-    "Kerää tavarasi. Kerromme, milloin painaa STOP-nappia.",
+    "Kerää tavarasi. Kerromme, kun on aika painaa STOP-nappia.",
   "Get your things together. We will tell you when your stop is next.":
     "Kerää tavarasi. Kerromme, kun pysäkkisi on seuraavana.",
   "Next stop": "Seuraava pysäkki",
@@ -17,13 +17,25 @@ export default {
   "Press the STOP button now.": "Paina STOP-nappia nyt.",
   "This is your stop": "Tämä on pysäkkisi",
   "Get off now": "Jää pois nyt",
-  "Move to the doors and step off here.": "Siirry ovelle ja jää pois tässä.",
+  "Move to the doors and step off here.": "Siirry ovelle ja jää pois.",
   Recovery: "Paluuohjeet",
   "Your stop may be behind you": "Pysäkkisi saattoi jäädä taakse",
   "Get off at the next stop and open its departures below.":
     "Jää pois seuraavalla pysäkillä ja avaa sen lähdöt alta.",
   "Get ready to exit at the next stop.":
     "Valmistaudu jäämään pois seuraavalla pysäkillä.",
+  // Before the bus has left the stop before the exit. The stop's name stays
+  // as on its sign, so it follows "pysäkin" / "pysäkiltä" rather than being
+  // inflected itself.
+  "Almost there": "Kohta perillä",
+  "Your stop is after {name}": "Pysäkkisi on pysäkin {name} jälkeen",
+  "Press STOP when the bus leaves {name}.":
+    "Paina STOP-nappia, kun bussi lähtee pysäkiltä {name}.",
+  "Your stop comes after": "Pysäkkisi on tämän pysäkin jälkeen:",
+  "Press the stop button when the bus leaves it.":
+    "Paina STOP-nappia, kun bussi lähtee siltä.",
+  "Press STOP once the bus has left the stop before yours.":
+    "Paina STOP-nappia, kun bussi on lähtenyt pysäkkiäsi edeltävältä pysäkiltä.",
 
   // Estimate and stops left. "1 stop" and "{count} stops" (2 or more) take
   // the Finnish singular and partitive forms as they stand.
@@ -109,6 +121,7 @@ export default {
   "I'm getting off": "Jään pois",
   "Test alert": "Testaa hälytys",
   "End ride": "Lopeta matkatila",
+  "Tap again to end ride": "Lopeta napauttamalla uudelleen",
   "Keeping your screen on": "Näyttö pidetään päällä",
   "Cannot keep your screen on": "Näyttöä ei voi pitää päällä",
   "Your screen may switch off": "Näyttö voi sammua",

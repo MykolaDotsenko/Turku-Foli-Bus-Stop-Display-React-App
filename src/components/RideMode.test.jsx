@@ -26,7 +26,7 @@ function session(stage = "next") {
 test("shows the action the passenger needs instead of a map", () => {
   render(
     <RideMode
-      session={session("next")}
+      session={{ ...session("next"), previousLeft: true }}
       runtime={{
         trackingHealth: "live",
         liveEtaSec: 70,
@@ -613,7 +613,7 @@ test("tells a Finnish reader to get off now, in Finnish", () => {
 
   expect(screen.getByRole("heading", { name: "Jää pois nyt" })).toBeInTheDocument();
   expect(screen.getByRole("alert")).toHaveTextContent(
-    "Siirry ovelle ja jää pois tässä."
+    "Siirry ovelle ja jää pois."
   );
   expect(screen.getByRole("button", { name: "Jään pois" })).toBeInTheDocument();
   expect(screen.getByText("Puistokatu")).toBeInTheDocument();
@@ -623,7 +623,7 @@ test("asks a Finnish bus passenger to press STOP without inflecting a stop name"
   resetLanguageForTests("fi");
   render(
     <RideMode
-      session={session("next")}
+      session={{ ...session("next"), previousLeft: true }}
       runtime={{
         trackingHealth: "live",
         targetLive: true,
@@ -750,4 +750,104 @@ test("gets a bus passenger ready without sending them to the doors early", () =>
   ).toBeInTheDocument();
   expect(screen.getByText("Estimate")).toBeInTheDocument();
   expect(screen.queryByText(/toward the doors/)).not.toBeInTheDocument();
+});
+
+// STOP asks for the next stop. Said before the bus has left the stop before
+// the exit, "Press STOP now" stopped it there, and the request was spent.
+test("names the stop before the exit until the bus has left it", () => {
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Your stop is after Kauppatori" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Press STOP when the bus leaves Kauppatori."
+  );
+  expect(screen.queryByText("Press the STOP button now.")).not.toBeInTheDocument();
+});
+
+test("names the stop before the exit in Finnish without inflecting it", () => {
+  resetLanguageForTests("fi");
+  render(
+    <RideMode
+      session={session("next")}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(
+    screen.getByRole("heading", { name: "Pysäkkisi on pysäkin Kauppatori jälkeen" })
+  ).toBeInTheDocument();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Paina STOP-nappia, kun bussi lähtee pysäkiltä Kauppatori."
+  );
+});
+
+test("keeps the plain wording on a waterbus, where there is no STOP to press early", () => {
+  render(
+    <RideMode
+      session={{ ...session("next"), routeType: 4 }}
+      runtime={{ trackingHealth: "live", etaSec: 70, remainingStops: 1 }}
+      gps={{ status: "off", distanceM: null, error: "" }}
+      wakeLockState="active"
+      onTestAlert={() => {}}
+      onEndRide={() => {}}
+      onOpenStop={() => {}}
+    />
+  );
+
+  expect(screen.getByRole("heading", { name: "Your stop is next" })).toBeInTheDocument();
+  expect(screen.getByText("Get ready to exit at the next stop.")).toBeInTheDocument();
+});
+
+// Kept awake in a pocket, the screen took one stray touch as "End ride" and
+// the alert the passenger counted on was gone.
+test("ends a ride only on a second tap, and forgets the first after a moment", () => {
+  vi.useFakeTimers();
+  try {
+    const onEndRide = vi.fn();
+    render(
+      <RideMode
+        session={session("boarded")}
+        runtime={{ trackingHealth: "live", etaSec: 600, remainingStops: 5 }}
+        gps={{ status: "off", distanceM: null, error: "" }}
+        wakeLockState="active"
+        onTestAlert={() => {}}
+        onEndRide={onEndRide}
+        onOpenStop={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "End ride" }));
+    expect(onEndRide).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Tap again to end ride" })
+    ).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(4_000);
+    });
+    expect(screen.getByRole("button", { name: "End ride" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "End ride" }));
+    fireEvent.click(screen.getByRole("button", { name: "Tap again to end ride" }));
+    expect(onEndRide).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });

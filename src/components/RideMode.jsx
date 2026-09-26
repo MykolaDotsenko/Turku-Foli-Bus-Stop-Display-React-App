@@ -41,6 +41,8 @@ const STAGE_COPY = {
 // and "about now" two minutes late. A live or location estimate is trusted
 // as it stands.
 const RUNNING_LATE_AFTER_SEC = 30;
+// How long "End ride" waits for its second tap.
+const END_CONFIRM_MS = 4_000;
 
 function etaLabel(seconds, stage, { source = "" } = {}) {
   if (stage === RIDE_STAGE.NOW) return t("now");
@@ -265,16 +267,56 @@ export default function RideMode({
     });
   }, [stage]);
 
+  // The screen is kept awake in a pocket, so one stray touch on "End ride"
+  // silently cancelled the alert the passenger was counting on. The first
+  // tap asks for a second, for a few seconds.
+  const [endArmedFor, setEndArmedFor] = useState("");
+  useEffect(() => {
+    if (!endArmedFor) return undefined;
+    const id = globalThis.setTimeout(() => setEndArmedFor(""), END_CONFIRM_MS);
+    return () => globalThis.clearTimeout(id);
+  }, [endArmedFor]);
+
   if (!session) return null;
+
+  const endArmed = endArmedFor === session.id;
+  const pressEnd = () => {
+    if (!endArmed) {
+      setEndArmedFor(session.id);
+      return;
+    }
+    setEndArmedFor("");
+    onEndRide?.();
+  };
 
   const baseStage = STAGE_COPY[session.stage] || STAGE_COPY[RIDE_STAGE.BOARDED];
   const exit = rideExitInstruction(session.routeType);
+  // Until the bus is seen leaving the stop before the exit, "Press STOP now"
+  // would stop it there. The panel names that stop instead.
+  const previousName = realStopName(session.previousStop?.name);
+  const waitForPrevious =
+    session.stage === RIDE_STAGE.NEXT &&
+    exit.kind === "request-stop" &&
+    session.previousLeft !== true;
   const copy =
-    session.stage === RIDE_STAGE.NEXT
-      ? { ...baseStage, instruction: exit.nextText }
-      : session.stage === RIDE_STAGE.SOON
-        ? { ...baseStage, instruction: exit.soonText }
-        : baseStage;
+    waitForPrevious && previousName
+      ? {
+          eyebrow: msg("Almost there"),
+          title: exit.afterPreviousTitle,
+          instruction: exit.afterPreviousText,
+          params: { name: previousName },
+        }
+      : waitForPrevious
+        ? {
+            eyebrow: msg("Almost there"),
+            title: msg("Your stop is coming up"),
+            instruction: exit.unnamedPreviousText,
+          }
+        : session.stage === RIDE_STAGE.NEXT
+          ? { ...baseStage, instruction: exit.nextText }
+          : session.stage === RIDE_STAGE.SOON
+            ? { ...baseStage, instruction: exit.soonText }
+            : baseStage;
   const urgent =
     session.stage === RIDE_STAGE.NEXT ||
     session.stage === RIDE_STAGE.NOW ||
@@ -319,7 +361,7 @@ export default function RideMode({
       <div className={styles.topline}>
         <div>
           <p className={styles.eyebrow}>{t(copy.eyebrow)}</p>
-          <h2 id="ride-mode-title">{t(copy.title)}</h2>
+          <h2 id="ride-mode-title">{t(copy.title, copy.params)}</h2>
         </div>
         <span
           className={styles.health}
@@ -390,7 +432,7 @@ export default function RideMode({
         role={urgent ? "alert" : "status"}
         aria-live={urgent ? "assertive" : "polite"}
       >
-        {t(copy.instruction)}
+        {t(copy.instruction, copy.params)}
       </p>
 
       {!gettingOffNow && (
@@ -457,8 +499,13 @@ export default function RideMode({
             >
               {t("Test alert")}
             </button>
-            <button type="button" className={styles.end} onClick={onEndRide}>
-              {t("End ride")}
+            <button
+              type="button"
+              className={styles.end}
+              data-armed={endArmed ? "true" : undefined}
+              onClick={pressEnd}
+            >
+              {endArmed ? t("Tap again to end ride") : t("End ride")}
             </button>
           </>
         )}

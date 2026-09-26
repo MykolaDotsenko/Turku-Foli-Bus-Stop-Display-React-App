@@ -133,9 +133,11 @@ https://data.foli.fi/doc/gtfs/v0/stop_times-en
 
 Trigger conservatively when one of these is true:
 
-- <= 3 planned stops remain
+- <= 3 planned stops remain and the timetable puts the stop <= 7 minutes away (the count alone only when there is no time): three stops out can be eighteen minutes out where the last stops are far apart
 - live ETA <= 5 minutes
 - schedule fallback ETA <= 5 minutes
+
+The timetable raises no stage, by count or by time, before the bus is due to leave the boarding stop. Before then every stop is still ahead, and a one-stop ride set up twenty minutes early was told its stop was next.
 
 Message: **Get ready — your stop is coming up.**
 
@@ -148,7 +150,12 @@ Trigger when one of these is true:
 - <= 1 planned stop remains
 - schedule fallback ETA <= 90 seconds
 
-Message: **Next stop is yours. Press STOP now.**
+What NEXT asks for depends on whether the bus has left the stop before the exit. Pressing STOP asks for the next stop: pressed before the bus leaves the stop before the exit, it stops the bus there, the request is spent, and a passenger who then waits for their own stop rides past it. City-centre stops are about 300 m apart, closer than the 600 m and 90 s that raise NEXT, so a near exit is not evidence of that. The bus counts as having left that stop when:
+
+- it was observed there live, then is absent for two successful polls, while the target remains listed, or
+- an accurate, fresh GPS fix matched to the trip's shape is more than 30 m past it
+
+Until then, on a bus: **Your stop is after {previous stop}. Press STOP when the bus leaves {previous stop}.** Once it has: **Next stop is yours. Press STOP now.**, sounded as an alert of its own when NEXT has already begun. It stays said once known. Non-bus trips, where getting ready early costs nothing, get **Get ready to exit at the next stop.** throughout.
 
 ### NOW
 
@@ -173,7 +180,7 @@ Requires post-target evidence. Before NOW has fired:
 
 - target was previously reported at stop and is then absent
 - or local GPS passes the target along the route shape
-- or local GPS was near the target and then moves > 250 m away
+- or, when no route shape is available, local GPS was near the target and then moves > 250 m away, counting only fixes accurate to 50 m: two fixes 300 m wide once ended a ride a minute before its stop. With a shape, straight-line distance cannot raise NOW, and a loop swinging back past the stop looks the same as riding on, so it cannot raise MISSED either
 
 After NOW, the bus leaving and the phone moving away is exactly what a successful exit looks like, so only GPS passing the target along the route counts, and only at riding pace: a reported speed of at least 3 m/s, or, when the phone reports no speed, within 90 s of NOW. Someone who got off and walks on down the same street is not told their stop is behind them.
 
@@ -217,7 +224,8 @@ The persisted ride contains public transit identifiers, target stop identity, ro
 ## Expiry and cleanup
 
 - ride sessions expire automatically after six hours
-- End ride clears persisted ride state
+- End ride clears persisted ride state. It takes a second tap within four seconds: the screen is kept awake in a pocket, and one stray touch cancelled the alert the passenger was counting on
+- ride notifications are off until the passenger asks for them, so Start does not raise a location prompt, a notification prompt and the test sound at once
 - geolocation watch is stopped
 - Wake Lock is released
 - speech and repeated NOW alerts are cancelled

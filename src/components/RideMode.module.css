@@ -277,6 +277,12 @@
   color: #bdd0d4;
 }
 
+/* Waiting for the second tap: plainly not the same button any more. */
+.end[data-armed="true"] {
+  border-color: #ffb2a4;
+  color: #ffd9d1;
+}
+
 .boundary {
   margin: 10px 0 0;
   color: #8fa7ac;
